@@ -8,7 +8,7 @@ import {
   Users, 
   ShieldCheck, 
   Utensils, 
-  SlidersHorizontal 
+  ChevronDown 
 } from 'lucide-react';
 import { Button } from '../common/Button';
 
@@ -59,7 +59,7 @@ export const SearchFilterBar: React.FC<SearchFilterBarProps> = ({
               ))}
             </select>
             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-colin-charcoal-400">
-              <SlidersHorizontal size={14} />
+              <ChevronDown size={15} />
             </div>
           </div>
         </div>
@@ -84,7 +84,7 @@ export const SearchFilterBar: React.FC<SearchFilterBarProps> = ({
               <option value="co-living">Modern Co-Living</option>
             </select>
             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-colin-charcoal-400">
-              <SlidersHorizontal size={14} />
+              <ChevronDown size={15} />
             </div>
           </div>
         </div>
@@ -107,7 +107,7 @@ export const SearchFilterBar: React.FC<SearchFilterBarProps> = ({
               <option value="unisex">Co-ed / Open Sharing</option>
             </select>
             <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-colin-charcoal-400">
-              <SlidersHorizontal size={14} />
+              <ChevronDown size={15} />
             </div>
           </div>
         </div>

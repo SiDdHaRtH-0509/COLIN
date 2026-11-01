@@ -98,7 +98,7 @@ export const FeaturedPropertiesSection: React.FC<FeaturedPropertiesSectionProps>
 
         {/* Properties Grid with Staggered Fade Up */}
         {properties.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-stretch">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 items-stretch">
             {properties.map((property, idx) => (
               <motion.div
                 key={property.id}

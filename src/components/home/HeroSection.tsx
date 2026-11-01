@@ -33,7 +33,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ filters, onFilterChang
           >
             {/* Trust Pill */}
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-colin-teal/10 border border-colin-teal/30 text-colin-teal-800 text-xs font-bold tracking-wide">
-              <span className="w-2 h-2 rounded-full bg-colin-teal animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-colin-teal" />
               <Award size={14} className="text-colin-teal" />
               <span>India’s 1st In-Person Verified Student Living Platform</span>
             </div>
@@ -101,13 +101,13 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ filters, onFilterChang
                 </div>
               </div>
 
-              {/* Floating Top Badge: Logo-Inspired COLIN Certified Emblem */}
-              <div className="absolute -top-5 -left-4 sm:-left-6 bg-white/95 backdrop-blur-md rounded-2xl p-2.5 shadow-2xl border-2 border-colin-teal/40 flex items-center gap-2 animate-float-slow">
+              {/* Top Badge: Logo-Inspired COLIN Certified Emblem */}
+              <div className="absolute -top-5 -left-4 sm:-left-6 bg-white/95 backdrop-blur-md rounded-2xl p-2.5 shadow-xl border-2 border-colin-teal/40 flex items-center gap-2 hover:-translate-y-1 transition-transform duration-300">
                 <ColinCertifiedBadge variant="light" size="md" score={99} showScore />
               </div>
 
-              {/* Floating Bottom Card: Community */}
-              <div className="absolute -bottom-5 -right-4 sm:-right-6 bg-white rounded-2xl p-3 shadow-xl border border-colin-charcoal-200 flex items-center gap-3 animate-float-slow" style={{ animationDelay: '1.5s' }}>
+              {/* Bottom Card: Community */}
+              <div className="absolute -bottom-5 -right-4 sm:-right-6 bg-white rounded-2xl p-3 shadow-xl border border-colin-charcoal-200 flex items-center gap-3 hover:-translate-y-1 transition-transform duration-300">
                 <div className="flex -space-x-2">
                   <img
                     className="w-8 h-8 rounded-full border-2 border-white object-cover"

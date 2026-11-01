@@ -52,7 +52,7 @@ export const Navbar: React.FC = () => {
                 alt="COLIN Logo"
                 className="h-9 sm:h-11 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
               />
-              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-colin-teal rounded-full border-2 border-white animate-pulse" />
+              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-colin-teal rounded-full border-2 border-white" />
             </div>
             <div className="flex flex-col">
               <span className="text-xl sm:text-2xl font-extrabold tracking-tight text-colin-navy flex items-center gap-0.5 font-display leading-none">
