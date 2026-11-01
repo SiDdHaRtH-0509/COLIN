@@ -17,7 +17,8 @@ import {
   Utensils, 
   ArrowLeft, 
   Sparkles,
-  ShieldCheck
+  ShieldCheck,
+  Zap
 } from 'lucide-react';
 
 export const PropertyDetailPage: React.FC = () => {
@@ -317,10 +318,11 @@ export const PropertyDetailPage: React.FC = () => {
                   <Button
                     variant="primary"
                     size="sm"
-                    className="w-full"
+                    className="w-full flex items-center justify-center gap-1.5"
                     onClick={() => demoLogin('student')}
                   >
-                    ⚡ Instant Student Demo Login
+                    <Zap size={14} className="text-colin-orange fill-colin-orange" />
+                    <span>Instant Student Demo Login</span>
                   </Button>
                 </div>
               )}

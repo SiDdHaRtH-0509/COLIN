@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { 
   Building, 
@@ -7,7 +8,8 @@ import {
   ArrowRight, 
   TrendingUp, 
   ShieldCheck,
-  Check
+  Check,
+  Zap
 } from 'lucide-react';
 import { Button } from '../common/Button';
 
@@ -33,7 +35,13 @@ export const OwnerCtaSection: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
           
           {/* Left Column: Owner Value Proposition */}
-          <div className="lg:col-span-7 space-y-6">
+          <motion.div 
+            initial={{ opacity: 0, y: 25 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: false, amount: 0.2 }}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            className="lg:col-span-7 space-y-6"
+          >
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-colin-orange text-xs font-bold uppercase tracking-wider border border-colin-orange/30">
               <Building size={14} />
               <span>For Property Owners, Landlords & Hostel Chains</span>
@@ -97,14 +105,21 @@ export const OwnerCtaSection: React.FC = () => {
                 onClick={() => demoLogin('owner')}
                 className="text-xs font-bold text-white bg-colin-teal hover:bg-colin-teal-600 px-4 py-2 rounded-xl transition-all shadow-sm flex items-center gap-1.5"
               >
-                <span>⚡ Test as Demo Property Owner</span>
+                <Zap size={14} className="text-colin-orange fill-colin-orange" />
+                <span>Test as Demo Property Owner</span>
                 <ArrowRight size={13} />
               </button>
             </div>
-          </div>
+          </motion.div>
 
           {/* Right Column: Listing Request Card */}
-          <div className="lg:col-span-5">
+          <motion.div 
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: false, amount: 0.2 }}
+            transition={{ duration: 0.6, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
+            className="lg:col-span-5"
+          >
             <div className="bg-white text-colin-charcoal rounded-3xl p-6 sm:p-8 shadow-2xl border border-colin-charcoal-200">
               <div className="space-y-2 mb-6">
                 <h3 className="text-xl font-extrabold text-colin-navy">
@@ -205,7 +220,7 @@ export const OwnerCtaSection: React.FC = () => {
                 </form>
               )}
             </div>
-          </div>
+          </motion.div>
 
         </div>
       </div>

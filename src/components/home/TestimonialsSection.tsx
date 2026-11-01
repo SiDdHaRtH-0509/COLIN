@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { TESTIMONIALS } from '../../data/mockData';
 import { Star, Quote, ShieldCheck } from 'lucide-react';
 
@@ -8,7 +9,13 @@ export const TestimonialsSection: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Section Header */}
-        <div className="text-center max-w-2xl mx-auto space-y-3 mb-14">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: false, amount: 0.2 }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          className="text-center max-w-2xl mx-auto space-y-3 mb-14"
+        >
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-colin-teal/10 text-colin-teal-800 text-xs font-bold uppercase tracking-wider">
             <ShieldCheck size={13} />
             <span>Real Student Experiences</span>
@@ -19,14 +26,18 @@ export const TestimonialsSection: React.FC = () => {
           <p className="text-sm text-colin-charcoal-600">
             Read how scholars from DU, Christ, Symbiosis and IIT found verified homes through COLIN.
           </p>
-        </div>
+        </motion.div>
 
         {/* Testimonials Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {TESTIMONIALS.map((t) => (
-            <div
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
+          {TESTIMONIALS.map((t, idx) => (
+            <motion.div
               key={t.author}
-              className="bg-white rounded-3xl p-7 border border-colin-charcoal-200/90 shadow-brand hover:shadow-brand-hover transition-all duration-300 flex flex-col justify-between"
+              initial={{ opacity: 0, y: 25 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: false, amount: 0.15 }}
+              transition={{ duration: 0.5, delay: idx * 0.1, ease: [0.16, 1, 0.3, 1] }}
+              className="bg-white rounded-3xl p-7 border border-colin-charcoal-200/90 shadow-brand hover:shadow-brand-hover transition-all duration-300 flex flex-col justify-between h-full"
             >
               <div className="space-y-4">
                 {/* 5 Stars */}
@@ -56,7 +67,7 @@ export const TestimonialsSection: React.FC = () => {
                   <div className="text-[10px] text-colin-charcoal-400">{t.stay}</div>
                 </div>
               </div>
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>

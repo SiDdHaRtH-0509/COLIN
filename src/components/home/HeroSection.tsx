@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { SearchFilterState } from '../../types';
 import { SearchFilterBar } from './SearchFilterBar';
 import { ColinCertifiedBadge } from '../common/ColinCertifiedBadge';
@@ -23,7 +24,13 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ filters, onFilterChang
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
           
           {/* Left Column: Headline, Trust Pillars, Badges */}
-          <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
+          <motion.div 
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: false, amount: 0.3 }}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            className="lg:col-span-7 space-y-6 text-center lg:text-left"
+          >
             {/* Trust Pill */}
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-colin-teal/10 border border-colin-teal/30 text-colin-teal-800 text-xs font-bold tracking-wide">
               <span className="w-2 h-2 rounded-full bg-colin-teal animate-pulse" />
@@ -60,10 +67,16 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ filters, onFilterChang
                 <div className="text-[11px] font-bold text-colin-teal-700">Slot Refund Promise</div>
               </div>
             </div>
-          </div>
+          </motion.div>
 
-          {/* Right Column: Dynamic Visual Showcase with Floating Cards */}
-          <div className="lg:col-span-5 relative">
+          {/* Right Column: Dynamic Visual Showcase with Floating Cards (Pin-Drop Motion) */}
+          <motion.div 
+            initial={{ opacity: 0, y: -25, scale: 0.96 }}
+            whileInView={{ opacity: 1, y: 0, scale: 1 }}
+            viewport={{ once: false, amount: 0.3 }}
+            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+            className="lg:col-span-5 relative"
+          >
             <div className="relative mx-auto max-w-md lg:max-w-none">
               
               {/* Main Feature Photo Card */}
@@ -103,28 +116,37 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ filters, onFilterChang
                   />
                   <img
                     className="w-8 h-8 rounded-full border-2 border-white object-cover"
-                    src="https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=100&q=80"
+                    src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80"
                     alt="Student"
                   />
                   <img
                     className="w-8 h-8 rounded-full border-2 border-white object-cover"
-                    src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80"
+                    src="https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=100&q=80"
                     alt="Student"
                   />
                 </div>
-                <div>
-                  <div className="text-xs font-black text-colin-navy">50,000+ Students</div>
-                  <div className="text-[10px] text-colin-teal-700 font-bold">Safe & Welcoming Hubs</div>
+                <div className="text-left">
+                  <div className="text-xs font-bold text-colin-navy">50,000+ Students</div>
+                  <div className="text-[10px] text-colin-teal-700 font-semibold">Living Safely in 2026</div>
                 </div>
               </div>
+
             </div>
-          </div>
+          </motion.div>
+
         </div>
 
-        {/* Integrated Search Filter Bar */}
-        <div className="mt-12 sm:mt-16">
+        {/* Search & Discovery Bar Section */}
+        <motion.div 
+          initial={{ opacity: 0, y: 25 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: false, amount: 0.2 }}
+          transition={{ duration: 0.6, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
+          className="mt-12 sm:mt-16"
+        >
           <SearchFilterBar filters={filters} onFilterChange={onFilterChange} />
-        </div>
+        </motion.div>
+
       </div>
     </section>
   );

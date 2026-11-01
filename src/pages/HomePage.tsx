@@ -68,7 +68,7 @@ export const HomePage: React.FC = () => {
   }, [filters]);
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen overflow-x-hidden">
       <HeroSection filters={filters} onFilterChange={setFilters} />
       
       <CategoriesSection

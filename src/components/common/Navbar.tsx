@@ -19,9 +19,9 @@ export const Navbar: React.FC = () => {
 
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 20);
+      setIsScrolled(window.scrollY > 15);
     };
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
@@ -37,29 +37,29 @@ export const Navbar: React.FC = () => {
     <header
       className={`sticky top-0 z-40 w-full transition-all duration-300 ${
         isScrolled
-          ? 'bg-white/95 backdrop-blur-md shadow-sm border-b border-colin-charcoal-200/70'
-          : 'bg-white/90 backdrop-blur-sm border-b border-colin-charcoal-100'
+          ? 'bg-white/80 backdrop-blur-xl shadow-sm border-b border-colin-charcoal-200/50'
+          : 'bg-white/60 backdrop-blur-md border-b border-colin-charcoal-100/50'
       }`}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-20">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between h-16 sm:h-20">
           
           {/* Left Side: COLIN Logo & Brand Identity */}
-          <Link to="/" className="flex items-center gap-3 group focus:outline-none">
+          <Link to="/" className="flex items-center gap-2.5 sm:gap-3 group focus:outline-none shrink-0">
             <div className="relative">
               <img
                 src="/assets/colin-logo.png"
                 alt="COLIN Logo"
-                className="h-11 sm:h-12 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
+                className="h-9 sm:h-11 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
               />
-              <span className="absolute -bottom-1 -right-1 w-3 h-3 bg-colin-teal rounded-full border-2 border-white animate-pulse" />
+              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-colin-teal rounded-full border-2 border-white animate-pulse" />
             </div>
             <div className="flex flex-col">
-              <span className="text-2xl font-extrabold tracking-tight text-colin-navy flex items-center gap-1 font-display leading-none">
+              <span className="text-xl sm:text-2xl font-extrabold tracking-tight text-colin-navy flex items-center gap-0.5 font-display leading-none">
                 COLIN
-                <span className="text-colin-orange text-3xl leading-none">.</span>
+                <span className="text-colin-orange text-2xl sm:text-3xl leading-none">.</span>
               </span>
-              <span className="text-[10px] uppercase font-bold tracking-widest text-colin-teal-700 font-sans mt-0.5">
+              <span className="text-[9px] sm:text-[10px] uppercase font-bold tracking-widest text-colin-teal-700 font-sans mt-0.5">
                 Verified Student Living
               </span>
             </div>
@@ -71,7 +71,7 @@ export const Navbar: React.FC = () => {
               to="/"
               className={`text-sm font-bold transition-all px-4 py-2 rounded-xl flex items-center gap-2 ${
                 isHomeActive
-                  ? 'text-colin-navy bg-colin-navy-50/80 font-extrabold'
+                  ? 'text-colin-navy bg-colin-navy-50/80 font-extrabold shadow-sm'
                   : 'text-colin-charcoal-600 hover:text-colin-navy hover:bg-colin-charcoal-50'
               }`}
             >
@@ -154,20 +154,20 @@ export const Navbar: React.FC = () => {
           </div>
 
           {/* Mobile Navigation Trigger */}
-          <div className="flex md:hidden items-center gap-2">
+          <div className="flex md:hidden items-center gap-1.5">
             {!isAuthenticated && (
               <Link to="/login">
-                <Button variant="ghost" size="sm" className="text-xs font-bold px-3">
+                <Button variant="ghost" size="sm" className="text-xs font-bold px-2.5 py-1.5 h-8">
                   Log In
                 </Button>
               </Link>
             )}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 text-colin-navy hover:text-colin-teal rounded-xl hover:bg-colin-charcoal-100 transition-colors"
+              className="p-1.5 text-colin-navy hover:text-colin-teal rounded-xl hover:bg-colin-charcoal-100 transition-colors"
               aria-label="Toggle navigation menu"
             >
-              {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+              {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
             </button>
           </div>
 
@@ -176,7 +176,7 @@ export const Navbar: React.FC = () => {
 
       {/* Mobile Drawer */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-colin-charcoal-100 bg-white px-4 pt-3 pb-6 space-y-4 shadow-lg animate-fadeIn">
+        <div className="md:hidden border-t border-colin-charcoal-100 bg-white/95 backdrop-blur-xl px-4 pt-3 pb-6 space-y-4 shadow-xl animate-fadeIn">
           {isAuthenticated ? (
             <div className="flex items-center gap-3 p-3 bg-colin-navy-50 rounded-2xl border border-colin-navy-100">
               <img
@@ -184,15 +184,15 @@ export const Navbar: React.FC = () => {
                 alt={user?.name || 'User'}
                 className="w-10 h-10 rounded-full object-cover border border-colin-teal"
               />
-              <div className="flex-1">
-                <div className="text-sm font-bold text-colin-navy">{user?.name}</div>
-                <div className="text-xs text-colin-teal-700 font-semibold">
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-bold text-colin-navy truncate">{user?.name}</div>
+                <div className="text-xs text-colin-teal-700 font-semibold truncate">
                   {user?.role === 'student' ? 'Student Member' : 'Property Host'}
                 </div>
               </div>
               <button
                 onClick={logout}
-                className="text-xs text-rose-600 font-bold p-2 hover:bg-rose-50 rounded-lg"
+                className="text-xs text-rose-600 font-bold p-2 hover:bg-rose-50 rounded-lg shrink-0"
               >
                 Sign Out
               </button>
@@ -200,12 +200,12 @@ export const Navbar: React.FC = () => {
           ) : (
             <div className="grid grid-cols-2 gap-2 pt-1">
               <Link to="/login" className="w-full">
-                <Button variant="outline" size="md" className="w-full font-bold">
+                <Button variant="outline" size="md" className="w-full font-bold text-xs py-2.5">
                   Log In
                 </Button>
               </Link>
               <Link to="/signup" className="w-full">
-                <Button variant="primary" size="md" className="w-full font-bold">
+                <Button variant="primary" size="md" className="w-full font-bold text-xs py-2.5">
                   Register
                 </Button>
               </Link>

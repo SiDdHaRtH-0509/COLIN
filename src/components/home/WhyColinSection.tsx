@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { WHY_COLIN_FEATURES } from '../../data/mockData';
 import { 
   ShieldCheck, 
@@ -23,8 +24,15 @@ export const WhyColinSection: React.FC = () => {
       <div className="absolute top-1/2 left-0 w-72 h-72 bg-colin-teal/10 rounded-full blur-3xl -z-10" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
         {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto space-y-3 mb-16">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: false, amount: 0.2 }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          className="text-center max-w-3xl mx-auto space-y-3 mb-16"
+        >
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-colin-orange/15 text-colin-orange-800 text-xs font-bold uppercase tracking-wider">
             <Sparkles size={13} className="text-colin-orange" />
             <span>Built For Indian College Students</span>
@@ -35,17 +43,21 @@ export const WhyColinSection: React.FC = () => {
           <p className="text-base text-colin-charcoal-600 leading-relaxed">
             We solved the most frustrating problems of university accommodation: fake broker listings, non-refundable deposits, and bait-and-switch rooms.
           </p>
-        </div>
+        </motion.div>
 
         {/* Feature Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {WHY_COLIN_FEATURES.map((item) => {
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
+          {WHY_COLIN_FEATURES.map((item, idx) => {
             const Icon = ICON_MAP[item.icon as keyof typeof ICON_MAP] || ShieldCheck;
 
             return (
-              <div
+              <motion.div
                 key={item.title}
-                className="bg-colin-offwhite rounded-3xl p-6 sm:p-7 border border-colin-charcoal-200 hover:border-colin-teal/40 transition-all duration-300 hover:shadow-brand flex flex-col justify-between group colin-pin-motion colin-window-accent"
+                initial={{ opacity: 0, y: 25 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: false, amount: 0.15 }}
+                transition={{ duration: 0.5, delay: idx * 0.1, ease: [0.16, 1, 0.3, 1] }}
+                className="bg-colin-offwhite rounded-3xl p-6 sm:p-7 border border-colin-charcoal-200 hover:border-colin-teal/40 transition-all duration-300 hover:shadow-brand flex flex-col justify-between group colin-pin-motion colin-window-accent h-full"
               >
                 <div className="space-y-4">
                   {/* Top Badge and Icon */}
@@ -79,7 +91,7 @@ export const WhyColinSection: React.FC = () => {
                   <CheckCircle2 size={13} />
                   <span>Verified Guarantee</span>
                 </div>
-              </div>
+              </motion.div>
             );
           })}
         </div>

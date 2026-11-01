@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { AccommodationType } from '../../types';
 import { 
   Users, 
@@ -78,8 +79,15 @@ export const CategoriesSection: React.FC<CategoriesSectionProps> = ({
   return (
     <section id="categories" className="py-16 bg-white border-t border-colin-charcoal-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
         {/* Section Header */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-4">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: false, amount: 0.2 }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          className="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-4"
+        >
           <div className="space-y-2">
             <div className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-colin-teal">
               <ShieldCheck size={14} />
@@ -103,17 +111,21 @@ export const CategoriesSection: React.FC<CategoriesSectionProps> = ({
           >
             View All Stay Categories
           </button>
-        </div>
+        </motion.div>
 
-        {/* Categories Grid */}
+        {/* Categories Grid with Staggered Entrance */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6">
-          {CATEGORY_ITEMS.map((cat) => {
+          {CATEGORY_ITEMS.map((cat, idx) => {
             const Icon = cat.icon;
             const isSelected = selectedCategory === cat.id;
 
             return (
-              <div
+              <motion.div
                 key={cat.id}
+                initial={{ opacity: 0, y: 25 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: false, amount: 0.2 }}
+                transition={{ duration: 0.5, delay: idx * 0.08, ease: [0.16, 1, 0.3, 1] }}
                 onClick={() => handleCategoryClick(cat.id)}
                 className={`group p-5 rounded-3xl cursor-pointer transition-all duration-300 border flex flex-col justify-between colin-pin-motion colin-window-accent ${
                   isSelected
@@ -181,7 +193,7 @@ export const CategoriesSection: React.FC<CategoriesSectionProps> = ({
                   <span>Explore Stays</span>
                   <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
                 </div>
-              </div>
+              </motion.div>
             );
           })}
         </div>

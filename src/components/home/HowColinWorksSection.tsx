@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { HOW_COLIN_WORKS_STEPS } from '../../data/mockData';
 import { Search, Calendar, CheckCircle, ArrowRight, ShieldCheck } from 'lucide-react';
 import { Button } from '../common/Button';
@@ -17,8 +18,15 @@ export const HowColinWorksSection: React.FC = () => {
       <div className="absolute bottom-0 left-1/4 w-80 h-80 bg-colin-orange/10 rounded-full blur-3xl pointer-events-none" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        
         {/* Section Header */}
-        <div className="text-center max-w-2xl mx-auto space-y-3 mb-16">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: false, amount: 0.2 }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          className="text-center max-w-2xl mx-auto space-y-3 mb-16"
+        >
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-colin-teal-300 text-xs font-bold uppercase tracking-wider border border-white/10">
             <ShieldCheck size={13} />
             <span>Simple 3-Step Journey</span>
@@ -29,17 +37,25 @@ export const HowColinWorksSection: React.FC = () => {
           <p className="text-sm sm:text-base text-colin-charcoal-300 leading-relaxed">
             Finding your ideal university accommodation takes less than 15 minutes, with zero broker hassle.
           </p>
-        </div>
+        </motion.div>
 
-        {/* Steps Grid */}
+        {/* Steps Grid with Connecting Line */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
+          
+          {/* Animated Connecting Line on Desktop */}
+          <div className="hidden md:block absolute top-1/2 left-[15%] right-[15%] h-0.5 bg-gradient-to-r from-colin-teal/40 via-colin-orange/40 to-colin-teal/40 -translate-y-12 z-0 pointer-events-none" />
+
           {HOW_COLIN_WORKS_STEPS.map((step, idx) => {
             const Icon = STEP_ICONS[step.icon as keyof typeof STEP_ICONS] || Search;
 
             return (
-              <div
+              <motion.div
                 key={step.step}
-                className="bg-colin-navy-900/80 backdrop-blur-md rounded-3xl p-8 border border-colin-navy-800 hover:border-colin-teal/50 transition-all duration-300 hover:shadow-2xl flex flex-col justify-between group colin-pin-motion colin-window-accent"
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: false, amount: 0.2 }}
+                transition={{ duration: 0.6, delay: idx * 0.15, ease: [0.16, 1, 0.3, 1] }}
+                className="bg-colin-navy-900/80 backdrop-blur-md rounded-3xl p-8 border border-colin-navy-800 hover:border-colin-teal/50 transition-all duration-300 hover:shadow-2xl flex flex-col justify-between group colin-pin-motion colin-window-accent relative z-10 h-full"
               >
                 <div className="space-y-5">
                   {/* Step Number & Icon */}
@@ -67,16 +83,22 @@ export const HowColinWorksSection: React.FC = () => {
                   <span>Student Step {idx + 1}</span>
                   <ArrowRight size={13} className="ml-1 group-hover:translate-x-1 transition-transform" />
                 </div>
-              </div>
+              </motion.div>
             );
           })}
         </div>
 
         {/* Bottom Guarantee Banner */}
-        <div className="mt-12 bg-white/5 border border-white/10 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: false, amount: 0.2 }}
+          transition={{ duration: 0.5, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+          className="mt-12 bg-white/5 border border-white/10 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs"
+        >
           <div className="flex items-center gap-3 text-center sm:text-left">
             <div className="w-8 h-8 rounded-full bg-colin-orange/20 text-colin-orange flex items-center justify-center shrink-0">
-              🛡️
+              <ShieldCheck size={18} />
             </div>
             <div>
               <span className="font-bold text-white">COLIN 55% Refund Guarantee:</span>{' '}
@@ -90,7 +112,7 @@ export const HowColinWorksSection: React.FC = () => {
               Explore Accommodations Now
             </Button>
           </a>
-        </div>
+        </motion.div>
       </div>
     </section>
   );

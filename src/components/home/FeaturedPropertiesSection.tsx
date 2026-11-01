@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { Property } from '../../types';
 import { PropertyCard } from '../property/PropertyCard';
 import { useAuth } from '../../context/AuthContext';
@@ -6,8 +7,7 @@ import {
   Building2, 
   Sparkles, 
   FilterX, 
-  Lock, 
-  ArrowUpRight
+  Lock
 } from 'lucide-react';
 import { Button } from '../common/Button';
 
@@ -26,8 +26,14 @@ export const FeaturedPropertiesSection: React.FC<FeaturedPropertiesSectionProps>
     <section id="featured-properties" className="py-16 bg-colin-offwhite">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
-        {/* Section Header with Clear Sponsored Showcase Identity (Requirement 4) */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
+        {/* Section Header with Clear Sponsored Showcase Identity */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: false, amount: 0.2 }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4"
+        >
           <div className="space-y-2">
             <div className="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider text-colin-orange bg-colin-orange/15 px-3 py-1 rounded-full border border-colin-orange/30">
               <Sparkles size={12} className="text-colin-orange" />
@@ -47,11 +53,17 @@ export const FeaturedPropertiesSection: React.FC<FeaturedPropertiesSectionProps>
               Showing {properties.length} Sponsored {properties.length === 1 ? 'Stay' : 'Stays'}
             </span>
           </div>
-        </div>
+        </motion.div>
 
-        {/* Member Access Restriction Callout Banner (Professional Investor-Grade) */}
+        {/* Member Access Restriction Callout Banner */}
         {!isAuthenticated && (
-          <div className="mb-8 bg-gradient-to-r from-colin-navy-950 via-colin-navy to-colin-navy-900 text-white rounded-3xl p-5 sm:p-6 shadow-xl border border-colin-navy-800 flex flex-col md:flex-row items-center justify-between gap-4">
+          <motion.div 
+            initial={{ opacity: 0, y: 15 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: false, amount: 0.2 }}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            className="mb-8 bg-gradient-to-r from-colin-navy-950 via-colin-navy to-colin-navy-900 text-white rounded-3xl p-5 sm:p-6 shadow-xl border border-colin-navy-800 flex flex-col md:flex-row items-center justify-between gap-4"
+          >
             <div className="flex items-start gap-3.5">
               <div className="w-10 h-10 rounded-2xl bg-colin-orange/20 text-colin-orange flex items-center justify-center shrink-0 border border-colin-orange/30">
                 <Lock size={20} />
@@ -81,51 +93,58 @@ export const FeaturedPropertiesSection: React.FC<FeaturedPropertiesSectionProps>
                 Sign In
               </button>
             </div>
-          </div>
+          </motion.div>
         )}
 
-        {/* Properties Grid */}
+        {/* Properties Grid with Staggered Fade Up */}
         {properties.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {properties.map((property) => (
-              <PropertyCard key={property.id} property={property} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-stretch">
+            {properties.map((property, idx) => (
+              <motion.div
+                key={property.id}
+                initial={{ opacity: 0, y: 25 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: false, amount: 0.15 }}
+                transition={{ duration: 0.5, delay: (idx % 4) * 0.1, ease: [0.16, 1, 0.3, 1] }}
+                className="h-full"
+              >
+                <PropertyCard property={property} />
+              </motion.div>
             ))}
           </div>
         ) : (
           /* Empty State for Sponsored Showcase */
-          <div className="bg-white rounded-3xl border border-colin-charcoal-200 p-10 sm:p-14 text-center space-y-4 max-w-lg mx-auto shadow-sm">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: false, amount: 0.2 }}
+            className="bg-white rounded-3xl border border-colin-charcoal-200 p-10 sm:p-14 text-center space-y-4 max-w-lg mx-auto shadow-sm"
+          >
             <div className="w-16 h-16 bg-colin-navy-50 text-colin-navy rounded-2xl mx-auto flex items-center justify-center">
               <Building2 size={32} className="text-colin-teal" />
             </div>
             <div className="space-y-1.5">
-              <h3 className="font-extrabold text-lg text-colin-navy">
-                No Sponsored Accommodations in this Filter
+              <h3 className="text-lg font-extrabold text-colin-navy">
+                No Sponsored Listings Match Filters
               </h3>
-              <p className="text-xs text-colin-charcoal-500 max-w-md mx-auto leading-relaxed">
-                The homepage showcase only displays verified residences whose hosts have active homepage sponsorship. Ordinary listings appear in search.
+              <p className="text-xs text-colin-charcoal-500">
+                Try widening your budget, resetting filters, or selecting all campuses to see available verified properties.
               </p>
             </div>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 pt-2">
+            <div className="pt-2">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={onResetFilters}
+                className="font-bold text-xs"
                 leftIcon={<FilterX size={14} />}
               >
-                Reset Search Filters
+                Reset All Filters
               </Button>
-              <a href="#owner-cta">
-                <Button
-                  variant="primary"
-                  size="sm"
-                  rightIcon={<ArrowUpRight size={13} />}
-                >
-                  Sponsor a Property
-                </Button>
-              </a>
             </div>
-          </div>
+          </motion.div>
         )}
+
       </div>
     </section>
   );

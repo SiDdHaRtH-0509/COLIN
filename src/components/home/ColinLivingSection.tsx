@@ -1,11 +1,13 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { 
   Sparkles, 
   BookOpen, 
   UtensilsCrossed, 
   ShieldCheck, 
   Gamepad2, 
-  CheckCircle2
+  CheckCircle2,
+  Star
 } from 'lucide-react';
 
 export const ColinLivingSection: React.FC = () => {
@@ -38,7 +40,13 @@ export const ColinLivingSection: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
           
           {/* Left Text Column */}
-          <div className="lg:col-span-6 space-y-6">
+          <motion.div 
+            initial={{ opacity: 0, x: -30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: false, amount: 0.2 }}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            className="lg:col-span-6 space-y-6"
+          >
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-colin-teal/10 text-colin-teal-800 text-xs font-bold uppercase tracking-wider">
               <Sparkles size={13} className="text-colin-teal" />
               <span>Beyond Just Four Walls</span>
@@ -75,10 +83,16 @@ export const ColinLivingSection: React.FC = () => {
               <CheckCircle2 size={16} className="text-colin-teal" />
               <span>Audited weekly by COLIN campus ambassadors</span>
             </div>
-          </div>
+          </motion.div>
 
           {/* Right Visual Image Collage */}
-          <div className="lg:col-span-6 relative">
+          <motion.div 
+            initial={{ opacity: 0, x: 30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: false, amount: 0.2 }}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            className="lg:col-span-6 relative"
+          >
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-4">
                 <div className="rounded-3xl overflow-hidden shadow-lg aspect-[4/5] bg-colin-navy-900 group">
@@ -89,7 +103,10 @@ export const ColinLivingSection: React.FC = () => {
                   />
                 </div>
                 <div className="bg-colin-teal text-white p-5 rounded-3xl space-y-1">
-                  <div className="text-2xl font-black">4.9 ★</div>
+                  <div className="text-2xl font-black flex items-center gap-1.5">
+                    <span>4.9</span>
+                    <Star size={20} className="fill-colin-orange text-colin-orange" />
+                  </div>
                   <div className="text-xs font-semibold">Student Satisfaction Score Across 120+ Stays</div>
                 </div>
               </div>
@@ -108,7 +125,7 @@ export const ColinLivingSection: React.FC = () => {
                 </div>
               </div>
             </div>
-          </div>
+          </motion.div>
 
         </div>
       </div>

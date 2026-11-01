@@ -9,8 +9,7 @@ import {
   Wind, 
   Lock, 
   Star, 
-  ArrowRight,
-  ShieldCheck
+  ArrowRight
 } from 'lucide-react';
 import { Badge } from '../common/Badge';
 import { ColinCertifiedBadge } from '../common/ColinCertifiedBadge';
@@ -49,7 +48,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property }) => {
   return (
     <div
       onClick={handleCardClick}
-      className="group relative bg-white rounded-3xl border border-colin-charcoal-200/90 shadow-brand hover:shadow-brand-hover transition-all duration-300 overflow-hidden flex flex-col cursor-pointer hover:-translate-y-1.5"
+      className="group relative bg-white rounded-3xl border border-colin-charcoal-200/90 shadow-brand hover:shadow-brand-hover transition-all duration-300 overflow-hidden flex flex-col justify-between cursor-pointer hover:-translate-y-1.5 h-full"
     >
       {/* Property Image Container */}
       <div className="relative aspect-[16/10] w-full overflow-hidden bg-colin-charcoal-100">
@@ -60,11 +59,11 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property }) => {
           loading="lazy"
         />
 
-        {/* Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-colin-navy-950/80 via-transparent to-black/20" />
+        {/* Gradient Overlay for Readable Text & Badges */}
+        <div className="absolute inset-0 bg-gradient-to-t from-colin-navy-950/80 via-black/10 to-black/35" />
 
-        {/* Top Badges */}
-        <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 z-10">
+        {/* Top Badges Row */}
+        <div className="absolute top-3 left-3 right-3 flex items-start justify-between gap-2 z-10">
           <div className="flex items-center gap-1.5 flex-wrap">
             {property.isColinCertified && (
               <ColinCertifiedBadge
@@ -75,75 +74,77 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property }) => {
               />
             )}
             {property.isSponsored && (
-              <span className="bg-colin-navy-950/85 backdrop-blur-md text-[10px] uppercase font-black tracking-wider text-colin-orange px-2 py-0.5 rounded-lg border border-colin-orange/40 shadow-sm">
+              <span className="bg-colin-orange text-colin-navy-950 text-[10px] uppercase font-black tracking-wider px-2 py-0.5 rounded-lg shadow-sm border border-colin-orange-400">
                 Sponsored
               </span>
             )}
-            {getGenderBadge()}
           </div>
 
-          <div className="flex items-center gap-1 bg-white/95 backdrop-blur-sm px-2 py-0.5 rounded-full text-xs font-bold text-colin-navy shadow-sm">
+          {/* Rating Pill */}
+          <div className="flex items-center gap-1 bg-colin-navy-950/90 backdrop-blur-md px-2 py-0.5 rounded-full text-xs font-bold text-white border border-white/20 shadow-sm shrink-0">
             <Star size={12} className="text-colin-orange fill-colin-orange" />
             <span>{property.rating}</span>
-            <span className="text-[10px] text-colin-charcoal-400 font-normal">({property.reviewsCount})</span>
+            <span className="text-[10px] text-colin-charcoal-300 font-normal">({property.reviewsCount})</span>
           </div>
         </div>
 
-        {/* Status indicator on image */}
-        <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-white text-xs z-10">
-          <span className="bg-colin-navy-950/70 backdrop-blur-md px-2.5 py-1 rounded-lg text-[11px] font-semibold text-colin-teal-300 border border-colin-teal/30">
-            {property.roomType}
-          </span>
+        {/* Bottom Status Row on Image */}
+        <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-white text-xs z-10 gap-2">
+          <div className="flex items-center gap-1.5">
+            <span className="bg-colin-navy-950/85 backdrop-blur-md px-2.5 py-1 rounded-lg text-[11px] font-semibold text-white/95 border border-white/10 shadow-sm">
+              {property.roomType}
+            </span>
+            {!isAuthenticated && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-colin-orange text-colin-navy-950 px-2 py-0.5 rounded-md shadow-sm">
+                <Lock size={10} /> Login to Unlock
+              </span>
+            )}
+          </div>
 
-          {!isAuthenticated ? (
-            <span className="flex items-center gap-1 text-[11px] font-bold bg-colin-orange/90 text-colin-navy-950 px-2.5 py-1 rounded-lg shadow-sm">
-              <Lock size={12} /> Login to Unlock
-            </span>
-          ) : (
-            <span className="flex items-center gap-1 text-[11px] font-semibold bg-colin-teal/90 text-white px-2 py-0.5 rounded-lg">
-              <ShieldCheck size={12} /> Verified
-            </span>
-          )}
+          <div className="shrink-0">
+            {getGenderBadge()}
+          </div>
         </div>
       </div>
 
-      {/* Card Content */}
-      <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+      {/* Card Content & Information Hierarchy */}
+      <div className="p-5 flex-1 flex flex-col justify-between space-y-3.5">
         <div className="space-y-2">
-          {/* Category & Proximity */}
-          <div className="flex items-center justify-between text-xs text-colin-charcoal-500">
-            <span className="font-bold text-colin-teal uppercase tracking-wider text-[11px]">
+          {/* Category & Campus Proximity */}
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-extrabold text-colin-teal uppercase tracking-wider text-[11px]">
               {property.categoryLabel}
             </span>
-            <span className="text-[11px] font-semibold text-colin-charcoal-600 bg-colin-navy-50 px-2 py-0.5 rounded-md">
-              📍 {property.distanceToUniversity}
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-colin-charcoal-600 bg-slate-100 px-2 py-0.5 rounded-md">
+              <MapPin size={11} className="text-colin-teal shrink-0" />
+              <span>{property.distanceToUniversity}</span>
             </span>
           </div>
 
           {/* Title */}
-          <h3 className="font-extrabold text-base text-colin-navy group-hover:text-colin-teal transition-colors line-clamp-1">
+          <h3 className="font-extrabold text-base text-colin-navy group-hover:text-colin-teal transition-colors line-clamp-1 leading-snug">
             {property.title}
           </h3>
 
           {/* Location / Campus */}
-          <div className="flex items-start gap-1.5 text-xs text-colin-charcoal-600">
-            <MapPin size={14} className="text-colin-orange shrink-0 mt-0.5" />
-            <span className="line-clamp-1">{property.neighborhood}, {property.city}</span>
+          <div className="flex items-center gap-1.5 text-xs text-colin-charcoal-500">
+            <MapPin size={13} className="text-colin-orange shrink-0" />
+            <span className="line-clamp-1 font-medium text-colin-charcoal-600">{property.neighborhood}, {property.city}</span>
           </div>
         </div>
 
         {/* Key Amenities Preview */}
-        <div className="pt-2 border-t border-colin-charcoal-100 flex flex-wrap gap-2 text-[11px] text-colin-charcoal-600">
+        <div className="pt-2.5 border-t border-colin-charcoal-100 flex flex-wrap gap-1.5 text-[11px]">
           {property.foodIncluded && (
-            <span className="inline-flex items-center gap-1 bg-colin-teal/10 text-colin-teal-800 px-2 py-0.5 rounded-md font-semibold">
-              <Utensils size={12} /> Food Included
+            <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-800 border border-emerald-200/60 px-2 py-0.5 rounded-md font-semibold">
+              <Utensils size={11} /> Food Included
             </span>
           )}
-          <span className="inline-flex items-center gap-1 bg-colin-charcoal-100/70 text-colin-charcoal-700 px-2 py-0.5 rounded-md">
-            <Wifi size={12} /> High-speed Wi-Fi
+          <span className="inline-flex items-center gap-1 bg-slate-50 text-slate-700 border border-slate-200/60 px-2 py-0.5 rounded-md font-medium">
+            <Wifi size={11} /> High-speed Wi-Fi
           </span>
-          <span className="inline-flex items-center gap-1 bg-colin-charcoal-100/70 text-colin-charcoal-700 px-2 py-0.5 rounded-md">
-            <Wind size={12} /> AC
+          <span className="inline-flex items-center gap-1 bg-slate-50 text-slate-700 border border-slate-200/60 px-2 py-0.5 rounded-md font-medium">
+            <Wind size={11} /> AC
           </span>
         </div>
 
@@ -154,16 +155,16 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property }) => {
               Monthly Indicative Rent
             </div>
             <div className="flex items-baseline gap-1">
-              <span className="text-lg font-black text-colin-navy">
+              <span className="text-xl font-black text-colin-navy">
                 ₹{property.rentMonthly.toLocaleString('en-IN')}
               </span>
-              <span className="text-xs text-colin-charcoal-500">/ month</span>
+              <span className="text-xs text-colin-charcoal-500 font-medium">/ month</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-1 text-xs font-bold text-colin-teal group-hover:translate-x-1 transition-transform">
+          <div className="flex items-center gap-1 text-xs font-bold text-colin-teal group-hover:text-colin-navy transition-colors">
             <span>{isAuthenticated ? 'View Full Stay' : 'Unlock Details'}</span>
-            <ArrowRight size={14} />
+            <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
           </div>
         </div>
       </div>

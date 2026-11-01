@@ -27,7 +27,7 @@ export const App: React.FC = () => {
     <AuthProvider>
       <BrowserRouter>
         <ScrollToTop />
-        <div className="flex flex-col min-h-screen bg-colin-offwhite font-sans text-colin-charcoal antialiased">
+        <div className="flex flex-col min-h-screen bg-colin-offwhite font-sans text-colin-charcoal antialiased overflow-x-hidden">
           {/* Main Brand Navigation Bar */}
           <Navbar />
 
