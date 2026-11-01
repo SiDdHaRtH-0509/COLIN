@@ -471,3 +471,52 @@ To bring COLIN to the visual fidelity of a leading commercial accommodation mark
 - **TypeScript**: `npx tsc --noEmit` — 0 errors.
 - **Vitest Unit Tests**: `pnpm test` — 3/3 test suites, 12/12 tests passing (Duration: 3.38s).
 - **Vite Production Build**: `pnpm run build` — Succeeded with exit code 0 (`dist/` compiled in 3.95s).
+
+---
+
+## 20. Complete Redesign — How COLIN Works (Light, Distinctive Product Architecture)
+
+In response to product-design feedback, the entire "How COLIN Works" section has been re-conceptualized and rewritten from scratch, replacing the former dark dashboard aesthetic with an airy, high-trust, and visually distinctive student journey experience.
+
+### 20.1 New Light Visual Art Direction
+- **Background Palette**: Built on COLIN's authentic off-white foundation (`#F8FAFC` / `bg-colin-offwhite`) with subtle ambient radial gradients in teal (`#16A085`) and orange (`#F2A01A`).
+- **Typography**: High-contrast Deep Navy (`#0B3452`) headings paired with readable charcoal body text.
+- **Card Composition**: Pure white cards (`bg-white`) framed by subtle borders (`border-colin-charcoal-200/80`) and refined elevation shadows (`shadow-brand hover:shadow-brand-hover`).
+
+### 20.2 Three Distinct Student Journey Steps (Vector Art, No Fake Dashboards)
+Eliminated all miniature dashboard widgets and faux application UI. Replaced them with bespoke, scalable vector SVG art compositions:
+- **STEP 01 — Discover Your Space**:
+  - **Visual Composition**: Modern vector illustration featuring a university campus silhouette, concentric teal radar rings, an animated location pin (`#16A085` to `#0B3452`), and an amber compass accent.
+  - **Heading & Copy**: *Discover Your Space* — concise summary of walking-distance campus searching, verified photos, and shared room filtering.
+  - **Supporting Label**: `Walking Distance Near Campus` with `MapPin` icon.
+  - **Motion**: Location-pin inspired entrance (`initial: { opacity: 0, y: -20 }`).
+- **STEP 02 — Visit with Confidence**:
+  - **Visual Composition**: Clean vector illustration of an inspection calendar sheet with binding rings, orange banner, scheduled inspection date, and a navy/orange verified inspection seal.
+  - **Heading & Copy**: *Visit with Confidence* — concise summary of on-site walkthroughs with accredited student ambassadors without broker pressure.
+  - **Supporting Label**: `Guided On-Site Walkthrough` with `Calendar` icon.
+  - **Motion**: Inspection appointment scale-in (`initial: { opacity: 0, scale: 0.94 }`).
+- **STEP 03 — Move into Your New Home**:
+  - **Visual Composition**: Architectural residence gable with open door, warm orange window glow, and a floating golden key emblem.
+  - **Heading & Copy**: *Move into Your New Home* — concise summary of transparent digital rental agreements directly with verified hosts and zero brokerage fees.
+  - **Supporting Label**: `Zero Broker Commissions` with `CheckCircle2` icon.
+  - **Motion**: Residence completion-inspired entrance (`initial: { opacity: 0, y: 20 }`).
+
+### 20.3 Card Architecture & Typography
+- **Large Step Numbers**: Prominent `01`, `02`, and `03` typography in `text-4xl sm:text-5xl font-black text-slate-200 font-display`, transitioning smoothly on hover.
+- **Distinctive Badges**: Color-coded pill tags (`Step 01` in teal, `Step 02` in orange, `Step 03` in navy).
+- **Concise Copy**: Concise descriptions with ample line height and zero clutter.
+- **Balanced Proportions**: Uniform card padding (`p-7 sm:p-8`) and equal height across responsive breakpoints.
+
+### 20.4 Animated Connecting Path
+- **Desktop**: Progressive SVG dashed gradient path (`#16A085` to `#F2A01A` to `#0B3452`) positioned horizontally behind the step cards, drawing smoothly via Framer Motion's `pathLength` on scroll in both directions.
+- **Mobile**: Responsive vertical stack with clear step progression and touch-friendly padding.
+
+### 20.5 Standalone 55% Refund Guarantee Panel
+- Positioned as a dedicated, elegant horizontal white card on the off-white background below the three steps.
+- Features a teal `ShieldCheck` icon, `COLIN 55% On-Site Visit Guarantee` title, clear description of the 60-minute refund policy, and an action button to "Explore Accommodations Now".
+- Communicates trust clearly without competing with the primary 3-step cards.
+
+### 20.6 Verification & Build Results
+- **TypeScript**: `npx tsc --noEmit` — 0 errors.
+- **Vitest Unit Tests**: `pnpm test` — 3/3 test suites, 12/12 tests passing.
+- **Vite Production Build**: `pnpm run build` — Succeeded with exit code 0 (`dist/` compiled cleanly in 18.60s).
