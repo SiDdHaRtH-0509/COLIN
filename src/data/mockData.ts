@@ -78,7 +78,10 @@ export const PROPERTIES: Property[] = [
       'Non-smoking and alcohol-free premise'
     ],
     visitSlotFee: 299,
-    refundGuaranteePercent: 55
+    refundGuaranteePercent: 55,
+    isSponsored: true,
+    sponsorshipTier: 'Homepage Sponsored',
+    sponsoredBadge: 'Sponsored'
   },
   {
     id: 'prop-2',
@@ -135,7 +138,10 @@ export const PROPERTIES: Property[] = [
       'Cleanliness audit weekly'
     ],
     visitSlotFee: 299,
-    refundGuaranteePercent: 55
+    refundGuaranteePercent: 55,
+    isSponsored: true,
+    sponsorshipTier: 'Homepage Sponsored',
+    sponsoredBadge: 'Sponsored'
   },
   {
     id: 'prop-3',
@@ -192,7 +198,10 @@ export const PROPERTIES: Property[] = [
       'Pet friendly in designated studio apartments'
     ],
     visitSlotFee: 299,
-    refundGuaranteePercent: 55
+    refundGuaranteePercent: 55,
+    isSponsored: true,
+    sponsorshipTier: 'Homepage Sponsored',
+    sponsoredBadge: 'Sponsored'
   },
   {
     id: 'prop-4',
@@ -248,7 +257,10 @@ export const PROPERTIES: Property[] = [
       'Zero ragging tolerance policy'
     ],
     visitSlotFee: 299,
-    refundGuaranteePercent: 55
+    refundGuaranteePercent: 55,
+    isSponsored: true,
+    sponsorshipTier: 'Homepage Sponsored',
+    sponsoredBadge: 'Sponsored'
   },
   {
     id: 'prop-5',
@@ -304,7 +316,8 @@ export const PROPERTIES: Property[] = [
       'Responsible hosting allowed'
     ],
     visitSlotFee: 299,
-    refundGuaranteePercent: 55
+    refundGuaranteePercent: 55,
+    isSponsored: false
   },
   {
     id: 'prop-6',
@@ -360,7 +373,8 @@ export const PROPERTIES: Property[] = [
       'Alcohol, tobacco and gaming strictly prohibited'
     ],
     visitSlotFee: 299,
-    refundGuaranteePercent: 55
+    refundGuaranteePercent: 55,
+    isSponsored: false
   },
   {
     id: 'prop-7',
@@ -416,7 +430,8 @@ export const PROPERTIES: Property[] = [
       'Smoke-free premises'
     ],
     visitSlotFee: 299,
-    refundGuaranteePercent: 55
+    refundGuaranteePercent: 55,
+    isSponsored: false
   },
   {
     id: 'prop-8',
@@ -471,7 +486,8 @@ export const PROPERTIES: Property[] = [
       'No loud music after 10 PM'
     ],
     visitSlotFee: 299,
-    refundGuaranteePercent: 55
+    refundGuaranteePercent: 55,
+    isSponsored: false
   }
 ];
 

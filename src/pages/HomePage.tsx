@@ -35,6 +35,10 @@ export const HomePage: React.FC = () => {
 
   const filteredProperties = useMemo(() => {
     return PROPERTIES.filter((p) => {
+      // REQUIREMENT 4: Homepage property showcase displays ONLY properties with paid sponsorship
+      if (!p.isSponsored) {
+        return false;
+      }
       // City filter
       if (filters.city !== 'All Cities' && p.city !== filters.city) {
         return false;

@@ -39,7 +39,7 @@ export const HowColinWorksSection: React.FC = () => {
             return (
               <div
                 key={step.step}
-                className="bg-colin-navy-900/80 backdrop-blur-md rounded-3xl p-8 border border-colin-navy-800 hover:border-colin-teal/50 transition-all duration-300 hover:shadow-2xl flex flex-col justify-between group"
+                className="bg-colin-navy-900/80 backdrop-blur-md rounded-3xl p-8 border border-colin-navy-800 hover:border-colin-teal/50 transition-all duration-300 hover:shadow-2xl flex flex-col justify-between group colin-pin-motion colin-window-accent"
               >
                 <div className="space-y-5">
                   {/* Step Number & Icon */}

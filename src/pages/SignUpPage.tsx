@@ -33,9 +33,9 @@ export const SignUpPage: React.FC = () => {
   const [termsAccepted, setTermsAccepted] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Password strength calculation
+  // Dynamic Password strength calculation
   const getPasswordStrength = () => {
-    if (!password) return { label: 'Empty', color: 'bg-colin-charcoal-200', percent: 0 };
+    if (!password) return { label: 'None', color: 'bg-colin-charcoal-200', percent: 0 };
     let score = 0;
     if (password.length >= 6) score += 25;
     if (password.length >= 8) score += 25;
@@ -54,13 +54,12 @@ export const SignUpPage: React.FC = () => {
     e.preventDefault();
     setError(null);
 
-    // Form Validations
     if (!name.trim()) {
       setError('Please provide your full legal name.');
       return;
     }
     if (!email.trim() || !email.includes('@')) {
-      setError('Please enter a valid academic or personal email address.');
+      setError('Please enter a valid email address.');
       return;
     }
     if (!phone.trim() || phone.length < 10) {
@@ -72,11 +71,11 @@ export const SignUpPage: React.FC = () => {
       return;
     }
     if (password !== confirmPassword) {
-      setError('Passwords do not match. Please re-check.');
+      setError('Passwords do not match. Please verify.');
       return;
     }
     if (!termsAccepted) {
-      setError('You must accept the COLIN Safety Guidelines and Terms.');
+      setError('You must agree to the COLIN Verified Member Guidelines.');
       return;
     }
 
@@ -98,196 +97,215 @@ export const SignUpPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-[calc(100vh-80px)] bg-gradient-to-br from-colin-navy-50 via-colin-offwhite to-white flex items-center justify-center p-4 sm:p-6 lg:p-8">
-      <div className="w-full max-w-lg space-y-6">
-        
-        {/* Branding & Header */}
-        <div className="text-center space-y-2">
-          <Link to="/" className="inline-flex items-center gap-2 group">
-            <img
-              src="/assets/colin-logo.png"
-              alt="COLIN Logo"
-              className="h-12 w-auto object-contain"
-            />
-            <span className="text-2xl font-black text-colin-navy tracking-tight font-display">
-              COLIN<span className="text-colin-orange">.</span>
-            </span>
-          </Link>
-          <h1 className="text-2xl font-extrabold text-colin-navy tracking-tight font-display">
-            Create Your Free Account
-          </h1>
-          <p className="text-xs text-colin-charcoal-500">
-            Join 50,000+ students and verified property hosts across Indian university cities.
-          </p>
-        </div>
+    <div className="min-h-[calc(100vh-80px)] bg-gradient-to-b from-colin-navy-50/50 via-white to-colin-offwhite flex items-center justify-center px-4 py-8 sm:py-12 relative overflow-hidden">
+      {/* Background Ambient Gradients */}
+      <div className="absolute top-1/4 -right-20 w-80 h-80 bg-colin-teal/10 rounded-full blur-3xl pointer-events-none -z-10" />
+      <div className="absolute bottom-1/4 -left-20 w-80 h-80 bg-colin-orange/10 rounded-full blur-3xl pointer-events-none -z-10" />
 
-        {/* Signup Form Container */}
-        <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-xl border border-colin-charcoal-200 space-y-5">
+      {/* Main Registration Card */}
+      <div className="w-full max-w-[620px] animate-pin-drop">
+        <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-brand hover:shadow-brand-hover transition-all duration-300 border border-colin-charcoal-200/90 relative">
+          
+          {/* Top Brand Crown */}
+          <div className="text-center space-y-2 mb-6">
+            <Link to="/" className="inline-flex items-center gap-2.5 group focus:outline-none">
+              <div className="relative">
+                <img
+                  src="/assets/colin-logo.png"
+                  alt="COLIN Logo"
+                  className="h-11 sm:h-12 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
+                />
+                <span className="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-colin-teal rounded-full border-2 border-white animate-pulse" />
+              </div>
+              <div className="text-left">
+                <div className="text-2xl font-black text-colin-navy tracking-tight font-display leading-none">
+                  COLIN<span className="text-colin-orange text-3xl leading-none">.</span>
+                </div>
+                <div className="text-[9px] uppercase font-bold tracking-widest text-colin-teal-700 mt-0.5">
+                  Verified Student Living
+                </div>
+              </div>
+            </Link>
+
+            <div className="space-y-1 pt-1">
+              <h1 className="text-xl sm:text-2xl font-black text-colin-navy tracking-tight font-display">
+                Create your account
+              </h1>
+              <p className="text-xs text-colin-charcoal-500">
+                Join verified students and accommodation hosts across major university campuses.
+              </p>
+            </div>
+          </div>
+
+          {/* Error Message */}
           {error && (
-            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2 animate-fadeIn">
-              <AlertCircle size={15} className="shrink-0" />
+            <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2 animate-fadeIn">
+              <AlertCircle size={15} className="shrink-0 text-rose-600" />
               <span>{error}</span>
             </div>
           )}
 
-          {/* Role Selector Tabs */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-colin-charcoal-700 uppercase tracking-wider">
+          {/* Segmented Role Switcher */}
+          <div className="mb-6 space-y-1.5">
+            <label className="text-[10px] font-bold text-colin-charcoal-500 uppercase tracking-wider block">
               I am registering as:
             </label>
             <div className="grid grid-cols-2 gap-2 bg-colin-offwhite p-1 rounded-2xl border border-colin-charcoal-200">
               <button
                 type="button"
                 onClick={() => setRole('student')}
-                className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                className={`py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
                   role === 'student'
                     ? 'bg-colin-navy text-white shadow-sm'
-                    : 'text-colin-charcoal-600 hover:text-colin-navy'
+                    : 'text-colin-charcoal-600 hover:text-colin-navy hover:bg-white/60'
                 }`}
               >
-                <GraduationCap size={15} />
+                <GraduationCap size={16} className={role === 'student' ? 'text-colin-orange' : 'text-colin-charcoal-400'} />
                 <span>Student / Scholar</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setRole('owner')}
-                className={`py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                className={`py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
                   role === 'owner'
                     ? 'bg-colin-teal text-white shadow-sm'
-                    : 'text-colin-charcoal-600 hover:text-colin-teal'
+                    : 'text-colin-charcoal-600 hover:text-colin-teal hover:bg-white/60'
                 }`}
               >
-                <Building size={15} />
+                <Building size={16} className={role === 'owner' ? 'text-white' : 'text-colin-charcoal-400'} />
                 <span>Property Host / Owner</span>
               </button>
             </div>
           </div>
 
+          {/* Registration Form with Balanced 2-Column Grid */}
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Full Name */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-colin-charcoal-700 uppercase tracking-wider">
-                Full Legal Name:
-              </label>
-              <div className="relative">
-                <User size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-colin-charcoal-400" />
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Aarav Mehra"
-                  required
-                  className="w-full pl-10 pr-4 py-2.5 text-xs sm:text-sm rounded-xl border border-colin-charcoal-300 focus:ring-2 focus:ring-colin-navy focus:outline-none"
-                />
-              </div>
-            </div>
-
-            {/* Email & Phone Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-colin-charcoal-700 uppercase tracking-wider">
-                  Email Address:
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              {/* Full Legal Name */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-colin-charcoal-700 uppercase tracking-wider block">
+                  Full Name
                 </label>
-                <div className="relative">
-                  <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-colin-charcoal-400" />
+                <div className="relative group">
+                  <User size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-colin-charcoal-400 group-focus-within:text-colin-teal transition-colors" />
                   <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="name@email.com"
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="e.g. Aarav Mehra"
                     required
-                    className="w-full pl-10 pr-3 py-2.5 text-xs rounded-xl border border-colin-charcoal-300 focus:ring-2 focus:ring-colin-navy focus:outline-none"
+                    className="w-full pl-9 pr-3.5 py-2 text-xs sm:text-sm rounded-xl border border-colin-charcoal-300 focus:border-colin-navy focus:ring-2 focus:ring-colin-teal/20 focus:outline-none transition-all placeholder:text-colin-charcoal-400 text-colin-navy font-medium bg-colin-offwhite/50 focus:bg-white"
                   />
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-colin-charcoal-700 uppercase tracking-wider">
-                  Mobile Number:
+              {/* Mobile Number */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-colin-charcoal-700 uppercase tracking-wider block">
+                  Mobile Number
                 </label>
-                <div className="relative">
-                  <Phone size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-colin-charcoal-400" />
+                <div className="relative group">
+                  <Phone size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-colin-charcoal-400 group-focus-within:text-colin-teal transition-colors" />
                   <input
                     type="tel"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="+91 98765 43210"
                     required
-                    className="w-full pl-10 pr-3 py-2.5 text-xs rounded-xl border border-colin-charcoal-300 focus:ring-2 focus:ring-colin-navy focus:outline-none"
+                    className="w-full pl-9 pr-3.5 py-2 text-xs sm:text-sm rounded-xl border border-colin-charcoal-300 focus:border-colin-navy focus:ring-2 focus:ring-colin-teal/20 focus:outline-none transition-all placeholder:text-colin-charcoal-400 text-colin-navy font-medium bg-colin-offwhite/50 focus:bg-white"
                   />
                 </div>
               </div>
-            </div>
 
-            {/* University / College (Student only) */}
-            {role === 'student' && (
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-colin-charcoal-700 uppercase tracking-wider">
-                  College / University / Coaching Institute:
+              {/* Email Address */}
+              <div className="space-y-1 sm:col-span-2">
+                <label className="text-[11px] font-bold text-colin-charcoal-700 uppercase tracking-wider block">
+                  Email Address
                 </label>
-                <div className="relative">
-                  <GraduationCap size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-colin-charcoal-400" />
+                <div className="relative group">
+                  <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-colin-charcoal-400 group-focus-within:text-colin-teal transition-colors" />
                   <input
-                    type="text"
-                    value={university}
-                    onChange={(e) => setUniversity(e.target.value)}
-                    placeholder="e.g. Delhi University (SRCC, Hansraj), Christ, Symbiosis, IIT"
-                    className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-colin-charcoal-300 focus:ring-2 focus:ring-colin-navy focus:outline-none"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="student@du.ac.in or personal email"
+                    required
+                    className="w-full pl-9 pr-3.5 py-2 text-xs sm:text-sm rounded-xl border border-colin-charcoal-300 focus:border-colin-navy focus:ring-2 focus:ring-colin-teal/20 focus:outline-none transition-all placeholder:text-colin-charcoal-400 text-colin-navy font-medium bg-colin-offwhite/50 focus:bg-white"
                   />
                 </div>
               </div>
-            )}
 
-            {/* Password & Confirm Password */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-colin-charcoal-700 uppercase tracking-wider">
-                  Password:
+              {/* University (for student) */}
+              {role === 'student' && (
+                <div className="space-y-1 sm:col-span-2">
+                  <label className="text-[11px] font-bold text-colin-charcoal-700 uppercase tracking-wider block">
+                    College / University / Coaching Institute
+                  </label>
+                  <div className="relative group">
+                    <GraduationCap size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-colin-charcoal-400 group-focus-within:text-colin-teal transition-colors" />
+                    <input
+                      type="text"
+                      value={university}
+                      onChange={(e) => setUniversity(e.target.value)}
+                      placeholder="e.g. Delhi University (SRCC), Christ, Symbiosis, IIT"
+                      className="w-full pl-9 pr-3.5 py-2 text-xs sm:text-sm rounded-xl border border-colin-charcoal-300 focus:border-colin-navy focus:ring-2 focus:ring-colin-teal/20 focus:outline-none transition-all placeholder:text-colin-charcoal-400 text-colin-navy font-medium bg-colin-offwhite/50 focus:bg-white"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Password */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-colin-charcoal-700 uppercase tracking-wider block">
+                  Password
                 </label>
-                <div className="relative">
-                  <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-colin-charcoal-400" />
+                <div className="relative group">
+                  <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-colin-charcoal-400 group-focus-within:text-colin-teal transition-colors" />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Min 6 chars"
                     required
-                    className="w-full pl-10 pr-10 py-2.5 text-xs rounded-xl border border-colin-charcoal-300 focus:ring-2 focus:ring-colin-navy focus:outline-none"
+                    className="w-full pl-9 pr-9 py-2 text-xs sm:text-sm rounded-xl border border-colin-charcoal-300 focus:border-colin-navy focus:ring-2 focus:ring-colin-teal/20 focus:outline-none transition-all placeholder:text-colin-charcoal-400 text-colin-navy font-medium bg-colin-offwhite/50 focus:bg-white"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-colin-charcoal-400 hover:text-colin-navy"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-colin-charcoal-400 hover:text-colin-navy focus:outline-none"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
                   >
-                    {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                    {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                   </button>
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-colin-charcoal-700 uppercase tracking-wider">
-                  Confirm Password:
+              {/* Confirm Password */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-colin-charcoal-700 uppercase tracking-wider block">
+                  Confirm Password
                 </label>
-                <div className="relative">
-                  <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-colin-charcoal-400" />
+                <div className="relative group">
+                  <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-colin-charcoal-400 group-focus-within:text-colin-teal transition-colors" />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Re-enter password"
                     required
-                    className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-colin-charcoal-300 focus:ring-2 focus:ring-colin-navy focus:outline-none"
+                    className="w-full pl-9 pr-3.5 py-2 text-xs sm:text-sm rounded-xl border border-colin-charcoal-300 focus:border-colin-navy focus:ring-2 focus:ring-colin-teal/20 focus:outline-none transition-all placeholder:text-colin-charcoal-400 text-colin-navy font-medium bg-colin-offwhite/50 focus:bg-white"
                   />
                 </div>
               </div>
             </div>
 
-            {/* Password Strength Meter */}
+            {/* Password Strength Indicator */}
             {password && (
               <div className="space-y-1 pt-1">
-                <div className="flex justify-between text-[11px] text-colin-charcoal-500">
-                  <span>Strength: <strong>{strength.label}</strong></span>
+                <div className="flex justify-between text-[10px] text-colin-charcoal-500 font-bold uppercase tracking-wider">
+                  <span>Strength: <strong className="text-colin-navy">{strength.label}</strong></span>
                   <span>{strength.percent}%</span>
                 </div>
                 <div className="w-full bg-colin-charcoal-200 h-1.5 rounded-full overflow-hidden">
@@ -300,16 +318,16 @@ export const SignUpPage: React.FC = () => {
             )}
 
             {/* Terms Checkbox */}
-            <div className="pt-2 flex items-start gap-2 text-xs text-colin-charcoal-600">
+            <div className="pt-2 flex items-start gap-2.5 text-xs text-colin-charcoal-600">
               <input
                 type="checkbox"
                 id="terms"
                 checked={termsAccepted}
                 onChange={(e) => setTermsAccepted(e.target.checked)}
-                className="mt-0.5 rounded text-colin-teal focus:ring-colin-teal cursor-pointer"
+                className="mt-0.5 rounded text-colin-teal focus:ring-colin-teal cursor-pointer accent-colin-teal"
               />
-              <label htmlFor="terms" className="cursor-pointer leading-relaxed text-[11px]">
-                I agree to the COLIN Verified Member Code of Conduct, zero harassment policy, and data privacy terms.
+              <label htmlFor="terms" className="cursor-pointer leading-relaxed text-[11px] text-colin-charcoal-600">
+                I agree to the <span className="text-colin-navy font-bold">COLIN Verified Member Terms</span>, anti-ragging code, and privacy policy.
               </label>
             </div>
 
@@ -318,31 +336,32 @@ export const SignUpPage: React.FC = () => {
               <Button
                 type="submit"
                 variant="primary"
-                className="w-full"
+                className="w-full h-11 text-sm font-extrabold shadow-brand hover:shadow-brand-hover bg-colin-navy hover:bg-colin-navy-800"
                 isLoading={isLoading}
-                rightIcon={<ArrowRight size={14} />}
+                rightIcon={<ArrowRight size={15} />}
               >
                 Complete Registration
               </Button>
             </div>
           </form>
 
-          {/* Toggle to Login */}
-          <div className="mt-6 pt-5 border-t border-colin-charcoal-100 text-center text-xs text-colin-charcoal-600">
-            <span>Already have a COLIN account?</span>{' '}
+          {/* Toggle Link to Login */}
+          <div className="mt-5 pt-4 border-t border-colin-charcoal-100 text-center text-xs text-colin-charcoal-600">
+            <span>Already have an account?</span>{' '}
             <Link
               to={`/login${redirectUrl !== '/' ? `?redirect=${encodeURIComponent(redirectUrl)}` : ''}`}
-              className="font-bold text-colin-teal hover:underline"
+              className="font-extrabold text-colin-teal hover:underline ml-1"
             >
-              Log In
+              Sign In
             </Link>
           </div>
+
         </div>
 
-        {/* Return to Home link */}
-        <div className="text-center">
+        {/* Minimal Return to Home link */}
+        <div className="text-center mt-4">
           <Link to="/" className="text-xs text-colin-charcoal-500 hover:text-colin-navy font-semibold transition-colors">
-            ← Back to Public Homepage
+            ← Back to Home
           </Link>
         </div>
       </div>

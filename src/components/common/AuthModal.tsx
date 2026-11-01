@@ -73,15 +73,15 @@ export const AuthModal: React.FC = () => {
             </ul>
           </div>
 
-          {/* Quick Demo Evaluation Section */}
+          {/* Quick Evaluation Access Section */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-colin-charcoal-700 uppercase tracking-wider flex items-center gap-1.5">
                 <Sparkles size={14} className="text-colin-orange" />
-                1-Click Prototype Logins:
+                Quick Review Accounts:
               </span>
               <span className="text-[10px] text-colin-teal-700 font-semibold bg-colin-teal/10 px-2 py-0.5 rounded-full">
-                Instant Access
+                1-Click Sign In
               </span>
             </div>
 
@@ -94,7 +94,7 @@ export const AuthModal: React.FC = () => {
                   <User size={18} />
                 </div>
                 <div>
-                  <div className="text-xs font-bold text-colin-navy">Student Demo</div>
+                  <div className="text-xs font-bold text-colin-navy">Student Account</div>
                   <div className="text-[10px] text-colin-charcoal-500">Aarav (DU Student)</div>
                 </div>
               </button>
@@ -107,7 +107,7 @@ export const AuthModal: React.FC = () => {
                   <Building size={18} />
                 </div>
                 <div>
-                  <div className="text-xs font-bold text-colin-navy">Owner Demo</div>
+                  <div className="text-xs font-bold text-colin-navy">Host / Owner Account</div>
                   <div className="text-[10px] text-colin-charcoal-500">Col. Rajesh (Verified Host)</div>
                 </div>
               </button>

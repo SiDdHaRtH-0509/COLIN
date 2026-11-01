@@ -57,6 +57,9 @@ export interface Property {
   houseRules: string[];
   visitSlotFee: number; // e.g. 299 INR
   refundGuaranteePercent: number; // 55%
+  isSponsored?: boolean;
+  sponsorshipTier?: 'Homepage Sponsored' | 'Featured Partner';
+  sponsoredBadge?: string;
 }
 
 export interface SearchFilterState {

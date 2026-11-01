@@ -1,8 +1,8 @@
 import React from 'react';
 import { SearchFilterState } from '../../types';
 import { SearchFilterBar } from './SearchFilterBar';
+import { ColinCertifiedBadge } from '../common/ColinCertifiedBadge';
 import { 
-  ShieldCheck, 
   Award
 } from 'lucide-react';
 
@@ -77,9 +77,8 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ filters, onFilterChang
                 
                 {/* Floating On-Image Info */}
                 <div className="absolute bottom-4 left-4 right-4 text-white">
-                  <div className="flex items-center gap-1.5 text-xs text-colin-teal-300 font-bold mb-1">
-                    <ShieldCheck size={14} />
-                    <span>COLIN Certified Score: 99/100</span>
+                  <div className="mb-2">
+                    <ColinCertifiedBadge variant="glass" size="sm" score={99} showScore />
                   </div>
                   <div className="text-lg font-black truncate">COLIN Heights — North Campus</div>
                   <div className="text-xs text-colin-charcoal-300 flex items-center justify-between mt-1">
@@ -89,15 +88,9 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ filters, onFilterChang
                 </div>
               </div>
 
-              {/* Floating Top Badge: Physical Inspection */}
-              <div className="absolute -top-4 -left-4 sm:-left-6 bg-white rounded-2xl p-3 shadow-xl border border-colin-charcoal-200 flex items-center gap-2.5 max-w-[200px] animate-float-slow">
-                <div className="w-9 h-9 rounded-xl bg-colin-teal text-white flex items-center justify-center shrink-0">
-                  <Award size={18} />
-                </div>
-                <div>
-                  <div className="text-xs font-black text-colin-navy">Verified Living</div>
-                  <div className="text-[10px] text-colin-charcoal-500">Real Campus Photos</div>
-                </div>
+              {/* Floating Top Badge: Logo-Inspired COLIN Certified Emblem */}
+              <div className="absolute -top-5 -left-4 sm:-left-6 bg-white/95 backdrop-blur-md rounded-2xl p-2.5 shadow-2xl border-2 border-colin-teal/40 flex items-center gap-2 animate-float-slow">
+                <ColinCertifiedBadge variant="light" size="md" score={99} showScore />
               </div>
 
               {/* Floating Bottom Card: Community */}

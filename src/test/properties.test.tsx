@@ -32,7 +32,7 @@ describe('Properties and Access Control Presentation', () => {
     });
   });
 
-  it('renders property card with locked prompt for unauthenticated guest', () => {
+  it('renders property card with locked prompt and sponsored indicator for unauthenticated guest', () => {
     const testProp = PROPERTIES[0];
 
     render(
@@ -44,8 +44,11 @@ describe('Properties and Access Control Presentation', () => {
       </AuthProvider>
     );
 
-    // Card should show indicative rent and lock message
+    // Card should show indicative rent, sponsored badge, and lock message
     expect(screen.getByText(`₹${testProp.rentMonthly.toLocaleString('en-IN')}`)).toBeInTheDocument();
+    expect(screen.getByText('Sponsored')).toBeInTheDocument();
+    expect(screen.getByText('COLIN')).toBeInTheDocument();
+    expect(screen.getByText('CERTIFIED')).toBeInTheDocument();
     expect(screen.getByText('Login to Unlock')).toBeInTheDocument();
     expect(screen.getByText('Unlock Details')).toBeInTheDocument();
   });
@@ -69,8 +72,8 @@ describe('Properties and Access Control Presentation', () => {
 
     // AuthModal should now be open
     expect(screen.getByText('Member-Only Property Access')).toBeInTheDocument();
-    expect(screen.getByText('Student Demo')).toBeInTheDocument();
-    expect(screen.getByText('Owner Demo')).toBeInTheDocument();
+    expect(screen.getByText('Student Account')).toBeInTheDocument();
+    expect(screen.getByText('Host / Owner Account')).toBeInTheDocument();
     expect(screen.getByText('Go to Login')).toBeInTheDocument();
   });
 });

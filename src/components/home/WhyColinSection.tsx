@@ -45,7 +45,7 @@ export const WhyColinSection: React.FC = () => {
             return (
               <div
                 key={item.title}
-                className="bg-colin-offwhite rounded-3xl p-6 sm:p-7 border border-colin-charcoal-200 hover:border-colin-teal/40 transition-all duration-300 hover:shadow-brand flex flex-col justify-between group hover:-translate-y-1"
+                className="bg-colin-offwhite rounded-3xl p-6 sm:p-7 border border-colin-charcoal-200 hover:border-colin-teal/40 transition-all duration-300 hover:shadow-brand flex flex-col justify-between group colin-pin-motion colin-window-accent"
               >
                 <div className="space-y-4">
                   {/* Top Badge and Icon */}

@@ -50,7 +50,7 @@ export const OwnerCtaSection: React.FC = () => {
 
             {/* Monetization Model Pillars from Business Spec */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-              <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10 space-y-1.5">
+              <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10 space-y-1.5 colin-pin-motion colin-window-accent">
                 <div className="flex items-center gap-2 text-colin-teal-300 font-bold text-xs">
                   <Award size={16} />
                   <span>COLIN Certified Badge</span>
@@ -60,7 +60,7 @@ export const OwnerCtaSection: React.FC = () => {
                 </p>
               </div>
 
-              <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10 space-y-1.5">
+              <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10 space-y-1.5 colin-pin-motion colin-window-accent">
                 <div className="flex items-center gap-2 text-colin-orange font-bold text-xs">
                   <TrendingUp size={16} />
                   <span>Homepage & Search Spotlight</span>
@@ -70,7 +70,7 @@ export const OwnerCtaSection: React.FC = () => {
                 </p>
               </div>
 
-              <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10 space-y-1.5">
+              <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10 space-y-1.5 colin-pin-motion colin-window-accent">
                 <div className="flex items-center gap-2 text-colin-teal-300 font-bold text-xs">
                   <ShieldCheck size={16} />
                   <span>100% Verified Student Leads</span>
@@ -80,7 +80,7 @@ export const OwnerCtaSection: React.FC = () => {
                 </p>
               </div>
 
-              <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10 space-y-1.5">
+              <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/10 space-y-1.5 colin-pin-motion colin-window-accent">
                 <div className="flex items-center gap-2 text-colin-orange font-bold text-xs">
                   <Sparkles size={16} />
                   <span>Pro & Premium Owner Tiers</span>

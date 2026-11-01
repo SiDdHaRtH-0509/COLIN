@@ -13,6 +13,7 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { Badge } from '../common/Badge';
+import { ColinCertifiedBadge } from '../common/ColinCertifiedBadge';
 
 interface PropertyCardProps {
   property: Property;
@@ -66,9 +67,17 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property }) => {
         <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 z-10">
           <div className="flex items-center gap-1.5 flex-wrap">
             {property.isColinCertified && (
-              <Badge variant="certified" size="sm">
-                COLIN Certified
-              </Badge>
+              <ColinCertifiedBadge
+                variant="dark"
+                size="sm"
+                score={property.certificationScore}
+                showScore={false}
+              />
+            )}
+            {property.isSponsored && (
+              <span className="bg-colin-navy-950/85 backdrop-blur-md text-[10px] uppercase font-black tracking-wider text-colin-orange px-2 py-0.5 rounded-lg border border-colin-orange/40 shadow-sm">
+                Sponsored
+              </span>
             )}
             {getGenderBadge()}
           </div>

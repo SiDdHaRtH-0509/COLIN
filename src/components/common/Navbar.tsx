@@ -1,24 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { 
   Menu, 
   X, 
   LogOut, 
   ChevronDown, 
-  ShieldCheck, 
-  PlusCircle, 
-  Sparkles
+  ShieldCheck 
 } from 'lucide-react';
 import { Button } from './Button';
 
 export const Navbar: React.FC = () => {
-  const { user, isAuthenticated, logout, openAuthModal } = useAuth();
+  const { user, isAuthenticated, logout } = useAuth();
   const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const location = useLocation();
-  const navigate = useNavigate();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -34,27 +31,7 @@ export const Navbar: React.FC = () => {
     setUserDropdownOpen(false);
   }, [location.pathname]);
 
-  const navLinks = [
-    { label: 'Explore Stays', href: '/#featured-properties' },
-    { label: 'Categories', href: '/#categories' },
-    { label: 'Why COLIN', href: '/#why-colin' },
-    { label: 'How It Works', href: '/#how-it-works' },
-    { label: 'COLIN Living', href: '/#colin-living' },
-  ];
-
-  const handleNavClick = (href: string) => {
-    if (href.startsWith('/#')) {
-      const elementId = href.replace('/#', '');
-      if (location.pathname !== '/') {
-        navigate(`/${href}`);
-      } else {
-        const el = document.getElementById(elementId);
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth' });
-        }
-      }
-    }
-  };
+  const isHomeActive = location.pathname === '/';
 
   return (
     <header
@@ -66,7 +43,8 @@ export const Navbar: React.FC = () => {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20">
-          {/* Logo & Brand Identity */}
+          
+          {/* Left Side: COLIN Logo & Brand Identity */}
           <Link to="/" className="flex items-center gap-3 group focus:outline-none">
             <div className="relative">
               <img
@@ -74,7 +52,7 @@ export const Navbar: React.FC = () => {
                 alt="COLIN Logo"
                 className="h-11 sm:h-12 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
               />
-              <span className="absolute -bottom-1 -right-1 w-3 h-3 bg-colin-teal rounded-full border-2 border-white"></span>
+              <span className="absolute -bottom-1 -right-1 w-3 h-3 bg-colin-teal rounded-full border-2 border-white animate-pulse" />
             </div>
             <div className="flex flex-col">
               <span className="text-2xl font-extrabold tracking-tight text-colin-navy flex items-center gap-1 font-display leading-none">
@@ -87,42 +65,31 @@ export const Navbar: React.FC = () => {
             </div>
           </Link>
 
-          {/* Desktop Nav Links */}
-          <nav className="hidden lg:flex items-center gap-8">
-            {navLinks.map((link) => (
-              <button
-                key={link.label}
-                onClick={() => handleNavClick(link.href)}
-                className="text-sm font-semibold text-colin-charcoal-700 hover:text-colin-navy transition-colors relative py-1 hover:after:w-full after:transition-all after:duration-300 after:content-[''] after:absolute after:bottom-0 after:left-0 after:w-0 after:h-0.5 after:bg-colin-teal"
-              >
-                {link.label}
-              </button>
-            ))}
+          {/* Main Center Navigation: Minimal (Just Home) */}
+          <nav className="hidden md:flex items-center">
+            <Link
+              to="/"
+              className={`text-sm font-bold transition-all px-4 py-2 rounded-xl flex items-center gap-2 ${
+                isHomeActive
+                  ? 'text-colin-navy bg-colin-navy-50/80 font-extrabold'
+                  : 'text-colin-charcoal-600 hover:text-colin-navy hover:bg-colin-charcoal-50'
+              }`}
+            >
+              <span>Home</span>
+              {isHomeActive && (
+                <span className="w-1.5 h-1.5 rounded-full bg-colin-teal inline-block" />
+              )}
+            </Link>
           </nav>
 
-          {/* Action CTAs & Auth Controls */}
+          {/* Right Side: Log In & Register / Sign Up */}
           <div className="hidden md:flex items-center gap-3">
-            {/* Owner Listing CTA */}
-            <button
-              onClick={() => {
-                if (!isAuthenticated) {
-                  openAuthModal('/#owner-cta', 'Sign in to access the COLIN Owner Verification portal.');
-                } else {
-                  handleNavClick('/#owner-cta');
-                }
-              }}
-              className="text-xs font-bold text-colin-navy hover:text-colin-teal transition-colors flex items-center gap-1.5 px-3 py-2 rounded-xl border border-colin-charcoal-200 hover:border-colin-teal/40 bg-colin-offwhite"
-            >
-              <PlusCircle size={15} className="text-colin-orange" />
-              <span>List Property</span>
-            </button>
-
             {isAuthenticated ? (
               /* Authenticated Profile Menu */
               <div className="relative">
                 <button
                   onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                  className="flex items-center gap-2.5 p-1.5 pr-3 rounded-full border border-colin-charcoal-200 hover:border-colin-teal transition-all bg-colin-offwhite hover:bg-white shadow-sm"
+                  className="flex items-center gap-2.5 p-1.5 pr-3.5 rounded-full border border-colin-charcoal-200 hover:border-colin-teal transition-all bg-colin-offwhite hover:bg-white shadow-sm"
                   aria-expanded={userDropdownOpen}
                 >
                   <img
@@ -130,12 +97,12 @@ export const Navbar: React.FC = () => {
                     alt={user?.name || 'User'}
                     className="w-8 h-8 rounded-full object-cover border border-colin-teal/40"
                   />
-                  <div className="text-left hidden xl:block">
-                    <div className="text-xs font-bold text-colin-navy truncate max-w-[120px]">
+                  <div className="text-left">
+                    <div className="text-xs font-bold text-colin-navy truncate max-w-[130px]">
                       {user?.name}
                     </div>
                     <div className="text-[10px] text-colin-teal-700 font-semibold uppercase">
-                      {user?.role === 'student' ? 'Student' : 'Property Host'}
+                      {user?.role === 'student' ? 'Student Member' : 'Property Host'}
                     </div>
                   </div>
                   <ChevronDown size={14} className="text-colin-charcoal-400" />
@@ -149,14 +116,7 @@ export const Navbar: React.FC = () => {
                       <p className="text-xs text-colin-charcoal-500 truncate">{user?.email}</p>
                       <div className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-colin-teal-700 bg-colin-teal/10 px-2 py-0.5 rounded-md">
                         <ShieldCheck size={12} />
-                        <span>COLIN Verified Member</span>
-                      </div>
-                    </div>
-
-                    <div className="py-1">
-                      <div className="px-4 py-2 text-xs text-colin-charcoal-600">
-                        <span className="font-semibold text-colin-charcoal-800">Campus:</span>{' '}
-                        {user?.university || 'Delhi NCR Region'}
+                        <span>COLIN Verified Account</span>
                       </div>
                     </div>
 
@@ -173,28 +133,32 @@ export const Navbar: React.FC = () => {
                 )}
               </div>
             ) : (
-              /* Guest Login & Signup Buttons */
+              /* Minimal Log In & Register / Sign Up CTAs */
               <div className="flex items-center gap-2.5">
                 <Link to="/login">
-                  <Button variant="ghost" size="sm">
+                  <Button variant="ghost" size="sm" className="font-bold text-xs px-4">
                     Log In
                   </Button>
                 </Link>
                 <Link to="/signup">
-                  <Button variant="primary" size="sm" rightIcon={<Sparkles size={13} className="text-colin-orange" />}>
-                    Sign Up Free
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    className="font-extrabold text-xs px-5 shadow-sm bg-colin-navy hover:bg-colin-navy-800"
+                  >
+                    Register / Sign Up
                   </Button>
                 </Link>
               </div>
             )}
           </div>
 
-          {/* Mobile Menu Button */}
+          {/* Mobile Navigation Trigger */}
           <div className="flex md:hidden items-center gap-2">
             {!isAuthenticated && (
               <Link to="/login">
-                <Button variant="outline" size="sm" className="px-2.5 py-1 text-xs">
-                  Login
+                <Button variant="ghost" size="sm" className="text-xs font-bold px-3">
+                  Log In
                 </Button>
               </Link>
             )}
@@ -206,13 +170,14 @@ export const Navbar: React.FC = () => {
               {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
           </div>
+
         </div>
       </div>
 
-      {/* Mobile Drawer Menu */}
+      {/* Mobile Drawer */}
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-colin-charcoal-100 bg-white px-4 pt-3 pb-6 space-y-4 shadow-lg animate-fadeIn">
-          {isAuthenticated && (
+          {isAuthenticated ? (
             <div className="flex items-center gap-3 p-3 bg-colin-navy-50 rounded-2xl border border-colin-navy-100">
               <img
                 src={user?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80'}
@@ -232,46 +197,32 @@ export const Navbar: React.FC = () => {
                 Sign Out
               </button>
             </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <Link to="/login" className="w-full">
+                <Button variant="outline" size="md" className="w-full font-bold">
+                  Log In
+                </Button>
+              </Link>
+              <Link to="/signup" className="w-full">
+                <Button variant="primary" size="md" className="w-full font-bold">
+                  Register
+                </Button>
+              </Link>
+            </div>
           )}
 
-          <div className="space-y-1">
-            {navLinks.map((link) => (
-              <button
-                key={link.label}
-                onClick={() => handleNavClick(link.href)}
-                className="w-full text-left px-3 py-2.5 rounded-xl text-sm font-bold text-colin-charcoal-700 hover:text-colin-navy hover:bg-colin-charcoal-50"
-              >
-                {link.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="pt-2 border-t border-colin-charcoal-100 space-y-2">
-            <button
-              onClick={() => {
-                setMobileMenuOpen(false);
-                handleNavClick('/#owner-cta');
-              }}
-              className="w-full py-2.5 px-4 text-xs font-bold text-colin-navy bg-colin-navy-50 rounded-xl flex items-center justify-center gap-2"
+          <div className="pt-2 border-t border-colin-charcoal-100">
+            <Link
+              to="/"
+              className={`block w-full py-2.5 px-3 rounded-xl text-sm font-bold ${
+                isHomeActive
+                  ? 'bg-colin-navy-50 text-colin-navy'
+                  : 'text-colin-charcoal-700 hover:bg-colin-charcoal-50'
+              }`}
             >
-              <PlusCircle size={15} className="text-colin-orange" />
-              <span>List Your Property on COLIN</span>
-            </button>
-
-            {!isAuthenticated && (
-              <div className="grid grid-cols-2 gap-2 pt-2">
-                <Link to="/login" className="w-full">
-                  <Button variant="outline" size="md" className="w-full">
-                    Log In
-                  </Button>
-                </Link>
-                <Link to="/signup" className="w-full">
-                  <Button variant="primary" size="md" className="w-full">
-                    Sign Up Free
-                  </Button>
-                </Link>
-              </div>
-            )}
+              Home
+            </Link>
           </div>
         </div>
       )}

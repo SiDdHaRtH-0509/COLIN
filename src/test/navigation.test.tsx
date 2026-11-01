@@ -11,7 +11,7 @@ describe('Navigation & Authentication Experience', () => {
     localStorage.clear();
   });
 
-  it('renders navbar with brand logo, explore links, and login/signup CTAs', () => {
+  it('renders minimal navbar with brand logo, Home link, and login/register CTAs', () => {
     render(
       <AuthProvider>
         <BrowserRouter>
@@ -24,19 +24,18 @@ describe('Navigation & Authentication Experience', () => {
     expect(screen.getByAltText('COLIN Logo')).toBeInTheDocument();
     expect(screen.getByText('Verified Student Living')).toBeInTheDocument();
 
-    // Verify nav links
-    expect(screen.getByText('Explore Stays')).toBeInTheDocument();
-    expect(screen.getByText('Categories')).toBeInTheDocument();
-    expect(screen.getByText('Why COLIN')).toBeInTheDocument();
-    expect(screen.getByText('How It Works')).toBeInTheDocument();
-    expect(screen.getByText('COLIN Living')).toBeInTheDocument();
+    // Verify minimal nav: Home
+    expect(screen.getByText('Home')).toBeInTheDocument();
+    // Verify removed links are NOT in navbar
+    expect(screen.queryByText('Explore Stays')).not.toBeInTheDocument();
+    expect(screen.queryByText('Why COLIN')).not.toBeInTheDocument();
 
     // Verify auth buttons
     expect(screen.getAllByText('Log In')[0]).toBeInTheDocument();
-    expect(screen.getAllByText('Sign Up Free')[0]).toBeInTheDocument();
+    expect(screen.getAllByText('Register / Sign Up')[0]).toBeInTheDocument();
   });
 
-  it('renders LoginPage with form validation inputs and instant demo buttons', () => {
+  it('renders redesigned LoginPage with clean form inputs and evaluation credentials', () => {
     render(
       <AuthProvider>
         <BrowserRouter>
@@ -45,10 +44,9 @@ describe('Navigation & Authentication Experience', () => {
       </AuthProvider>
     );
 
-    expect(screen.getByText('Welcome Back to COLIN')).toBeInTheDocument();
-    expect(screen.getByText('Prototype Demo Authentication')).toBeInTheDocument();
-    expect(screen.getByText('Student Demo')).toBeInTheDocument();
-    expect(screen.getByText('Owner Demo')).toBeInTheDocument();
+    expect(screen.getByText('Sign in to your account')).toBeInTheDocument();
+    expect(screen.getByText('Student Account')).toBeInTheDocument();
+    expect(screen.getByText('Owner Account')).toBeInTheDocument();
 
     const emailInput = screen.getByPlaceholderText(/student@du.ac.in/i);
     const passwordInput = screen.getByPlaceholderText(/Enter your password/i);
@@ -56,7 +54,7 @@ describe('Navigation & Authentication Experience', () => {
     expect(passwordInput).toBeInTheDocument();
   });
 
-  it('renders SignUpPage and toggles between Student and Property Owner roles', () => {
+  it('renders redesigned SignUpPage and toggles between Student and Property Owner roles', () => {
     render(
       <AuthProvider>
         <BrowserRouter>
@@ -65,7 +63,7 @@ describe('Navigation & Authentication Experience', () => {
       </AuthProvider>
     );
 
-    expect(screen.getByText('Create Your Free Account')).toBeInTheDocument();
+    expect(screen.getByText('Create your account')).toBeInTheDocument();
     
     // Check initial student role fields
     expect(screen.getByText('Student / Scholar')).toBeInTheDocument();

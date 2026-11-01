@@ -3,11 +3,10 @@ import { useParams, Link } from 'react-router-dom';
 import { PROPERTIES } from '../data/mockData';
 import { useAuth } from '../context/AuthContext';
 import { VisitSlotModal } from '../components/property/VisitSlotModal';
-import { Badge } from '../components/common/Badge';
+import { ColinCertifiedBadge } from '../components/common/ColinCertifiedBadge';
 import { Button } from '../components/common/Button';
 import { 
   MapPin, 
-  Award, 
   Star, 
   Lock, 
   Calendar, 
@@ -16,7 +15,7 @@ import {
   User, 
   CheckCircle2, 
   Utensils, 
-  ArrowLeft,
+  ArrowLeft, 
   Sparkles,
   ShieldCheck
 } from 'lucide-react';
@@ -101,7 +100,7 @@ export const PropertyDetailPage: React.FC = () => {
                 className="w-full sm:w-auto px-4 py-2.5 bg-colin-teal hover:bg-colin-teal-600 text-white font-bold text-xs rounded-xl transition-all shadow-sm flex items-center justify-center gap-1.5"
               >
                 <Sparkles size={14} className="text-colin-orange" />
-                <span>Instant Student Demo Access</span>
+                <span>Quick Sign In</span>
               </button>
               <Link to={`/login?redirect=/property/${property.id}`} className="w-full sm:w-auto">
                 <Button variant="outline" size="sm" className="w-full text-white border-white/30 hover:bg-white/10">
@@ -128,9 +127,12 @@ export const PropertyDetailPage: React.FC = () => {
                 />
                 <div className="absolute top-4 left-4 flex gap-2">
                   {property.isColinCertified && (
-                    <Badge variant="certified" size="md">
-                      COLIN Certified ({property.certificationScore}/100)
-                    </Badge>
+                    <ColinCertifiedBadge
+                      variant="glass"
+                      size="md"
+                      score={property.certificationScore}
+                      showScore
+                    />
                   )}
                 </div>
               </div>
@@ -384,13 +386,10 @@ export const PropertyDetailPage: React.FC = () => {
               </div>
 
               {/* Inspection Badge Card */}
-              <div className="bg-colin-navy p-4 rounded-2xl text-white space-y-1.5">
-                <div className="flex items-center gap-1.5 text-colin-orange text-xs font-bold">
-                  <Award size={16} />
-                  <span>COLIN Certified Audit Passed</span>
-                </div>
-                <p className="text-[11px] text-colin-charcoal-200 leading-relaxed">
-                  Verified in person on {property.certificationDate}. Real room dimensions and Wi-Fi speed tested.
+              <div className="bg-colin-navy-950 p-5 rounded-3xl text-white space-y-2 border border-colin-teal/30 shadow-md">
+                <ColinCertifiedBadge variant="dark" size="md" score={property.certificationScore} showScore />
+                <p className="text-[11px] text-colin-charcoal-200 leading-relaxed pt-1">
+                  Physically verified on {property.certificationDate} by COLIN campus ambassadors. Room dimensions, biometric entry, and food hygiene passed inspection.
                 </p>
               </div>
 

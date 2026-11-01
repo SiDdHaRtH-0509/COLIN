@@ -113,7 +113,7 @@ export const VisitSlotModal: React.FC<VisitSlotModalProps> = ({ property, isOpen
               </div>
               <div className="flex justify-between py-1 border-b border-colin-navy-100">
                 <span className="text-colin-charcoal-500 font-medium">Slot Fee:</span>
-                <span className="font-bold text-colin-navy">₹{confirmedBooking.feePaid} (Simulated Demo)</span>
+                <span className="font-bold text-colin-navy">₹{confirmedBooking.feePaid}</span>
               </div>
               <div className="pt-1 text-[11px] text-colin-teal-800 font-semibold flex items-start gap-1.5">
                 <ShieldCheck size={14} className="shrink-0 text-colin-teal mt-0.5" />
@@ -215,7 +215,7 @@ export const VisitSlotModal: React.FC<VisitSlotModalProps> = ({ property, isOpen
                 isLoading={isSubmitting}
                 rightIcon={<CreditCard size={16} />}
               >
-                Confirm Slot (₹{property.visitSlotFee} Demo Checkout)
+                Confirm Slot Pass (₹{property.visitSlotFee})
               </Button>
             </div>
           </form>

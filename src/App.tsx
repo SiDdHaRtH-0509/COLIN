@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
-import { DemoBanner } from './components/common/DemoBanner';
 import { Navbar } from './components/common/Navbar';
 import { Footer } from './components/common/Footer';
 import { AuthModal } from './components/common/AuthModal';
@@ -29,9 +28,6 @@ export const App: React.FC = () => {
       <BrowserRouter>
         <ScrollToTop />
         <div className="flex flex-col min-h-screen bg-colin-offwhite font-sans text-colin-charcoal antialiased">
-          {/* Phase 1 Prototype Demo State Banner */}
-          <DemoBanner />
-          
           {/* Main Brand Navigation Bar */}
           <Navbar />
 

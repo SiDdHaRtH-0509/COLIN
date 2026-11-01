@@ -60,7 +60,7 @@ export const ColinLivingSection: React.FC = () => {
               {LIVING_PILLARS.map((p) => {
                 const Icon = p.icon;
                 return (
-                  <div key={p.title} className="p-4 rounded-2xl bg-colin-offwhite border border-colin-charcoal-200/80 space-y-2">
+                  <div key={p.title} className="p-4 rounded-2xl bg-colin-offwhite border border-colin-charcoal-200/80 space-y-2 colin-pin-motion hover:shadow-brand hover:border-colin-teal/40 transition-all">
                     <div className="w-9 h-9 rounded-xl bg-colin-teal/15 text-colin-teal flex items-center justify-center font-bold">
                       <Icon size={18} />
                     </div>

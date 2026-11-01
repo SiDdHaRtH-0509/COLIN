@@ -115,7 +115,7 @@ export const CategoriesSection: React.FC<CategoriesSectionProps> = ({
               <div
                 key={cat.id}
                 onClick={() => handleCategoryClick(cat.id)}
-                className={`group p-5 rounded-3xl cursor-pointer transition-all duration-300 border flex flex-col justify-between ${
+                className={`group p-5 rounded-3xl cursor-pointer transition-all duration-300 border flex flex-col justify-between colin-pin-motion colin-window-accent ${
                   isSelected
                     ? 'bg-colin-navy text-white border-colin-navy shadow-xl scale-[1.02]'
                     : 'bg-colin-offwhite/70 hover:bg-white text-colin-charcoal border-colin-charcoal-200/80 hover:border-colin-teal/40 hover:shadow-brand'

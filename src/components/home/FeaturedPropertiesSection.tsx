@@ -4,10 +4,10 @@ import { PropertyCard } from '../property/PropertyCard';
 import { useAuth } from '../../context/AuthContext';
 import { 
   Building2, 
-  ShieldCheck, 
+  Sparkles, 
   FilterX, 
   Lock, 
-  Sparkles
+  ArrowUpRight
 } from 'lucide-react';
 import { Button } from '../common/Button';
 
@@ -26,30 +26,30 @@ export const FeaturedPropertiesSection: React.FC<FeaturedPropertiesSectionProps>
     <section id="featured-properties" className="py-16 bg-colin-offwhite">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
-        {/* Section Header */}
+        {/* Section Header with Clear Sponsored Showcase Identity (Requirement 4) */}
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
           <div className="space-y-2">
-            <div className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-colin-teal">
-              <ShieldCheck size={14} />
-              <span>Campus Proximity & Verified Listings</span>
+            <div className="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider text-colin-orange bg-colin-orange/15 px-3 py-1 rounded-full border border-colin-orange/30">
+              <Sparkles size={12} className="text-colin-orange" />
+              <span>Sponsored Campus Showcase</span>
             </div>
             <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-colin-navy tracking-tight font-display">
-              Featured Verified Accommodations
+              Featured Sponsored Accommodations
             </h2>
             <p className="text-sm text-colin-charcoal-600 max-w-xl">
-              Inspected in person by COLIN volunteers. Zero brokerage, accurate room specifications, and transparent visit slot guarantees.
+              Displaying verified properties with active homepage sponsorship. Inspected in person by the COLIN team with zero brokerage.
             </p>
           </div>
 
-          {/* Result Count and Active Filters */}
+          {/* Result Count Badge */}
           <div className="flex items-center gap-3">
             <span className="text-xs font-bold text-colin-navy bg-white px-3.5 py-1.5 rounded-xl border border-colin-charcoal-200 shadow-sm">
-              Showing {properties.length} Verified Properties
+              Showing {properties.length} Sponsored {properties.length === 1 ? 'Stay' : 'Stays'}
             </span>
           </div>
         </div>
 
-        {/* Member Access Restriction Callout Banner (Prompt Requirement) */}
+        {/* Member Access Restriction Callout Banner (Professional Investor-Grade) */}
         {!isAuthenticated && (
           <div className="mb-8 bg-gradient-to-r from-colin-navy-950 via-colin-navy to-colin-navy-900 text-white rounded-3xl p-5 sm:p-6 shadow-xl border border-colin-navy-800 flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-start gap-3.5">
@@ -58,10 +58,10 @@ export const FeaturedPropertiesSection: React.FC<FeaturedPropertiesSectionProps>
               </div>
               <div className="space-y-1">
                 <h4 className="font-extrabold text-sm sm:text-base text-white">
-                  Full Property Details & Landlord Contacts are Restricted
+                  Full Building Addresses & Landlord Contacts are Protected
                 </h4>
                 <p className="text-xs text-colin-charcoal-300 max-w-xl leading-relaxed">
-                  To protect student safety and prevent broker scrapers, exact building addresses, owner phone numbers, and visit slot bookings require a free registered COLIN account.
+                  To protect student safety and avoid unauthorized broker distribution, exact addresses, direct host phone numbers, and visit booking slots require a free member account.
                 </p>
               </div>
             </div>
@@ -72,10 +72,10 @@ export const FeaturedPropertiesSection: React.FC<FeaturedPropertiesSectionProps>
                 className="w-full md:w-auto px-4 py-2 bg-colin-teal hover:bg-colin-teal-600 text-white font-bold text-xs rounded-xl transition-all shadow-sm flex items-center justify-center gap-1.5 whitespace-nowrap"
               >
                 <Sparkles size={13} className="text-colin-orange" />
-                <span>1-Click Student Login</span>
+                <span>Quick Sign In</span>
               </button>
               <button
-                onClick={() => openAuthModal(undefined, 'Sign in or register to unlock complete property details and owner direct phone lines.')}
+                onClick={() => openAuthModal(undefined, 'Sign in or register for a free COLIN account to unlock complete property details and owner direct phone lines.')}
                 className="w-full md:w-auto px-4 py-2 bg-white/10 hover:bg-white/20 text-white font-semibold text-xs rounded-xl transition-colors whitespace-nowrap"
               >
                 Sign In
@@ -92,25 +92,38 @@ export const FeaturedPropertiesSection: React.FC<FeaturedPropertiesSectionProps>
             ))}
           </div>
         ) : (
-          /* Empty Search State */
-          <div className="bg-white rounded-3xl border border-colin-charcoal-200 p-12 text-center space-y-4 max-w-md mx-auto shadow-sm">
-            <div className="w-14 h-14 bg-colin-navy-50 text-colin-navy rounded-full mx-auto flex items-center justify-center">
-              <Building2 size={28} />
+          /* Empty State for Sponsored Showcase */
+          <div className="bg-white rounded-3xl border border-colin-charcoal-200 p-10 sm:p-14 text-center space-y-4 max-w-lg mx-auto shadow-sm">
+            <div className="w-16 h-16 bg-colin-navy-50 text-colin-navy rounded-2xl mx-auto flex items-center justify-center">
+              <Building2 size={32} className="text-colin-teal" />
             </div>
-            <div className="space-y-1">
-              <h3 className="font-extrabold text-lg text-colin-navy">No Properties Matched Your Filter</h3>
-              <p className="text-xs text-colin-charcoal-500">
-                Try adjusting your campus hub, accommodation category, or expanding your rent budget.
+            <div className="space-y-1.5">
+              <h3 className="font-extrabold text-lg text-colin-navy">
+                No Sponsored Accommodations in this Filter
+              </h3>
+              <p className="text-xs text-colin-charcoal-500 max-w-md mx-auto leading-relaxed">
+                The homepage showcase only displays verified residences whose hosts have active homepage sponsorship. Ordinary listings appear in search.
               </p>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onResetFilters}
-              leftIcon={<FilterX size={14} />}
-            >
-              Reset All Filters
-            </Button>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onResetFilters}
+                leftIcon={<FilterX size={14} />}
+              >
+                Reset Search Filters
+              </Button>
+              <a href="#owner-cta">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  rightIcon={<ArrowUpRight size={13} />}
+                >
+                  Sponsor a Property
+                </Button>
+              </a>
+            </div>
           </div>
         )}
       </div>
