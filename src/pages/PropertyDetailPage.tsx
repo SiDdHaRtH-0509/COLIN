@@ -125,7 +125,7 @@ export const PropertyDetailPage: React.FC = () => {
                   alt={`${property.title} view ${activeImageIndex + 1}`}
                   className="w-full h-full object-cover transition-all duration-300"
                 />
-                <div className="absolute top-4 left-4 flex gap-2">
+                <div className="absolute top-4 left-4 flex items-center gap-2 flex-wrap">
                   {property.isColinCertified && (
                     <ColinCertifiedBadge
                       variant="glass"
@@ -134,6 +134,10 @@ export const PropertyDetailPage: React.FC = () => {
                       showScore
                     />
                   )}
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-black uppercase tracking-wider bg-colin-navy-950 text-white border border-colin-teal/60 shadow-lg backdrop-blur-md select-none">
+                    <span className={`w-2 h-2 rounded-full ${property.gender === 'girls' ? 'bg-colin-orange' : 'bg-colin-teal'}`} />
+                    <span>{property.gender === 'girls' ? 'Girls Only' : property.gender === 'boys' ? 'Boys Only' : 'Co-ed'}</span>
+                  </span>
                 </div>
               </div>
 

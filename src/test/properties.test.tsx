@@ -44,9 +44,10 @@ describe('Properties and Access Control Presentation', () => {
       </AuthProvider>
     );
 
-    // Card should show indicative rent, sponsored badge, and lock message
+    // Card should show indicative rent, sponsored badge, gender badge (Boys Only), and lock message
     expect(screen.getByText(`₹${testProp.rentMonthly.toLocaleString('en-IN')}`)).toBeInTheDocument();
     expect(screen.getByText('Sponsored')).toBeInTheDocument();
+    expect(screen.getByText('Boys Only')).toBeInTheDocument();
     expect(screen.getByText('COLIN')).toBeInTheDocument();
     expect(screen.getByText('CERTIFIED')).toBeInTheDocument();
     expect(screen.getByText('Login to Unlock')).toBeInTheDocument();
