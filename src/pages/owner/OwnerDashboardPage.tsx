@@ -7,9 +7,7 @@ import {
   MessageSquareText,
   CalendarCheck,
   ShieldCheck,
-  TrendingUp,
   Crown,
-  PlusCircle,
   Clock,
   ExternalLink,
   BadgeCheck,
@@ -178,61 +176,6 @@ export const OwnerDashboardPage: React.FC = () => {
             </Link>
           </div>
         </div>
-      </div>
-
-      {/* ================= QUICK ACTIONS TOOLBAR ================= */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-        <Link to="/owner/properties" className="block">
-          <div className="bg-white hover:bg-colin-navy-50/80 p-3.5 rounded-2xl border border-colin-charcoal-200/90 shadow-sm transition-all hover:shadow text-center space-y-1.5 group">
-            <div className="w-9 h-9 rounded-xl bg-colin-navy text-white flex items-center justify-center mx-auto group-hover:scale-105 transition-transform">
-              <PlusCircle size={18} className="text-colin-orange" />
-            </div>
-            <div className="text-xs font-bold text-colin-navy">Add Property</div>
-            <div className="text-[10px] text-colin-charcoal-500">6 or 12 mo listing</div>
-          </div>
-        </Link>
-
-        <Link to="/owner/rooms" className="block">
-          <div className="bg-white hover:bg-colin-navy-50/80 p-3.5 rounded-2xl border border-colin-charcoal-200/90 shadow-sm transition-all hover:shadow text-center space-y-1.5 group">
-            <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto group-hover:scale-105 transition-transform">
-              <BedDouble size={18} />
-            </div>
-            <div className="text-xs font-bold text-colin-navy">Manage Rooms</div>
-            <div className="text-[10px] text-colin-charcoal-500">{totalBedsCount} total beds</div>
-          </div>
-        </Link>
-
-        <Link to="/owner/enquiries" className="block">
-          <div className="bg-white hover:bg-colin-navy-50/80 p-3.5 rounded-2xl border border-colin-charcoal-200/90 shadow-sm transition-all hover:shadow text-center space-y-1.5 group">
-            <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto group-hover:scale-105 transition-transform">
-              <MessageSquareText size={18} />
-            </div>
-            <div className="text-xs font-bold text-colin-navy">Student Coordination</div>
-            <div className="text-[10px] text-colin-charcoal-500">
-              {newEnquiriesCount > 0 ? `${newEnquiriesCount} new leads` : 'Review pipeline'}
-            </div>
-          </div>
-        </Link>
-
-        <Link to="/owner/certification" className="block">
-          <div className="bg-white hover:bg-colin-navy-50/80 p-3.5 rounded-2xl border border-colin-charcoal-200/90 shadow-sm transition-all hover:shadow text-center space-y-1.5 group">
-            <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto group-hover:scale-105 transition-transform">
-              <ShieldCheck size={18} />
-            </div>
-            <div className="text-xs font-bold text-colin-navy">Request Audit</div>
-            <div className="text-[10px] text-colin-charcoal-500">Physical verification</div>
-          </div>
-        </Link>
-
-        <Link to="/owner/monetisation" className="block col-span-2 sm:col-span-1">
-          <div className="bg-white hover:bg-colin-navy-50/80 p-3.5 rounded-2xl border border-colin-charcoal-200/90 shadow-sm transition-all hover:shadow text-center space-y-1.5 group">
-            <div className="w-9 h-9 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center mx-auto group-hover:scale-105 transition-transform">
-              <TrendingUp size={18} />
-            </div>
-            <div className="text-xs font-bold text-colin-navy">Promote Stays</div>
-            <div className="text-[10px] text-colin-charcoal-500">Homepage Spotlight</div>
-          </div>
-        </Link>
       </div>
 
       {/* ================= TOP METRIC CARDS (4-COL GRID) ================= */}
