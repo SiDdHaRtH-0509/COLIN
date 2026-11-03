@@ -122,6 +122,14 @@ const DEFAULT_PREFERENCES: StudentPreferences = {
   emailNewsletter: false,
 };
 
+const getLiveProperties = (): Property[] => {
+  try {
+    const stored = localStorage.getItem('colin_all_properties');
+    if (stored) return JSON.parse(stored);
+  } catch {}
+  return PROPERTIES;
+};
+
 const StudentContext = createContext<StudentContextType | undefined>(undefined);
 
 export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -283,7 +291,7 @@ export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const clearWishlist = useCallback(() => setWishlist([]), []);
 
-  const savedProperties = PROPERTIES.filter((p) => wishlist.includes(p.id));
+  const savedProperties = getLiveProperties().filter((p) => wishlist.includes(p.id));
 
   // Comparison actions
   const addToComparison = useCallback((propertyId: string): { success: boolean; message?: string } => {
@@ -305,7 +313,7 @@ export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const isInComparison = useCallback((propertyId: string) => comparisonList.includes(propertyId), [comparisonList]);
 
-  const comparedProperties = PROPERTIES.filter((p) => comparisonList.includes(p.id));
+  const comparedProperties = getLiveProperties().filter((p) => comparisonList.includes(p.id));
 
   // Recently Viewed actions
   const addRecentlyViewed = useCallback((propertyId: string) => {
@@ -316,7 +324,7 @@ export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   }, []);
 
-  const recentlyViewedProperties = PROPERTIES.filter((p) => recentlyViewed.includes(p.id));
+  const recentlyViewedProperties = getLiveProperties().filter((p) => recentlyViewed.includes(p.id));
 
   // Visit bookings actions
   const bookVisit = (booking: VisitBooking) => {

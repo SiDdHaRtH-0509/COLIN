@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useStudent } from '../../context/StudentContext';
 import { PROPERTIES } from '../../data/mockData';
+import { useProperties } from '../../context/PropertyContext';
 import {
   VISIT_BOOKING_FEE,
   VISIT_REFUND_AMOUNT,
@@ -74,9 +75,16 @@ export const StudentDashboardPage: React.FC = () => {
   // --------------------------------------------------------------------------
   // Personalized Recommendation Slices
   // --------------------------------------------------------------------------
+  let propertiesSource = PROPERTIES;
+  try {
+    const propCtx = useProperties();
+    if (propCtx?.properties) propertiesSource = propCtx.properties;
+  } catch {}
 
   // Campus Recommendations: matches student's university
-  const campusRecommendations = PROPERTIES.filter((p) => {
+  const campusRecommendations = propertiesSource
+    .filter((p) => !p.listingStatus || p.listingStatus === 'active')
+    .filter((p) => {
     const studentUni = (studentPreferences.university || user?.university || '').toLowerCase();
     if (!studentUni) return true;
     const baseUni = studentUni.split('(')[0].trim();
@@ -85,7 +93,7 @@ export const StudentDashboardPage: React.FC = () => {
 
   // Next upcoming visit pass
   const nextVisit = visits.find((v) => v.status === 'Confirmed' || v.status === 'Pending');
-  const nextVisitProperty = nextVisit ? PROPERTIES.find((p) => p.id === nextVisit.propertyId) : null;
+  const nextVisitProperty = nextVisit ? propertiesSource.find((p) => p.id === nextVisit.propertyId) : null;
 
   return (
     <div className="space-y-8 animate-fadeIn max-w-7xl mx-auto pb-20">

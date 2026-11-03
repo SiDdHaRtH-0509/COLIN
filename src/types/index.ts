@@ -114,6 +114,14 @@ export interface Property {
   inspectionChecklist?: InspectionChecklist;
   mealOptions?: string[];
   createdAt?: string;
+
+  // Phase 3 Owner & Property Management extensions
+  ownerId?: string;
+  listingStatus?: 'active' | 'paused' | 'draft' | 'expired';
+  listingDuration?: '6-month' | '12-month';
+  listingStartedAt?: string;
+  listingExpiresAt?: string;
+  brokerage?: number;
 }
 
 export interface SearchFilterState {
@@ -204,3 +212,160 @@ export const isPropertyCertified = (property: Property): boolean => {
     property.inspectionApproved === true
   );
 };
+
+// ==========================================
+// Phase 3 — Owner Portal & Property Management
+// ==========================================
+
+export type RoomStatus = 'available' | 'occupied' | 'maintenance';
+
+export interface Room {
+  id: string;
+  propertyId: string;
+  roomNumber: string;
+  roomType: SharingType;
+  floor: string;
+  monthlyRent: number;
+  depositAmount: number;
+  totalBeds: number;
+  availableBeds: number;
+  status: RoomStatus;
+  amenities: string[];
+  description?: string;
+  updatedAt?: string;
+}
+
+export type EnquiryStatus =
+  | 'New'
+  | 'Contacted'
+  | 'Interested'
+  | 'Visit Scheduled'
+  | 'Converted'
+  | 'Closed';
+
+export interface Enquiry {
+  id: string;
+  propertyId: string;
+  propertyTitle: string;
+  studentName: string;
+  studentEmail: string;
+  studentPhone: string;
+  studentUniversity?: string;
+  message: string;
+  date: string;
+  status: EnquiryStatus;
+  internalNotes?: string[];
+  preferredMoveIn?: string;
+  roomTypeInterested?: string;
+  privacyRestricted?: boolean;
+}
+
+export type CertificationStage =
+  | 'Not Requested'
+  | 'Payment Pending'
+  | 'Inspection Requested'
+  | 'Inspector Assigned'
+  | 'Inspection Scheduled'
+  | 'Inspection Completed'
+  | 'Under Review'
+  | 'Certified'
+  | 'Rejected';
+
+export interface CertificationRequest {
+  id: string;
+  propertyId: string;
+  propertyTitle: string;
+  ownerId: string;
+  status: CertificationStage;
+  requestedAt: string;
+  inspectionFeePaid: number;
+  inspectionFeeStatus: 'Paid' | 'Pending';
+  scheduledDate?: string;
+  scheduledTimeSlot?: string;
+  inspectorName?: string;
+  inspectorContact?: string;
+  inspectorAvatar?: string;
+  inspectionScore?: number;
+  inspectionChecklist?: InspectionChecklist;
+  inspectionRemarks?: string;
+  certifiedAt?: string;
+  rejectionReason?: string;
+}
+
+export type OwnerSubscriptionTier = 'FREE' | 'PRO' | 'PREMIUM';
+
+export interface OwnerSubscriptionPayment {
+  id: string;
+  date: string;
+  plan: string;
+  amount: number;
+  status: 'Paid' | 'Pending';
+  invoiceNumber: string;
+}
+
+export interface OwnerSubscription {
+  tier: OwnerSubscriptionTier;
+  billingCycle: 'monthly' | 'annual';
+  price: number;
+  startedAt: string;
+  expiresAt: string;
+  propertyLimit: number;
+  features: string[];
+  paymentHistory: OwnerSubscriptionPayment[];
+}
+
+export type PhotographyPackage = 'HDR Essentials' | '360° Virtual Tour & HDR' | 'Full Studio & Drone Shoot';
+
+export interface PhotographyBooking {
+  id: string;
+  propertyId: string;
+  propertyTitle: string;
+  package: PhotographyPackage;
+  price: number;
+  scheduledDate: string;
+  timeSlot: string;
+  status: 'Booked' | 'Shoot Completed' | 'Processing Photos' | 'Delivered';
+  photographerName?: string;
+  photographerPhone?: string;
+  requestedAt: string;
+}
+
+export interface SponsorshipCampaign {
+  id: string;
+  propertyId: string;
+  propertyTitle: string;
+  type: 'homepage' | 'search_boost';
+  durationDays: number;
+  startDate: string;
+  endDate: string;
+  price: number;
+  status: 'Active' | 'Scheduled' | 'Completed';
+  impressions: number;
+  clicks: number;
+  leadsGenerated: number;
+}
+
+export interface OwnerProfile {
+  id: string;
+  businessName: string;
+  ownerName: string;
+  email: string;
+  phone: string;
+  address: string;
+  city: string;
+  avatar: string;
+  gstin?: string;
+  pan?: string;
+  bankAccount?: {
+    accountNumber: string;
+    ifsc: string;
+    beneficiaryName: string;
+    bankName: string;
+  };
+  notificationPreferences: {
+    whatsapp: boolean;
+    email: boolean;
+    sms: boolean;
+    instantEnquiryAlerts: boolean;
+  };
+}

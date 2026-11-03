@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useStudent } from '../../context/StudentContext';
 import { PROPERTIES } from '../../data/mockData';
+import { useProperties } from '../../context/PropertyContext';
 import { Property } from '../../types';
 import {
   Scale,
@@ -29,8 +30,16 @@ export const StudentComparePage: React.FC = () => {
   const [selectedPropertyForBooking, setSelectedPropertyForBooking] = useState<Property | null>(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
 
+  let propertiesSource = PROPERTIES;
+  try {
+    const propCtx = useProperties();
+    if (propCtx?.properties) propertiesSource = propCtx.properties;
+  } catch {}
+
   // Available properties to add (not already in comparison)
-  const availableToAdd = PROPERTIES.filter((p) => !comparisonList.includes(p.id));
+  const availableToAdd = propertiesSource
+    .filter((p) => !p.listingStatus || p.listingStatus === 'active')
+    .filter((p) => !comparisonList.includes(p.id));
 
   // Determine winners/highlights across compared properties
   const lowestRent = comparedProperties.length > 0

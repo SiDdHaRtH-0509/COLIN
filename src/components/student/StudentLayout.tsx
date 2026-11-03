@@ -172,6 +172,16 @@ export const StudentLayout: React.FC = () => {
               size="sm"
               className="flex-1 justify-center"
               onClick={() => {
+                navigate('/owner/dashboard');
+              }}
+            >
+              Go to Owner Dashboard
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1 justify-center"
+              onClick={() => {
                 demoLogin('student');
                 navigate('/student/dashboard');
               }}
@@ -179,7 +189,7 @@ export const StudentLayout: React.FC = () => {
               Switch to Student Demo
             </Button>
             <Link to="/" className="flex-1">
-              <Button variant="outline" size="sm" className="w-full justify-center">
+              <Button variant="ghost" size="sm" className="w-full justify-center">
                 Return to Homepage
               </Button>
             </Link>

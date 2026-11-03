@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { SearchFilterState, AccommodationType } from '../types';
 import { PROPERTIES } from '../data/mockData';
+import { useProperties } from '../context/PropertyContext';
 import { HeroSection } from '../components/home/HeroSection';
 import { CategoriesSection } from '../components/home/CategoriesSection';
 import { FeaturedPropertiesSection } from '../components/home/FeaturedPropertiesSection';
@@ -33,8 +34,16 @@ export const HomePage: React.FC = () => {
     });
   };
 
+  let propertiesSource = PROPERTIES;
+  try {
+    const propCtx = useProperties();
+    if (propCtx?.properties) {
+      propertiesSource = propCtx.properties;
+    }
+  } catch {}
+
   const filteredProperties = useMemo(() => {
-    return PROPERTIES.filter((p) => {
+    return propertiesSource.filter((p) => {
       // REQUIREMENT 4: Homepage property showcase displays ONLY properties with paid sponsorship
       if (!p.isSponsored) {
         return false;
