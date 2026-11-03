@@ -65,8 +65,8 @@ export const Navbar: React.FC = () => {
             </div>
           </Link>
 
-          {/* Main Center Navigation: Minimal (Just Home) */}
-          <nav className="hidden md:flex items-center">
+          {/* Main Center Navigation: Home and Student Portal when authenticated */}
+          <nav className="hidden md:flex items-center gap-1">
             <Link
               to="/"
               className={`text-sm font-bold transition-all px-4 py-2 rounded-xl flex items-center gap-2 ${
@@ -80,6 +80,20 @@ export const Navbar: React.FC = () => {
                 <span className="w-1.5 h-1.5 rounded-full bg-colin-teal inline-block" />
               )}
             </Link>
+
+            {isAuthenticated && user?.role === 'student' && (
+              <Link
+                to="/student/dashboard"
+                className={`text-sm font-bold transition-all px-4 py-2 rounded-xl flex items-center gap-2 ${
+                  location.pathname.startsWith('/student')
+                    ? 'text-colin-navy bg-colin-navy-50/80 font-extrabold shadow-sm'
+                    : 'text-colin-teal-700 hover:text-colin-navy hover:bg-colin-teal-50'
+                }`}
+              >
+                <ShieldCheck size={14} className="text-colin-teal" />
+                <span>Student Portal</span>
+              </Link>
+            )}
           </nav>
 
           {/* Right Side: Log In & Register / Sign Up */}
@@ -119,6 +133,35 @@ export const Navbar: React.FC = () => {
                         <span>COLIN Verified Account</span>
                       </div>
                     </div>
+
+                    {user?.role === 'student' && (
+                      <div className="py-1 border-b border-colin-charcoal-100">
+                        <Link
+                          to="/student/dashboard"
+                          className="w-full text-left px-4 py-2 text-xs text-colin-navy hover:bg-colin-navy-50/70 font-bold flex items-center gap-2 transition-colors"
+                        >
+                          <span>Student Dashboard</span>
+                        </Link>
+                        <Link
+                          to="/student/explore"
+                          className="w-full text-left px-4 py-2 text-xs text-colin-navy hover:bg-colin-navy-50/70 font-bold flex items-center gap-2 transition-colors"
+                        >
+                          <span>Explore Stays</span>
+                        </Link>
+                        <Link
+                          to="/student/saved"
+                          className="w-full text-left px-4 py-2 text-xs text-colin-navy hover:bg-colin-navy-50/70 font-bold flex items-center gap-2 transition-colors"
+                        >
+                          <span>Saved Properties</span>
+                        </Link>
+                        <Link
+                          to="/student/visits"
+                          className="w-full text-left px-4 py-2 text-xs text-colin-navy hover:bg-colin-navy-50/70 font-bold flex items-center gap-2 transition-colors"
+                        >
+                          <span>My Visit Passes</span>
+                        </Link>
+                      </div>
+                    )}
 
                     <div className="border-t border-colin-charcoal-100 pt-1">
                       <button

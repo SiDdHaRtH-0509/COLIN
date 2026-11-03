@@ -45,7 +45,11 @@ export const LoginPage: React.FC = () => {
     try {
       const success = await login(email);
       if (success) {
-        navigate(redirectUrl);
+        if (redirectUrl && redirectUrl !== '/' && !redirectUrl.includes('/student') || email.includes('student') || !email.includes('owner')) {
+          navigate(redirectUrl && redirectUrl !== '/' ? redirectUrl : '/student/dashboard');
+        } else {
+          navigate(redirectUrl && !redirectUrl.includes('/student') ? redirectUrl : '/');
+        }
       }
     } catch {
       setError('Authentication failed. Please verify your credentials.');
@@ -54,7 +58,11 @@ export const LoginPage: React.FC = () => {
 
   const handleDemoFill = (role: 'student' | 'owner') => {
     demoLogin(role);
-    navigate(redirectUrl);
+    if (role === 'student') {
+      navigate(redirectUrl && redirectUrl !== '/' ? redirectUrl : '/student/dashboard');
+    } else {
+      navigate(redirectUrl && !redirectUrl.includes('/student') ? redirectUrl : '/');
+    }
   };
 
   const handleForgotSubmit = (e: React.FormEvent) => {

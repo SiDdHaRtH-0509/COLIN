@@ -1,6 +1,13 @@
 import React, { useState } from 'react';
 import { Property, VisitBooking } from '../../types';
 import { useAuth } from '../../context/AuthContext';
+import { useStudent } from '../../context/StudentContext';
+import {
+  VISIT_BOOKING_FEE,
+  VISIT_REFUND_AMOUNT,
+  VISIT_NON_REFUNDABLE_AMOUNT,
+  VISIT_REFUND_PERCENTAGE
+} from '../../constants/booking';
 import { 
   Calendar, 
   Clock, 
@@ -20,6 +27,7 @@ interface VisitSlotModalProps {
 
 export const VisitSlotModal: React.FC<VisitSlotModalProps> = ({ property, isOpen, onClose }) => {
   const { user } = useAuth();
+  const studentContext = useStudent();
   const [selectedDate, setSelectedDate] = useState('Tomorrow, Nov 2');
   const [selectedSlot, setSelectedSlot] = useState('11:00 AM - 12:30 PM');
   const [studentPhone, setStudentPhone] = useState(user?.phone || '+91 98765 43210');
@@ -31,20 +39,30 @@ export const VisitSlotModal: React.FC<VisitSlotModalProps> = ({ property, isOpen
   const handleBooking = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    await new Promise((res) => setTimeout(res, 800));
+    await new Promise((res) => setTimeout(res, 600));
 
     const booking: VisitBooking = {
       id: `VSLOT-${Math.floor(100000 + Math.random() * 900000)}`,
       propertyId: property.id,
       propertyTitle: property.title,
+      propertyImage: property.featuredImage,
+      propertyCity: property.city,
+      propertyNeighborhood: property.neighborhood,
       date: selectedDate,
       timeSlot: selectedSlot,
       studentName: user?.name || 'Student Scholar',
       studentPhone: studentPhone,
       status: 'Confirmed',
-      feePaid: property.visitSlotFee,
-      refundPolicy: '55% guaranteed instant refund if you do not finalize this property after your in-person visit.',
+      feePaid: property.visitSlotFee || VISIT_BOOKING_FEE,
+      refundPolicy: `${VISIT_REFUND_PERCENTAGE}% guaranteed refund (₹${VISIT_REFUND_AMOUNT.toFixed(2)}) if you physically inspect the room and choose not to finalize.`,
+      meetingGuideName: property.ownerName ? `${property.ownerName} (Host)` : 'COLIN Student Ambassador',
+      meetingGuideContact: property.ownerContact || '+91 98112 00192',
+      createdAt: new Date().toISOString().split('T')[0],
     };
+
+    if (studentContext?.bookVisit) {
+      studentContext.bookVisit(booking);
+    }
 
     setConfirmedBooking(booking);
     setIsSubmitting(false);
@@ -113,11 +131,16 @@ export const VisitSlotModal: React.FC<VisitSlotModalProps> = ({ property, isOpen
               </div>
               <div className="flex justify-between py-1 border-b border-colin-navy-100">
                 <span className="text-colin-charcoal-500 font-medium">Slot Fee:</span>
-                <span className="font-bold text-colin-navy">₹{confirmedBooking.feePaid}</span>
+                <span className="font-bold text-colin-navy">₹{confirmedBooking.feePaid.toFixed(2)}</span>
               </div>
-              <div className="pt-1 text-[11px] text-colin-teal-800 font-semibold flex items-start gap-1.5">
-                <ShieldCheck size={14} className="shrink-0 text-colin-teal mt-0.5" />
-                <span>55% Refund Guarantee Active: If you choose not to proceed after your visit, ₹165 will be refunded instantly to your original payment method.</span>
+              <div className="pt-1 text-[11px] text-colin-teal-800 font-semibold space-y-1">
+                <div className="flex items-start gap-1.5">
+                  <ShieldCheck size={14} className="shrink-0 text-colin-teal mt-0.5" />
+                  <span>55% Refund Guarantee Active: If you inspect the room and do not like it, ₹{VISIT_REFUND_AMOUNT.toFixed(2)} (55%) will be refunded immediately.</span>
+                </div>
+                <div className="text-[10px] text-colin-charcoal-500 pl-5">
+                  Remaining non-refundable ambassador slot allowance: ₹{VISIT_NON_REFUNDABLE_AMOUNT.toFixed(2)}.
+                </div>
               </div>
             </div>
 
@@ -197,14 +220,19 @@ export const VisitSlotModal: React.FC<VisitSlotModalProps> = ({ property, isOpen
             </div>
 
             {/* 55% Refund Policy Banner (from Business Model Doc) */}
-            <div className="bg-colin-orange/10 border border-colin-orange/40 rounded-2xl p-3.5 text-xs text-colin-charcoal-800 space-y-1">
+            <div className="bg-colin-orange/10 border border-colin-orange/40 rounded-2xl p-3.5 text-xs text-colin-charcoal-800 space-y-2">
               <div className="flex items-center gap-1.5 font-bold text-colin-orange-900">
                 <ShieldCheck size={16} className="text-colin-orange-700" />
                 <span>COLIN Visit Commitment & 55% Refund Guarantee:</span>
               </div>
               <p className="text-[11px] leading-relaxed text-colin-charcoal-700 pl-5">
-                A nominal ₹{property.visitSlotFee} slot deposit connects you directly with the verified owner and a COLIN visit guide. <strong>If you decide not to rent this accommodation after visiting, 55% (₹165) will be refunded immediately</strong> to your UPI / card. If you rent it, the full deposit applies towards your booking.
+                Visit Booking Fee: <strong>₹{(property.visitSlotFee || VISIT_BOOKING_FEE).toFixed(2)}</strong>. If you physically inspect this property and decide it does not meet your expectations, <strong>55% (₹{VISIT_REFUND_AMOUNT.toFixed(2)}) will be refunded</strong> to your account.
               </p>
+              <div className="flex items-center justify-between text-[10px] bg-white/70 p-2 rounded-xl border border-colin-orange/20 text-colin-charcoal-700 ml-5 font-semibold">
+                <span>Fee: ₹{(property.visitSlotFee || VISIT_BOOKING_FEE).toFixed(2)}</span>
+                <span className="text-colin-teal font-bold">55% Refund: ₹{VISIT_REFUND_AMOUNT.toFixed(2)}</span>
+                <span className="text-colin-charcoal-500">Remaining: ₹{VISIT_NON_REFUNDABLE_AMOUNT.toFixed(2)}</span>
+              </div>
             </div>
 
             <div className="pt-2">
@@ -215,7 +243,7 @@ export const VisitSlotModal: React.FC<VisitSlotModalProps> = ({ property, isOpen
                 isLoading={isSubmitting}
                 rightIcon={<CreditCard size={16} />}
               >
-                Confirm Slot Pass (₹{property.visitSlotFee})
+                Confirm Slot Pass (₹{(property.visitSlotFee || VISIT_BOOKING_FEE).toFixed(2)})
               </Button>
             </div>
           </form>

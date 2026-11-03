@@ -89,7 +89,11 @@ export const SignUpPage: React.FC = () => {
       });
 
       if (success) {
-        navigate(redirectUrl);
+        if (role === 'student') {
+          navigate(redirectUrl && redirectUrl !== '/' ? redirectUrl : '/student/dashboard');
+        } else {
+          navigate(redirectUrl && !redirectUrl.includes('/student') ? redirectUrl : '/');
+        }
       }
     } catch {
       setError('Registration could not be completed. Please try again.');

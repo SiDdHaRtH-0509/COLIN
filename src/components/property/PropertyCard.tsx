@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Property } from '../../types';
+import { Property, isPropertyCertified } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { 
   MapPin, 
@@ -66,14 +66,22 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property }) => {
         {/* Top Badges Area: Consistent placement with zero overcrowding */}
         <div className="absolute top-3 left-3 right-3 flex items-start justify-between gap-2 z-10 pointer-events-none">
           <div className="flex items-center gap-1.5 flex-wrap">
-            {property.isColinCertified && (
+            {isPropertyCertified(property) ? (
               <ColinCertifiedBadge
                 variant="dark"
                 size="sm"
                 score={property.certificationScore}
                 showScore={false}
               />
-            )}
+            ) : property.verificationStatus && property.verificationStatus !== 'not_requested' ? (
+              <span className="bg-white/90 backdrop-blur-md text-slate-800 text-[10px] font-bold px-2 py-0.5 rounded-lg border border-slate-200 shadow-sm">
+                {property.verificationStatus === 'inspection_scheduled' && '📅 Scheduled'}
+                {property.verificationStatus === 'inspection_in_progress' && '🔍 In Progress'}
+                {property.verificationStatus === 'inspection_completed' && '📝 Audit Pending'}
+                {property.verificationStatus === 'payment_pending' && '💳 Verification Pending'}
+                {property.verificationStatus === 'rejected' && '❌ Unverified'}
+              </span>
+            ) : null}
             {property.isSponsored && (
               <span className="bg-colin-orange text-colin-navy-950 text-[10px] uppercase font-black tracking-wider px-2 py-0.5 rounded-lg shadow-sm border border-colin-orange-400">
                 Sponsored
