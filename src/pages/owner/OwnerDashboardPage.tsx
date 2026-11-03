@@ -13,6 +13,13 @@ import {
   Clock,
   ExternalLink,
   BadgeCheck,
+  Sparkles,
+  CheckCircle2,
+  AlertCircle,
+  BarChart3,
+  Layers,
+  CheckCheck,
+  BellRing,
 } from 'lucide-react';
 import { Button } from '../../components/common/Button';
 
@@ -28,7 +35,7 @@ export const OwnerDashboardPage: React.FC = () => {
     toggleListingStatus,
   } = useProperties();
 
-  // DERIVED METRICS (Never hardcoded!)
+  // DERIVED METRICS (100% dynamic, zero hardcoding)
   const totalProperties = ownerProperties.length;
   const activeListings = ownerProperties.filter((p) => !p.listingStatus || p.listingStatus === 'active').length;
   const pendingListings = ownerProperties.filter((p) => p.listingStatus === 'paused' || p.listingStatus === 'draft').length;
@@ -46,18 +53,25 @@ export const OwnerDashboardPage: React.FC = () => {
   const occupiedBedsCount = Math.max(0, totalBedsCount - availableBedsCount);
   const occupancyPercentage = totalBedsCount > 0 ? Math.round((occupiedBedsCount / totalBedsCount) * 100) : 0;
 
-  // Enquiries metrics
+  // Enquiries & Mediated Bookings metrics
   const totalEnquiriesCount = enquiries.length;
   const newEnquiriesCount = enquiries.filter((e) => e.status === 'New').length;
 
-  // Visits metrics
-  const upcomingVisits = visits.filter((v) => v.status === 'Confirmed' || v.status === 'Pending');
+  // Visits metrics (both upcoming confirmed visits and new requests)
+  const upcomingVisits = visits.filter(
+    (v) =>
+      v.status === 'Confirmed' ||
+      v.status === 'Pending' ||
+      v.status === 'VISIT_CONFIRMED' ||
+      v.status === 'PENDING_COLIN_REVIEW' ||
+      v.status === 'AWAITING_OWNER_AVAILABILITY'
+  );
   const upcomingVisitsCount = upcomingVisits.length;
 
   // Certification metrics
   const certifiedPropertiesCount = ownerProperties.filter((p) => p.isColinCertified).length;
 
-  // Latest activities stream
+  // Chronological activity stream
   const recentActivities = useMemo(() => {
     const list: Array<{
       id: string;
@@ -85,11 +99,14 @@ export const OwnerDashboardPage: React.FC = () => {
       list.push({
         id: `act-vis-${v.id}`,
         type: 'visit',
-        title: `Visit by ${v.studentName}`,
-        subtitle: `${v.propertyTitle} • Slot: ${v.date} (${v.timeSlot})`,
+        title: `Visit for ${v.studentName}`,
+        subtitle: `${v.propertyTitle} • ${v.date} (${v.timeSlot})`,
         date: v.date,
         status: v.status,
-        badgeClass: v.status === 'Confirmed' ? 'bg-emerald-600 text-white' : 'bg-amber-100 text-amber-800',
+        badgeClass:
+          v.status === 'Confirmed' || v.status === 'VISIT_CONFIRMED'
+            ? 'bg-emerald-600 text-white'
+            : 'bg-amber-100 text-amber-800',
       });
     });
 
@@ -105,12 +122,11 @@ export const OwnerDashboardPage: React.FC = () => {
       });
     });
 
-    return list.slice(0, 5);
+    return list.slice(0, 6);
   }, [enquiries, visits, certifications]);
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto pb-12 animate-fadeIn">
-      
       {/* ================= OVERVIEW HEADER ================= */}
       <div className="bg-gradient-to-r from-colin-navy-950 via-colin-navy to-colin-navy-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden border border-white/10">
         {/* Ambient Glow */}
@@ -143,7 +159,12 @@ export const OwnerDashboardPage: React.FC = () => {
                 <span>{subscription.tier} Host Plan</span>
               </div>
               <p className="text-[11px] text-colin-charcoal-300">
-                Active until {new Date(subscription.expiresAt).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })}
+                Active until{' '}
+                {new Date(subscription.expiresAt).toLocaleDateString('en-IN', {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                })}
               </p>
             </div>
             <Link to="/owner/subscription">
@@ -159,77 +180,76 @@ export const OwnerDashboardPage: React.FC = () => {
         </div>
       </div>
 
-      {/* ================= QUICK ACTIONS BAR ================= */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        <Link to="/owner/properties">
-          <div className="bg-white hover:bg-colin-navy hover:text-white p-3.5 rounded-2xl border border-colin-charcoal-200/90 shadow-sm transition-all group cursor-pointer text-center space-y-1.5">
-            <div className="w-9 h-9 rounded-xl bg-colin-navy-50 text-colin-navy group-hover:bg-white/20 group-hover:text-white flex items-center justify-center mx-auto transition-colors">
+      {/* ================= QUICK ACTIONS TOOLBAR ================= */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+        <Link to="/owner/properties" className="block">
+          <div className="bg-white hover:bg-colin-navy-50/80 p-3.5 rounded-2xl border border-colin-charcoal-200/90 shadow-sm transition-all hover:shadow text-center space-y-1.5 group">
+            <div className="w-9 h-9 rounded-xl bg-colin-navy text-white flex items-center justify-center mx-auto group-hover:scale-105 transition-transform">
               <PlusCircle size={18} className="text-colin-orange" />
             </div>
-            <div className="text-xs font-black">Add Property</div>
-            <p className="text-[10px] text-colin-charcoal-500 group-hover:text-colin-charcoal-200">New stay listing</p>
+            <div className="text-xs font-bold text-colin-navy">Add Property</div>
+            <div className="text-[10px] text-colin-charcoal-500">6 or 12 mo listing</div>
           </div>
         </Link>
 
-        <Link to="/owner/rooms">
-          <div className="bg-white hover:bg-colin-navy hover:text-white p-3.5 rounded-2xl border border-colin-charcoal-200/90 shadow-sm transition-all group cursor-pointer text-center space-y-1.5">
-            <div className="w-9 h-9 rounded-xl bg-colin-navy-50 text-colin-navy group-hover:bg-white/20 group-hover:text-white flex items-center justify-center mx-auto transition-colors">
-              <BedDouble size={18} className="text-colin-teal" />
+        <Link to="/owner/rooms" className="block">
+          <div className="bg-white hover:bg-colin-navy-50/80 p-3.5 rounded-2xl border border-colin-charcoal-200/90 shadow-sm transition-all hover:shadow text-center space-y-1.5 group">
+            <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto group-hover:scale-105 transition-transform">
+              <BedDouble size={18} />
             </div>
-            <div className="text-xs font-black">Manage Rooms</div>
-            <p className="text-[10px] text-colin-charcoal-500 group-hover:text-colin-charcoal-200">Bed occupancy</p>
+            <div className="text-xs font-bold text-colin-navy">Manage Rooms</div>
+            <div className="text-[10px] text-colin-charcoal-500">{totalBedsCount} total beds</div>
           </div>
         </Link>
 
-        <Link to="/owner/enquiries">
-          <div className="bg-white hover:bg-colin-navy hover:text-white p-3.5 rounded-2xl border border-colin-charcoal-200/90 shadow-sm transition-all group cursor-pointer text-center space-y-1.5">
-            <div className="w-9 h-9 rounded-xl bg-colin-navy-50 text-colin-navy group-hover:bg-white/20 group-hover:text-white flex items-center justify-center mx-auto transition-colors">
-              <MessageSquareText size={18} className="text-colin-orange" />
+        <Link to="/owner/enquiries" className="block">
+          <div className="bg-white hover:bg-colin-navy-50/80 p-3.5 rounded-2xl border border-colin-charcoal-200/90 shadow-sm transition-all hover:shadow text-center space-y-1.5 group">
+            <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto group-hover:scale-105 transition-transform">
+              <MessageSquareText size={18} />
             </div>
-            <div className="text-xs font-black">View Enquiries</div>
-            <p className="text-[10px] text-colin-charcoal-500 group-hover:text-colin-charcoal-200">{newEnquiriesCount} new messages</p>
+            <div className="text-xs font-bold text-colin-navy">Student Coordination</div>
+            <div className="text-[10px] text-colin-charcoal-500">
+              {newEnquiriesCount > 0 ? `${newEnquiriesCount} new leads` : 'Review pipeline'}
+            </div>
           </div>
         </Link>
 
-        <Link to="/owner/certification">
-          <div className="bg-white hover:bg-colin-navy hover:text-white p-3.5 rounded-2xl border border-colin-charcoal-200/90 shadow-sm transition-all group cursor-pointer text-center space-y-1.5">
-            <div className="w-9 h-9 rounded-xl bg-colin-navy-50 text-colin-navy group-hover:bg-white/20 group-hover:text-white flex items-center justify-center mx-auto transition-colors">
-              <ShieldCheck size={18} className="text-colin-teal" />
+        <Link to="/owner/certification" className="block">
+          <div className="bg-white hover:bg-colin-navy-50/80 p-3.5 rounded-2xl border border-colin-charcoal-200/90 shadow-sm transition-all hover:shadow text-center space-y-1.5 group">
+            <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto group-hover:scale-105 transition-transform">
+              <ShieldCheck size={18} />
             </div>
-            <div className="text-xs font-black">COLIN Audit</div>
-            <p className="text-[10px] text-colin-charcoal-500 group-hover:text-colin-charcoal-200">Physical inspection</p>
+            <div className="text-xs font-bold text-colin-navy">Request Audit</div>
+            <div className="text-[10px] text-colin-charcoal-500">Physical verification</div>
           </div>
         </Link>
 
-        <Link to="/owner/monetisation" className="col-span-2 sm:col-span-1">
-          <div className="bg-white hover:bg-colin-navy hover:text-white p-3.5 rounded-2xl border border-colin-charcoal-200/90 shadow-sm transition-all group cursor-pointer text-center space-y-1.5">
-            <div className="w-9 h-9 rounded-xl bg-colin-navy-50 text-colin-navy group-hover:bg-white/20 group-hover:text-white flex items-center justify-center mx-auto transition-colors">
-              <TrendingUp size={18} className="text-colin-orange" />
+        <Link to="/owner/monetisation" className="block col-span-2 sm:col-span-1">
+          <div className="bg-white hover:bg-colin-navy-50/80 p-3.5 rounded-2xl border border-colin-charcoal-200/90 shadow-sm transition-all hover:shadow text-center space-y-1.5 group">
+            <div className="w-9 h-9 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center mx-auto group-hover:scale-105 transition-transform">
+              <TrendingUp size={18} />
             </div>
-            <div className="text-xs font-black">Promote Listing</div>
-            <p className="text-[10px] text-colin-charcoal-500 group-hover:text-colin-charcoal-200">Homepage ads</p>
+            <div className="text-xs font-bold text-colin-navy">Promote Stays</div>
+            <div className="text-[10px] text-colin-charcoal-500">Homepage Spotlight</div>
           </div>
         </Link>
       </div>
 
-      {/* ================= DERIVED STATISTICS GRID ================= */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {/* 1. Properties & Listings */}
+      {/* ================= TOP METRIC CARDS (4-COL GRID) ================= */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        {/* 1. Total Properties */}
         <div className="bg-white rounded-3xl p-5 border border-colin-charcoal-200/90 shadow-sm space-y-2">
           <div className="flex items-center justify-between text-colin-charcoal-500">
-            <span className="text-xs font-bold uppercase tracking-wider">Properties</span>
+            <span className="text-xs font-bold uppercase tracking-wider">Properties Portfolio</span>
             <Building2 size={18} className="text-colin-navy" />
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-black text-colin-navy font-display">
-              {totalProperties}
-            </span>
-            <span className="text-xs text-colin-teal-700 font-bold">
-              {activeListings} Active
-            </span>
+            <span className="text-3xl font-black text-colin-navy font-display">{totalProperties}</span>
+            <span className="text-xs text-emerald-600 font-bold">{activeListings} Active</span>
+            {pendingListings > 0 && <span className="text-xs text-amber-600 font-bold">{pendingListings} Paused</span>}
           </div>
-          <div className="text-[11px] text-colin-charcoal-500 flex items-center gap-1">
-            <span>{pendingListings} paused / draft</span>
+          <div className="text-[11px] text-colin-charcoal-500">
+            <span>{certifiedPropertiesCount} of {totalProperties} COLIN Certified</span>
           </div>
         </div>
 
@@ -240,12 +260,8 @@ export const OwnerDashboardPage: React.FC = () => {
             <BedDouble size={18} className="text-colin-teal" />
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-black text-colin-navy font-display">
-              {occupancyPercentage}%
-            </span>
-            <span className="text-xs text-colin-teal font-bold">
-              {availableBedsCount} available
-            </span>
+            <span className="text-3xl font-black text-colin-navy font-display">{occupancyPercentage}%</span>
+            <span className="text-xs text-colin-teal font-bold">{availableBedsCount} Beds Vacant</span>
           </div>
           <div className="text-[11px] text-colin-charcoal-500">
             <span>{occupiedBedsCount} of {totalBedsCount} beds filled</span>
@@ -256,12 +272,10 @@ export const OwnerDashboardPage: React.FC = () => {
         <div className="bg-white rounded-3xl p-5 border border-colin-charcoal-200/90 shadow-sm space-y-2">
           <div className="flex items-center justify-between text-colin-charcoal-500">
             <span className="text-xs font-bold uppercase tracking-wider">Student Enquiries</span>
-            <MessageSquareText size={18} className="text-colin-orange" />
+            <MessageSquareText size={18} className="text-amber-600" />
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-black text-colin-navy font-display">
-              {totalEnquiriesCount}
-            </span>
+            <span className="text-3xl font-black text-colin-navy font-display">{totalEnquiriesCount}</span>
             {newEnquiriesCount > 0 && (
               <span className="text-[11px] font-extrabold bg-colin-orange text-white px-2 py-0.5 rounded-full">
                 {newEnquiriesCount} New
@@ -269,7 +283,7 @@ export const OwnerDashboardPage: React.FC = () => {
             )}
           </div>
           <div className="text-[11px] text-colin-charcoal-500">
-            <span>Direct campus leads</span>
+            <span>Mediated student requests</span>
           </div>
         </div>
 
@@ -280,12 +294,8 @@ export const OwnerDashboardPage: React.FC = () => {
             <CalendarCheck size={18} className="text-emerald-600" />
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-black text-colin-navy font-display">
-              {upcomingVisitsCount}
-            </span>
-            <span className="text-xs text-emerald-600 font-bold">
-              ₹150 Pass Paid
-            </span>
+            <span className="text-3xl font-black text-colin-navy font-display">{upcomingVisitsCount}</span>
+            <span className="text-xs text-emerald-600 font-bold">₹150 Pass Paid</span>
           </div>
           <div className="text-[11px] text-colin-charcoal-500">
             <span>55% refund guarantee active</span>
@@ -293,11 +303,13 @@ export const OwnerDashboardPage: React.FC = () => {
         </div>
       </div>
 
-      {/* ================= MAIN 2-COLUMN SECTION ================= */}
+      {/* ================= BALANCED 2-COLUMN SECTION (NO BLANK LOWER-LEFT) ================= */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        
-        {/* Left Column: Property-Wise Performance Table & Listing Overview */}
+        {/* ========================================================================= */}
+        {/* LEFT / MAIN SECTION (lg:col-span-8): 7 Core Functional Modules           */}
+        {/* ========================================================================= */}
         <div className="lg:col-span-8 space-y-6">
+          {/* 1. Property Performance Overview */}
           <div className="bg-white rounded-3xl border border-colin-charcoal-200/90 shadow-sm p-6 space-y-4">
             <div className="flex items-center justify-between">
               <div>
@@ -320,7 +332,10 @@ export const OwnerDashboardPage: React.FC = () => {
             <div className="divide-y divide-colin-charcoal-100">
               {ownerProperties.map((prop) => {
                 const propRooms = rooms.filter((r) => r.propertyId === prop.id);
-                const propBeds = propRooms.reduce((acc, r) => acc + (r.status === 'available' ? r.availableBeds : 0), 0);
+                const propBeds = propRooms.reduce(
+                  (acc, r) => acc + (r.status === 'available' ? r.availableBeds : 0),
+                  0
+                );
                 const propTotalBeds = propRooms.reduce((acc, r) => acc + r.totalBeds, 0);
 
                 return (
@@ -333,9 +348,7 @@ export const OwnerDashboardPage: React.FC = () => {
                       />
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <h3 className="text-sm font-bold text-colin-navy truncate">
-                            {prop.title}
-                          </h3>
+                          <h3 className="text-sm font-bold text-colin-navy truncate">{prop.title}</h3>
                           {prop.isColinCertified && (
                             <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-colin-teal/15 text-colin-teal-700 shrink-0">
                               Verified 99/100
@@ -357,7 +370,13 @@ export const OwnerDashboardPage: React.FC = () => {
                             {propBeds} of {propTotalBeds} beds available
                           </span>
                           <span>•</span>
-                          <span className={prop.listingStatus === 'active' || !prop.listingStatus ? 'text-emerald-600 font-bold' : 'text-amber-600 font-bold'}>
+                          <span
+                            className={
+                              prop.listingStatus === 'active' || !prop.listingStatus
+                                ? 'text-emerald-600 font-bold'
+                                : 'text-amber-600 font-bold'
+                            }
+                          >
                             {prop.listingStatus === 'active' || !prop.listingStatus ? '● Active Listing' : '○ Paused'}
                           </span>
                         </div>
@@ -398,7 +417,49 @@ export const OwnerDashboardPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Occupancy & Rent Distribution Card */}
+          {/* 2. Property Management Summary */}
+          <div className="bg-white rounded-3xl border border-colin-charcoal-200/90 shadow-sm p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-black text-colin-navy font-display flex items-center gap-2">
+                <Layers size={18} className="text-colin-navy" />
+                <span>Property Management Summary</span>
+              </h2>
+              <span className="text-xs font-bold text-colin-navy bg-colin-navy-50 px-2.5 py-1 rounded-full border border-colin-navy-100">
+                {activeListings} Active / {totalProperties} Total Properties
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-100 space-y-1">
+                <div className="flex items-center justify-between text-emerald-800">
+                  <span className="text-xs font-bold">Active Listings</span>
+                  <CheckCheck size={16} className="text-emerald-600" />
+                </div>
+                <div className="text-2xl font-black text-emerald-950 font-display">{activeListings}</div>
+                <div className="text-[11px] text-emerald-700">100% visible on student discovery</div>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-100 space-y-1">
+                <div className="flex items-center justify-between text-amber-800">
+                  <span className="text-xs font-bold">Paused / Maintenance</span>
+                  <AlertCircle size={16} className="text-amber-600" />
+                </div>
+                <div className="text-2xl font-black text-amber-950 font-display">{pendingListings}</div>
+                <div className="text-[11px] text-amber-700">Hidden from student discovery</div>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-colin-navy-50/70 border border-colin-navy-100 space-y-1">
+                <div className="flex items-center justify-between text-colin-navy">
+                  <span className="text-xs font-bold">Listing Duration</span>
+                  <Clock size={16} className="text-colin-navy" />
+                </div>
+                <div className="text-2xl font-black text-colin-navy font-display">12 Mo</div>
+                <div className="text-[11px] text-colin-charcoal-600">Annual verified partner cycle</div>
+              </div>
+            </div>
+          </div>
+
+          {/* 3. Room Inventory Breakdown */}
           <div className="bg-white rounded-3xl border border-colin-charcoal-200/90 shadow-sm p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-black text-colin-navy font-display flex items-center gap-2">
@@ -439,12 +500,70 @@ export const OwnerDashboardPage: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Right Column: Recent Activities & Upcoming Visits Feed */}
-        <div className="lg:col-span-4 space-y-6">
-          
-          {/* Upcoming Visit Passes Card */}
+          {/* 4. Property Availability Matrix */}
+          <div className="bg-white rounded-3xl border border-colin-charcoal-200/90 shadow-sm p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-black text-colin-navy font-display flex items-center gap-2">
+                <Sparkles size={18} className="text-colin-orange" />
+                <span>Property Availability Matrix</span>
+              </h2>
+              <Link to="/owner/rooms" className="text-xs font-bold text-colin-teal hover:underline">
+                Edit Beds →
+              </Link>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left">
+                <thead className="text-[10px] uppercase font-bold text-colin-charcoal-400 border-b border-colin-charcoal-100">
+                  <tr>
+                    <th className="py-2.5">Property</th>
+                    <th className="py-2.5">Campus Hub</th>
+                    <th className="py-2.5 text-center">Rooms</th>
+                    <th className="py-2.5 text-center">Beds Vacant</th>
+                    <th className="py-2.5 text-right">Starting Rent</th>
+                    <th className="py-2.5 text-right">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-colin-charcoal-100 text-colin-charcoal-700">
+                  {ownerProperties.map((p) => {
+                    const pRooms = rooms.filter((r) => r.propertyId === p.id);
+                    const vacantBeds = pRooms.reduce(
+                      (acc, r) => acc + (r.status === 'available' ? r.availableBeds : 0),
+                      0
+                    );
+                    const totalBeds = pRooms.reduce((acc, r) => acc + r.totalBeds, 0);
+
+                    return (
+                      <tr key={p.id} className="hover:bg-colin-navy-50/40 transition-colors">
+                        <td className="py-3 font-bold text-colin-navy max-w-[180px] truncate">{p.title}</td>
+                        <td className="py-3 text-colin-charcoal-500">{p.neighborhood}</td>
+                        <td className="py-3 text-center font-semibold">{pRooms.length}</td>
+                        <td className="py-3 text-center">
+                          <span className="font-extrabold text-colin-navy">{vacantBeds}</span>
+                          <span className="text-colin-charcoal-400">/{totalBeds}</span>
+                        </td>
+                        <td className="py-3 text-right font-bold text-colin-navy">
+                          ₹{p.rentMonthly.toLocaleString('en-IN')}/mo
+                        </td>
+                        <td className="py-3 text-right">
+                          <span
+                            className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                              vacantBeds > 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                            }`}
+                          >
+                            {vacantBeds > 0 ? `${vacantBeds} Beds Left` : 'Fully Occupied'}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* 5. Upcoming In-Person Visits */}
           <div className="bg-white rounded-3xl border border-colin-charcoal-200/90 shadow-sm p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-black text-colin-navy font-display flex items-center gap-2">
@@ -452,7 +571,7 @@ export const OwnerDashboardPage: React.FC = () => {
                 <span>Upcoming Visits</span>
               </h2>
               <Link to="/owner/visits" className="text-xs font-bold text-colin-teal hover:underline">
-                View All
+                View All Schedule →
               </Link>
             </div>
 
@@ -463,30 +582,46 @@ export const OwnerDashboardPage: React.FC = () => {
             ) : (
               <div className="space-y-3">
                 {upcomingVisits.slice(0, 3).map((visit) => (
-                  <div key={visit.id} className="p-3 bg-colin-navy-50/60 rounded-2xl border border-colin-navy-100 space-y-1.5">
+                  <div
+                    key={visit.id}
+                    className="p-3.5 bg-colin-navy-50/60 rounded-2xl border border-colin-navy-100 space-y-2"
+                  >
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-black text-colin-navy">
-                        {visit.studentName}
-                      </span>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                        visit.status === 'Confirmed' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                      }`}>
-                        {visit.status}
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-black text-colin-navy">{visit.studentName}</span>
+                        {visit.studentAge && (
+                          <span className="text-[10px] text-colin-charcoal-500 font-semibold">
+                            ({visit.studentAge} yrs)
+                          </span>
+                        )}
+                        <span className="text-[10px] text-colin-charcoal-400">
+                          Ref: {visit.bookingReference || visit.id}
+                        </span>
+                      </div>
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                          visit.status === 'Confirmed' || visit.status === 'VISIT_CONFIRMED'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-amber-100 text-amber-800'
+                        }`}
+                      >
+                        {visit.status === 'VISIT_CONFIRMED' || visit.status === 'Confirmed'
+                          ? 'Confirmed Visit'
+                          : 'Awaiting Coordination'}
                       </span>
                     </div>
 
-                    <p className="text-[11px] text-colin-charcoal-600">
-                      {visit.propertyTitle}
-                    </p>
+                    <p className="text-[11px] text-colin-charcoal-600">{visit.propertyTitle}</p>
 
-                    <div className="flex items-center justify-between text-[10px] text-colin-charcoal-500 pt-1">
-                      <span className="flex items-center gap-1">
-                        <Clock size={11} />
+                    <div className="flex flex-wrap items-center justify-between text-[10px] text-colin-charcoal-500 pt-1 border-t border-colin-navy-100/60 gap-2">
+                      <span className="flex items-center gap-1 font-semibold text-colin-navy">
+                        <Clock size={11} className="text-colin-teal" />
                         {visit.date} ({visit.timeSlot})
                       </span>
-                      <span className="font-bold text-colin-teal">
-                        Fee Paid: ₹{visit.feePaid}
+                      <span className="text-colin-charcoal-600">
+                        Escort: {visit.assignedVolunteer?.name || 'COLIN Ambassador'}
                       </span>
+                      <span className="font-bold text-colin-teal">Fee Paid: ₹{visit.feePaid}</span>
                     </div>
                   </div>
                 ))}
@@ -494,7 +629,92 @@ export const OwnerDashboardPage: React.FC = () => {
             )}
           </div>
 
-          {/* Recent Enquiries Feed */}
+          {/* 6. Recent Property Updates */}
+          <div className="bg-white rounded-3xl border border-colin-charcoal-200/90 shadow-sm p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-black text-colin-navy font-display flex items-center gap-2">
+                <CheckCircle2 size={18} className="text-colin-teal" />
+                <span>Recent Property Updates & Listing Health</span>
+              </h2>
+              <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">
+                100% Up-To-Date
+              </span>
+            </div>
+
+            <div className="space-y-2.5 text-xs">
+              <div className="p-3 rounded-2xl bg-colin-charcoal-50 border border-colin-charcoal-100 flex items-start gap-3">
+                <div className="w-2 h-2 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <div className="font-bold text-colin-navy">COLIN Heights: Listing verified active for 12 months</div>
+                  <div className="text-[11px] text-colin-charcoal-500">
+                    Rent rates and zero-brokerage promise synchronized with student explore engine.
+                  </div>
+                </div>
+                <span className="text-[10px] text-colin-charcoal-400 shrink-0">Today</span>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-colin-charcoal-50 border border-colin-charcoal-100 flex items-start gap-3">
+                <div className="w-2 h-2 rounded-full bg-colin-teal mt-1.5 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <div className="font-bold text-colin-navy">Room 302: Scheduled maintenance active</div>
+                  <div className="text-[11px] text-colin-charcoal-500">
+                    Annual deep-cleaning and fresh repainting logged. Availability hidden from search.
+                  </div>
+                </div>
+                <span className="text-[10px] text-colin-charcoal-400 shrink-0">Nov 1</span>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-colin-charcoal-50 border border-colin-charcoal-100 flex items-start gap-3">
+                <div className="w-2 h-2 rounded-full bg-colin-orange mt-1.5 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <div className="font-bold text-colin-navy">Grace Residency: Homepage Spotlight active</div>
+                  <div className="text-[11px] text-colin-charcoal-500">
+                    Priority placement on student landing page driving 3x student visibility.
+                  </div>
+                </div>
+                <span className="text-[10px] text-colin-charcoal-400 shrink-0">Oct 28</span>
+              </div>
+            </div>
+          </div>
+
+          {/* 7. Listing Performance Analytics */}
+          <div className="bg-white rounded-3xl border border-colin-charcoal-200/90 shadow-sm p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-black text-colin-navy font-display flex items-center gap-2">
+                <BarChart3 size={18} className="text-indigo-600" />
+                <span>Listing Performance Analytics</span>
+              </h2>
+              <Link to="/owner/analytics" className="text-xs font-bold text-colin-teal hover:underline">
+                Deep Analytics →
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+              <div className="p-3 bg-colin-navy-50/60 rounded-2xl border border-colin-navy-100">
+                <div className="text-xl font-black text-colin-navy font-display">4,820</div>
+                <div className="text-[10px] font-bold text-colin-charcoal-500 uppercase mt-0.5">Student Views</div>
+              </div>
+              <div className="p-3 bg-colin-teal-50/60 rounded-2xl border border-colin-teal/20">
+                <div className="text-xl font-black text-colin-teal-800 font-display">18,450</div>
+                <div className="text-[10px] font-bold text-colin-charcoal-500 uppercase mt-0.5">Search Ranks</div>
+              </div>
+              <div className="p-3 bg-emerald-50/60 rounded-2xl border border-emerald-100">
+                <div className="text-xl font-black text-emerald-800 font-display">24.8%</div>
+                <div className="text-[10px] font-bold text-colin-charcoal-500 uppercase mt-0.5">Visit Rate</div>
+              </div>
+              <div className="p-3 bg-amber-50/60 rounded-2xl border border-amber-100">
+                <div className="text-xl font-black text-amber-800 font-display">&lt; 2 hrs</div>
+                <div className="text-[10px] font-bold text-colin-charcoal-500 uppercase mt-0.5">COLIN Escort</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ========================================================================= */}
+        {/* RIGHT / SECONDARY SECTION (lg:col-span-4): 5 Dedicated Sidebar Widgets   */}
+        {/* ========================================================================= */}
+        <div className="lg:col-span-4 space-y-6">
+          {/* 1. Student Enquiry & Coordination Overview */}
           <div className="bg-white rounded-3xl border border-colin-charcoal-200/90 shadow-sm p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-black text-colin-navy font-display flex items-center gap-2">
@@ -502,27 +722,40 @@ export const OwnerDashboardPage: React.FC = () => {
                 <span>Student Enquiries</span>
               </h2>
               <Link to="/owner/enquiries" className="text-xs font-bold text-colin-teal hover:underline">
-                Inbox ({enquiries.length})
+                Coordination Hub ({enquiries.length})
               </Link>
+            </div>
+
+            <div className="p-3.5 bg-amber-50/60 border border-amber-200/80 rounded-2xl text-xs space-y-1">
+              <div className="font-extrabold text-amber-900 flex items-center gap-1.5">
+                <ShieldCheck size={14} className="text-amber-700" />
+                <span>Mediated Student Coordination</span>
+              </div>
+              <p className="text-[11px] text-amber-800 leading-relaxed">
+                Student and host identities are privacy-protected. All requests and visits are escorted by verified COLIN ambassadors.
+              </p>
             </div>
 
             <div className="space-y-3">
               {enquiries.slice(0, 3).map((enq) => (
-                <div key={enq.id} className="p-3 rounded-2xl border border-colin-charcoal-200 hover:border-colin-navy-200 transition-colors space-y-1">
+                <div
+                  key={enq.id}
+                  className="p-3 rounded-2xl border border-colin-charcoal-200 hover:border-colin-navy-200 transition-colors space-y-1"
+                >
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-black text-colin-navy">
-                      {enq.studentName}
-                    </span>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                      enq.status === 'New' ? 'bg-colin-orange text-white' : 'bg-colin-charcoal-100 text-colin-charcoal-700'
-                    }`}>
+                    <span className="text-xs font-black text-colin-navy">{enq.studentName}</span>
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        enq.status === 'New'
+                          ? 'bg-colin-orange text-white'
+                          : 'bg-colin-charcoal-100 text-colin-charcoal-700'
+                      }`}
+                    >
                       {enq.status}
                     </span>
                   </div>
 
-                  <p className="text-[11px] text-colin-charcoal-600 line-clamp-2">
-                    "{enq.message}"
-                  </p>
+                  <p className="text-[11px] text-colin-charcoal-600 line-clamp-2">"{enq.message}"</p>
 
                   <div className="flex items-center justify-between text-[10px] text-colin-charcoal-400 pt-1">
                     <span>{enq.studentUniversity || 'College Scholar'}</span>
@@ -533,14 +766,48 @@ export const OwnerDashboardPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Recent Activities Feed */}
+          {/* 2. Upcoming Visit Notifications & Urgent Alerts */}
+          <div className="bg-white rounded-3xl border border-colin-charcoal-200/90 shadow-sm p-6 space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-black text-colin-navy font-display flex items-center gap-2">
+                <BellRing size={18} className="text-colin-navy" />
+                <span>Visit Notifications</span>
+              </h2>
+              <span className="w-2 h-2 rounded-full bg-colin-orange animate-ping" />
+            </div>
+
+            <div className="space-y-2 text-xs">
+              <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-100 space-y-1">
+                <div className="font-bold text-emerald-900 flex items-center gap-1.5">
+                  <CheckCircle2 size={13} className="text-emerald-700 shrink-0" />
+                  <span>Visit Confirmed with Ambassador</span>
+                </div>
+                <p className="text-[11px] text-emerald-800">
+                  Aarav Mehra's visit confirmed. Ambassador Tanya Kapoor assigned for 11:30 AM tomorrow.
+                </p>
+              </div>
+
+              <div className="p-3 bg-colin-navy-50 rounded-2xl border border-colin-navy-100 space-y-1">
+                <div className="font-bold text-colin-navy flex items-center gap-1.5">
+                  <Clock size={13} className="text-colin-navy shrink-0" />
+                  <span>55% Refund Policy Guard Active</span>
+                </div>
+                <p className="text-[11px] text-colin-charcoal-600">
+                  Student paid ₹150 visit pass. If room rejected upon physical inspection, ₹82.50 refund applies.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* 3. Recent Activity Feed */}
           <div className="bg-white rounded-3xl border border-colin-charcoal-200/90 shadow-sm p-6 space-y-4">
-            <h2 className="text-base font-black text-colin-navy font-display">
-              Recent Activity Feed
-            </h2>
+            <h2 className="text-base font-black text-colin-navy font-display">Recent Activity Feed</h2>
             <div className="space-y-2">
               {recentActivities.map((act) => (
-                <div key={act.id} className="p-3 bg-colin-offwhite rounded-2xl border border-colin-charcoal-100 flex items-center justify-between text-xs gap-3">
+                <div
+                  key={act.id}
+                  className="p-3 bg-colin-offwhite rounded-2xl border border-colin-charcoal-100 flex items-center justify-between text-xs gap-3"
+                >
                   <div className="min-w-0">
                     <div className="font-bold text-colin-navy truncate">{act.title}</div>
                     <div className="text-[11px] text-colin-charcoal-500 truncate">{act.subtitle}</div>
@@ -553,13 +820,11 @@ export const OwnerDashboardPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Physical Verification Status Card */}
+          {/* 4. COLIN Physical Certification Status */}
           <div className="bg-gradient-to-br from-colin-teal-50 to-emerald-50 rounded-3xl border border-colin-teal/30 p-5 space-y-3">
             <div className="flex items-center gap-2 text-colin-teal-800">
               <ShieldCheck size={20} className="text-colin-teal" />
-              <h3 className="text-xs font-black uppercase tracking-wider">
-                COLIN Physical Audit Guarantee
-              </h3>
+              <h3 className="text-xs font-black uppercase tracking-wider">COLIN Physical Audit Guarantee</h3>
             </div>
             <p className="text-xs text-colin-charcoal-600 leading-relaxed">
               Certified properties receive high trust ranking in campus search. In-person audits are conducted by verified student campus leaders.
@@ -576,10 +841,47 @@ export const OwnerDashboardPage: React.FC = () => {
             </div>
           </div>
 
+          {/* 5. Account and Subscription Information */}
+          <div className="bg-white rounded-3xl border border-colin-charcoal-200/90 shadow-sm p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-black text-colin-navy font-display flex items-center gap-2">
+                <Crown size={18} className="text-violet-600" />
+                <span>Account & Plan</span>
+              </h2>
+              <span className="text-xs font-extrabold text-violet-700 bg-violet-50 px-2 py-0.5 rounded-md border border-violet-200">
+                {subscription.tier}
+              </span>
+            </div>
+
+            <div className="space-y-2 text-xs">
+              <div className="flex items-center justify-between py-1 border-b border-colin-charcoal-100">
+                <span className="text-colin-charcoal-500 font-medium">Host Account:</span>
+                <span className="font-bold text-colin-navy">{ownerProfile.ownerName}</span>
+              </div>
+              <div className="flex items-center justify-between py-1 border-b border-colin-charcoal-100">
+                <span className="text-colin-charcoal-500 font-medium">Business:</span>
+                <span className="font-bold text-colin-navy max-w-[150px] truncate">{ownerProfile.businessName}</span>
+              </div>
+              <div className="flex items-center justify-between py-1 border-b border-colin-charcoal-100">
+                <span className="text-colin-charcoal-500 font-medium">Property Quota:</span>
+                <span className="font-bold text-colin-teal">
+                  {totalProperties} / {subscription.propertyLimit} Used
+                </span>
+              </div>
+              <div className="flex items-center justify-between py-1">
+                <span className="text-colin-charcoal-500 font-medium">Billing Cycle:</span>
+                <span className="font-bold text-colin-navy uppercase">{subscription.billingCycle}</span>
+              </div>
+            </div>
+
+            <Link to="/owner/subscription" className="block pt-1">
+              <Button variant="outline" size="sm" className="w-full text-xs font-bold text-violet-700 border-violet-200 hover:bg-violet-50">
+                Manage Subscription & Invoices →
+              </Button>
+            </Link>
+          </div>
         </div>
-
       </div>
-
     </div>
   );
 };

@@ -41,8 +41,10 @@ export const VisitSlotModal: React.FC<VisitSlotModalProps> = ({ property, isOpen
     setIsSubmitting(true);
     await new Promise((res) => setTimeout(res, 600));
 
+    const randomRef = `COLIN-VIS-2026-${Math.floor(1000 + Math.random() * 9000)}`;
     const booking: VisitBooking = {
       id: `VSLOT-${Math.floor(100000 + Math.random() * 900000)}`,
+      bookingReference: randomRef,
       propertyId: property.id,
       propertyTitle: property.title,
       propertyImage: property.featuredImage,
@@ -52,11 +54,13 @@ export const VisitSlotModal: React.FC<VisitSlotModalProps> = ({ property, isOpen
       timeSlot: selectedSlot,
       studentName: user?.name || 'Student Scholar',
       studentPhone: studentPhone,
-      status: 'Confirmed',
+      studentAge: 20,
+      roomTypeInterested: property.roomType || 'Double Sharing Room',
+      status: 'PENDING_COLIN_REVIEW',
       feePaid: property.visitSlotFee || VISIT_BOOKING_FEE,
-      refundPolicy: `${VISIT_REFUND_PERCENTAGE}% guaranteed refund (₹${VISIT_REFUND_AMOUNT.toFixed(2)}) if you physically inspect the room and choose not to finalize.`,
-      meetingGuideName: property.ownerName ? `${property.ownerName} (Host)` : 'COLIN Student Ambassador',
-      meetingGuideContact: property.ownerContact || '+91 98112 00192',
+      refundPolicy: `${VISIT_REFUND_PERCENTAGE}% guaranteed refund (₹${VISIT_REFUND_AMOUNT.toFixed(2)}) if you physically inspect the room and reject it within 12 hours.`,
+      meetingGuideName: 'Verified COLIN Ambassador (Assigned upon review)',
+      meetingGuideContact: 'COLIN Coordination Desk',
       createdAt: new Date().toISOString().split('T')[0],
     };
 
@@ -110,13 +114,13 @@ export const VisitSlotModal: React.FC<VisitSlotModalProps> = ({ property, isOpen
 
             <div className="space-y-1">
               <span className="text-xs font-bold text-colin-teal uppercase tracking-wider">
-                Visit Slot Confirmed!
+                Visit Booking Request Submitted
               </span>
               <h4 className="text-xl font-extrabold text-colin-navy">
-                Slot Pass ID: {confirmedBooking.id}
+                Reference: {confirmedBooking.bookingReference || confirmedBooking.id}
               </h4>
               <p className="text-xs text-colin-charcoal-600 max-w-sm mx-auto">
-                A verified COLIN student ambassador will meet you at the property. The owner ({property.ownerName}) has been notified.
+                Your visit request is with COLIN Coordination Desk. We are confirming host access and assigning your verified student ambassador.
               </p>
             </div>
 

@@ -1373,6 +1373,7 @@ export const STUDENT_PREMIUM_TIERS = [
 export const INITIAL_STUDENT_VISITS: VisitBooking[] = [
   {
     id: 'VSLOT-842910',
+    bookingReference: 'COLIN-VIS-2026-0001',
     propertyId: 'prop-1',
     propertyTitle: 'COLIN Heights — Premium Student PG',
     propertyCity: 'Delhi NCR',
@@ -1382,15 +1383,25 @@ export const INITIAL_STUDENT_VISITS: VisitBooking[] = [
     timeSlot: '11:30 AM - 01:00 PM',
     studentName: 'Aarav Mehra',
     studentPhone: '+91 98765 43210',
+    studentAge: 20,
+    roomTypeInterested: 'Double Sharing Room with Balcony',
     status: 'Confirmed',
     feePaid: 150,
     refundPolicy: '55% guaranteed refund (₹82.50) if you do not proceed after inspecting the stay in person.',
     meetingGuideName: 'Tanya Kapoor (DU Student Ambassador)',
     meetingGuideContact: '+91 98112 00192',
-    createdAt: '2026-11-01'
+    createdAt: '2026-11-01',
+    assignedVolunteer: {
+      id: 'VOL-882',
+      name: 'Tanya Kapoor',
+      role: 'DU Student Ambassador',
+      phone: '+91 98112 00192',
+      assignedAt: '2026-11-01T10:00:00.000Z',
+    },
   },
   {
     id: 'VSLOT-512039',
+    bookingReference: 'COLIN-VIS-2026-0002',
     propertyId: 'prop-2',
     propertyTitle: 'Grace Residency — Girls Luxury PG & Co-living',
     propertyCity: 'Delhi NCR',
@@ -1400,11 +1411,20 @@ export const INITIAL_STUDENT_VISITS: VisitBooking[] = [
     timeSlot: '02:30 PM - 04:00 PM',
     studentName: 'Aarav Mehra',
     studentPhone: '+91 98765 43210',
+    studentAge: 20,
+    roomTypeInterested: 'Single Ensuite Room',
     status: 'Confirmed',
     feePaid: 150,
     refundPolicy: '55% guaranteed refund (₹82.50) if you do not proceed after inspecting the stay in person.',
-    meetingGuideName: 'Col. Rajesh Sharma (Property Host)',
-    meetingGuideContact: '+91 98110 44219',
-    createdAt: '2026-10-31'
+    meetingGuideName: 'Kunal Singhania (COLIN Guide)',
+    meetingGuideContact: '+91 98104 55120',
+    createdAt: '2026-10-31',
+    assignedVolunteer: {
+      id: 'VOL-883',
+      name: 'Kunal Singhania',
+      role: 'COLIN Guide',
+      phone: '+91 98104 55120',
+      assignedAt: '2026-10-31T14:00:00.000Z',
+    },
   }
 ];

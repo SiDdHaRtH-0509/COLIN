@@ -66,6 +66,15 @@ interface StudentContextType {
     explanation: string;
     outcomeReason: string;
   };
+  submitStudentDecision: (
+    visitId: string,
+    decision: 'accept' | 'reject',
+    reason?: string
+  ) => {
+    success: boolean;
+    refundAmount: number;
+    message: string;
+  };
 
   // Premium Subscription
   premiumSubscription: PremiumSubscription | null;
@@ -228,6 +237,19 @@ export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } catch {}
   }, [visits]);
 
+  // Sync visits on cross-portal or external storage events
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEYS.VISITS && e.newValue) {
+        try {
+          setVisits(JSON.parse(e.newValue));
+        } catch {}
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
   useEffect(() => {
     try {
       if (premiumSubscription) {
@@ -380,6 +402,109 @@ export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ child
       explanation: outcome.explanation,
       outcomeReason: outcome.label,
     };
+  };
+
+  const submitStudentDecision = (
+    visitId: string,
+    decision: 'accept' | 'reject',
+    reason?: string
+  ): {
+    success: boolean;
+    refundAmount: number;
+    message: string;
+  } => {
+    const target = visits.find((v) => v.id === visitId);
+    if (!target) {
+      return {
+        success: false,
+        refundAmount: 0,
+        message: 'Visit booking record not found.',
+      };
+    }
+
+    // Prevent duplicate decisions
+    if (
+      target.decisionStatus === 'ACCEPTED' ||
+      target.decisionStatus === 'REJECTED' ||
+      target.status === 'STUDENT_ACCEPTED' ||
+      target.status === 'STUDENT_REJECTED'
+    ) {
+      return {
+        success: false,
+        refundAmount: target.refundCalculated || 0,
+        message: 'Decision has already been submitted for this visit. Multiple submissions are not allowed.',
+      };
+    }
+
+    // Check if expired
+    const nowMs = Date.now();
+    const deadlineMs = target.decisionDeadline ? new Date(target.decisionDeadline).getTime() : 0;
+    if (deadlineMs > 0 && nowMs > deadlineMs) {
+      setVisits((prev) =>
+        prev.map((v) =>
+          v.id === visitId
+            ? {
+                ...v,
+                status: 'DECISION_EXPIRED',
+                decisionStatus: 'EXPIRED',
+                refundCalculated: 0,
+                refundStatus: 'FORFEITED_FULL',
+              }
+            : v
+        )
+      );
+      return {
+        success: false,
+        refundAmount: 0,
+        message: 'The 12-hour decision window has already expired.',
+      };
+    }
+
+    const decisionTime = new Date().toISOString();
+
+    if (decision === 'accept') {
+      setVisits((prev) =>
+        prev.map((v) =>
+          v.id === visitId
+            ? {
+                ...v,
+                status: 'STUDENT_ACCEPTED',
+                decisionStatus: 'ACCEPTED',
+                decisionTimestamp: decisionTime,
+                refundCalculated: 0,
+                refundStatus: 'RETAINED_ACCEPTED',
+              }
+            : v
+        )
+      );
+      return {
+        success: true,
+        refundAmount: 0,
+        message: 'Property visit accepted! Accommodation confirmed.',
+      };
+    } else {
+      setVisits((prev) =>
+        prev.map((v) =>
+          v.id === visitId
+            ? {
+                ...v,
+                status: 'STUDENT_REJECTED',
+                decisionStatus: 'REJECTED',
+                decisionTimestamp: decisionTime,
+                rejectionReason: reason || 'Room did not meet student requirements',
+                refundCalculated: 82.50,
+                refundStatus: 'PROCESSED_SIMULATED',
+                refundedAmount: 82.50,
+              }
+            : v
+        )
+      );
+      return {
+        success: true,
+        refundAmount: 82.50,
+        message: 'Property rejected within permitted 12-hour window. Eligible for ₹82.50 (55%) refund guarantee.',
+      };
+    }
   };
 
   const upcomingVisitsCount = visits.filter((v) => v.status === 'Confirmed').length;
@@ -537,6 +662,7 @@ export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ child
         upcomingVisitsCount,
         bookVisit,
         cancelVisit,
+        submitStudentDecision,
 
         premiumSubscription,
         activatePremium,

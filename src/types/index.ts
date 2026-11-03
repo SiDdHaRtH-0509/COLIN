@@ -142,25 +142,84 @@ export interface SearchFilterState {
   sortBy?: 'rent-asc' | 'rent-desc' | 'distance' | 'rating' | 'recent';
 }
 
+export type MediatedBookingStatus =
+  | 'PENDING_COLIN_REVIEW'             // 1. New Visit Requests
+  | 'AWAITING_OWNER_AVAILABILITY'      // 2. Awaiting Owner Availability
+  | 'AWAITING_COLIN_CONFIRMATION'      // 3. Availability Submitted to COLIN
+  | 'VISIT_CONFIRMED'                  // 4. Visit Confirmed by COLIN
+  | 'VISIT_COMPLETED_DECISION_PENDING' // 7. Student Decision Pending (12-hour timer active)
+  | 'STUDENT_ACCEPTED'                 // 8. Accepted Bookings
+  | 'STUDENT_REJECTED'                 // 9. Rejected Bookings
+  | 'DECISION_EXPIRED'                 // 10. Expired Decisions
+  | 'Confirmed'                        // Phase 1/2 legacy
+  | 'Pending'                          // Phase 1/2 legacy
+  | 'Completed'                        // 6. Completed Visits / Phase 1/2 legacy
+  | 'Cancelled'                        // Phase 1/2 legacy
+  | 'Visited - Rejected';              // Phase 1/2 legacy
+
+export interface DecisionNotification {
+  id: string;
+  milestone: string;
+  message: string;
+  timestamp: string;
+}
+
+export interface OwnerAvailabilityProposal {
+  date: string;
+  timeSlot: string;
+  isAlternative?: boolean;
+  notes?: string;
+  submittedAt: string;
+  declined?: boolean;
+  declineReason?: string;
+}
+
 export interface VisitBooking {
   id: string;
+  bookingReference?: string; // e.g. "COLIN-VIS-2026-0001"
   propertyId: string;
   propertyTitle: string;
+  propertyName?: string;
   propertyImage?: string;
   propertyCity?: string;
   propertyNeighborhood?: string;
   date: string;
   timeSlot: string;
   studentName: string;
-  studentPhone: string;
-  status: 'Confirmed' | 'Pending' | 'Completed' | 'Cancelled' | 'Visited - Rejected';
+  studentPhone?: string; // Kept private from owner; restricted by coordination architecture
+  studentAge?: number;
+  roomTypeInterested?: string;
+  status: MediatedBookingStatus;
   outcomeReason?: string;
   feePaid: number;
-  refundPolicy: string;
+  refundPolicy?: string;
   refundedAmount?: number;
   meetingGuideName?: string;
   meetingGuideContact?: string;
   createdAt?: string;
+
+  // Phase 3A Mediated Coordination Extensions
+  ownerAvailability?: OwnerAvailabilityProposal;
+  assignedVolunteer?: {
+    id: string;
+    name: string;
+    role: string;
+    phone: string;
+    assignedAt?: string;
+  };
+  visitCompletedAt?: string;
+  completedByVolunteer?: {
+    id: string;
+    name: string;
+    timestamp: string;
+  };
+  decisionDeadline?: string;
+  decisionTimestamp?: string;
+  decisionStatus?: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED';
+  rejectionReason?: string;
+  refundCalculated?: number;
+  refundStatus?: 'PROCESSED_SIMULATED' | 'FORFEITED_FULL' | 'RETAINED_ACCEPTED' | 'NONE';
+  notificationsSent?: DecisionNotification[];
 }
 
 export interface PremiumSubscription {

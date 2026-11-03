@@ -91,8 +91,20 @@ export const StudentDashboardPage: React.FC = () => {
     return p.nearbyUniversity.toLowerCase().includes(baseUni);
   }).slice(0, 3);
 
+  // Check for any pending 12-hour decision visit
+  const pendingDecisionVisit = visits.find((v) => v.status === 'VISIT_COMPLETED_DECISION_PENDING');
+
   // Next upcoming visit pass
-  const nextVisit = visits.find((v) => v.status === 'Confirmed' || v.status === 'Pending');
+  const nextVisit =
+    pendingDecisionVisit ||
+    visits.find(
+      (v) =>
+        v.status === 'Confirmed' ||
+        v.status === 'Pending' ||
+        v.status === 'VISIT_CONFIRMED' ||
+        v.status === 'PENDING_COLIN_REVIEW' ||
+        v.status === 'AWAITING_OWNER_AVAILABILITY'
+    );
   const nextVisitProperty = nextVisit ? propertiesSource.find((p) => p.id === nextVisit.propertyId) : null;
 
   return (
@@ -202,8 +214,47 @@ export const StudentDashboardPage: React.FC = () => {
         </div>
       </div>
 
-      {/* ================= 2. UPCOMING VISIT SUMMARY ================= */}
-      {nextVisit ? (
+      {/* ================= 2. UPCOMING VISIT SUMMARY / 12-HOUR DECISION ALERT ================= */}
+      {pendingDecisionVisit ? (
+        <div className="bg-gradient-to-r from-colin-navy-950 via-colin-navy to-[#18395e] rounded-3xl p-5 sm:p-6 border-2 border-colin-orange/70 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-5 text-white animate-scaleUp">
+          <div className="flex items-start gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-colin-orange/20 text-colin-orange border border-colin-orange/40 flex items-center justify-center shrink-0 shadow-sm">
+              <Clock size={28} className="animate-spin text-colin-orange" />
+            </div>
+
+            <div className="space-y-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[10px] font-black uppercase tracking-wider text-colin-orange bg-colin-orange/20 px-2.5 py-0.5 rounded-full border border-colin-orange/30">
+                  Decision Required (12h Timer Active)
+                </span>
+                <span className="text-xs font-mono font-bold text-white">
+                  Ref: {pendingDecisionVisit.bookingReference || pendingDecisionVisit.id}
+                </span>
+              </div>
+
+              <h3 className="text-base font-extrabold text-white truncate">
+                YOUR PROPERTY VISIT IS COMPLETE: {pendingDecisionVisit.propertyTitle}
+              </h3>
+
+              <p className="text-xs text-colin-charcoal-200">
+                You toured with your ambassador. Submit your final Accept or Reject choice within 12 hours. Eligible for 55% (₹82.50) refund if rejected.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5 w-full md:w-auto shrink-0">
+            <Link to="/student/visits" className="w-full md:w-auto">
+              <Button
+                variant="accent"
+                size="sm"
+                className="w-full justify-center text-xs font-black bg-colin-orange text-colin-navy-950 hover:bg-colin-orange-600 shadow-md"
+              >
+                Submit Decision Now &rarr;
+              </Button>
+            </Link>
+          </div>
+        </div>
+      ) : nextVisit ? (
         <div className="bg-gradient-to-r from-emerald-50 via-teal-50/60 to-white rounded-3xl p-5 sm:p-6 border border-emerald-200 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
           <div className="flex items-start gap-4">
             {nextVisitProperty ? (

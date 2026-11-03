@@ -14,8 +14,11 @@ import {
   VisitBooking,
   InspectionChecklist,
   RoomStatus,
+  OwnerAvailabilityProposal,
+  DecisionNotification,
 } from '../types';
 import { PROPERTIES, INITIAL_STUDENT_VISITS } from '../data/mockData';
+import { DECISION_REMINDER_SCHEDULE } from '../constants/booking';
 import {
   INITIAL_ROOMS,
   INITIAL_ENQUIRIES,
@@ -72,11 +75,21 @@ interface PropertyContextType {
   updateEnquiryStatus: (id: string, status: EnquiryStatus) => void;
   addEnquiryNote: (id: string, note: string) => void;
 
-  // Visits
+  // Visits & COLIN Mediation System
   visits: VisitBooking[];
   updateVisitStatus: (visitId: string, status: VisitBooking['status'], outcomeReason?: string) => void;
   approveVisit: (visitId: string) => void;
   rejectVisit: (visitId: string, reason?: string) => void;
+  proposeOwnerAvailability: (visitId: string, proposal: OwnerAvailabilityProposal) => void;
+  declineVisitByOwner: (visitId: string, reason: string) => void;
+  confirmVisitByColin: (visitId: string, volunteer?: { id: string; name: string; role: string; phone: string }) => void;
+  markVisitCompletedByVolunteer: (
+    visitId: string,
+    volunteer?: { id: string; name: string; role?: string },
+    actorRole?: 'volunteer' | 'coordinator' | 'owner' | 'student'
+  ) => { success: boolean; message: string };
+  submitStudentDecision: (visitId: string, decision: 'accept' | 'reject', reason?: string) => { success: boolean; refundAmount: number; message: string };
+  checkAndExpireDecisions: () => void;
   availableInspectionSlots: string[];
   updateAvailableInspectionSlots: (slots: string[]) => void;
 
@@ -637,7 +650,7 @@ export const PropertyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     );
   }, []);
 
-  // Visits Management
+  // Visits Management & COLIN Mediated Booking Workflow
   const updateVisitStatus = useCallback((visitId: string, status: VisitBooking['status'], outcomeReason?: string) => {
     setVisits((prev) =>
       prev.map((v) => {
@@ -662,6 +675,313 @@ export const PropertyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     },
     [updateVisitStatus]
   );
+
+  // Step 2: Owner provides availability or alternative date/time
+  const proposeOwnerAvailability = useCallback(
+    (visitId: string, proposal: OwnerAvailabilityProposal) => {
+      setVisits((prev) =>
+        prev.map((v) => {
+          if (v.id === visitId) {
+            return {
+              ...v,
+              status: 'AWAITING_COLIN_CONFIRMATION',
+              date: proposal.date || v.date,
+              timeSlot: proposal.timeSlot || v.timeSlot,
+              ownerAvailability: {
+                ...proposal,
+                submittedAt: new Date().toISOString(),
+              },
+            };
+          }
+          return v;
+        })
+      );
+    },
+    []
+  );
+
+  // Step 2b: Owner declines requested slot
+  const declineVisitByOwner = useCallback(
+    (visitId: string, reason: string) => {
+      setVisits((prev) =>
+        prev.map((v) => {
+          if (v.id === visitId) {
+            return {
+              ...v,
+              status: 'Cancelled',
+              outcomeReason: reason || 'Host declined slot; released for ambassador rescheduling',
+              ownerAvailability: {
+                date: v.date,
+                timeSlot: v.timeSlot,
+                declined: true,
+                declineReason: reason,
+                submittedAt: new Date().toISOString(),
+              },
+            };
+          }
+          return v;
+        })
+      );
+    },
+    []
+  );
+
+  // Step 3: COLIN confirms the visit and assigns verified student volunteer
+  const confirmVisitByColin = useCallback(
+    (visitId: string, volunteer?: { id: string; name: string; role: string; phone: string }) => {
+      const assigned = volunteer || {
+        id: 'VOL-882',
+        name: 'Kunal Singhania',
+        role: 'Senior Campus Ambassador',
+        phone: '+91 98104 55120',
+        assignedAt: new Date().toISOString(),
+      };
+
+      setVisits((prev) =>
+        prev.map((v) => {
+          if (v.id === visitId) {
+            return {
+              ...v,
+              status: 'VISIT_CONFIRMED',
+              assignedVolunteer: {
+                ...assigned,
+                assignedAt: new Date().toISOString(),
+              },
+              meetingGuideName: `${assigned.name} (${assigned.role})`,
+              meetingGuideContact: assigned.phone,
+            };
+          }
+          return v;
+        })
+      );
+    },
+    []
+  );
+
+  // Step 4: Physical visit complete -> Only COLIN Volunteer marks completed -> Starts 12h countdown!
+  const markVisitCompletedByVolunteer = useCallback(
+    (
+      visitId: string,
+      volunteer?: { id: string; name: string; role?: string },
+      actorRole?: 'volunteer' | 'coordinator' | 'owner' | 'student'
+    ): { success: boolean; message: string } => {
+      // Authorization check: only verified volunteer or platform coordinator allowed
+      if (actorRole === 'owner' || actorRole === 'student') {
+        return {
+          success: false,
+          message: 'Unauthorized: Only verified COLIN ambassadors or platform coordinators can certify visit completion.',
+        };
+      }
+
+      const completionTime = new Date();
+      const completionTimestamp = completionTime.toISOString();
+      const deadline = new Date(completionTime.getTime() + 12 * 60 * 60 * 1000).toISOString();
+      const volunteerIdentity = volunteer || {
+        id: 'VOL-882',
+        name: 'Kunal Singhania (COLIN Ambassador)',
+      };
+
+      setVisits((prev) =>
+        prev.map((v) => {
+          if (v.id === visitId) {
+            const initialNotification: DecisionNotification = {
+              id: `notif-${Date.now()}-0`,
+              milestone: 'immediately',
+              message: 'Your visit is complete. Please make your decision within 12 hours.',
+              timestamp: completionTimestamp,
+            };
+
+            return {
+              ...v,
+              status: 'VISIT_COMPLETED_DECISION_PENDING',
+              visitCompletedAt: completionTimestamp,
+              completedByVolunteer: {
+                id: volunteerIdentity.id,
+                name: volunteerIdentity.name,
+                timestamp: completionTimestamp,
+              },
+              decisionDeadline: deadline,
+              decisionStatus: 'PENDING',
+              notificationsSent: [initialNotification],
+            };
+          }
+          return v;
+        })
+      );
+
+      return {
+        success: true,
+        message: 'Visit verified completed by COLIN ambassador. 12-hour decision window initiated.',
+      };
+    },
+    []
+  );
+
+  // Step 6: 12-Hour Decision System (Student Accept or Reject)
+  const submitStudentDecision = useCallback(
+    (
+      visitId: string,
+      decision: 'accept' | 'reject',
+      reason?: string
+    ): { success: boolean; refundAmount: number; message: string } => {
+      const target = visits.find((v) => v.id === visitId);
+      if (!target) {
+        return {
+          success: false,
+          refundAmount: 0,
+          message: 'Visit booking record not found.',
+        };
+      }
+
+      // Reject duplicate submissions
+      if (
+        target.decisionStatus === 'ACCEPTED' ||
+        target.decisionStatus === 'REJECTED' ||
+        target.status === 'STUDENT_ACCEPTED' ||
+        target.status === 'STUDENT_REJECTED'
+      ) {
+        return {
+          success: false,
+          refundAmount: target.refundCalculated || 0,
+          message: 'Decision has already been recorded for this visit. Multiple submissions are not allowed.',
+        };
+      }
+
+      // Check if already expired
+      const nowMs = Date.now();
+      const deadlineMs = target.decisionDeadline ? new Date(target.decisionDeadline).getTime() : 0;
+      if (deadlineMs > 0 && nowMs > deadlineMs) {
+        setVisits((prev) =>
+          prev.map((v) =>
+            v.id === visitId
+              ? {
+                  ...v,
+                  status: 'DECISION_EXPIRED',
+                  decisionStatus: 'EXPIRED',
+                  refundCalculated: 0,
+                  refundStatus: 'FORFEITED_FULL',
+                }
+              : v
+          )
+        );
+        return {
+          success: false,
+          refundAmount: 0,
+          message: 'The 12-hour decision window has already expired. Retroactive decisions are not permitted.',
+        };
+      }
+
+      const decisionTime = new Date().toISOString();
+
+      if (decision === 'accept') {
+        setVisits((prev) =>
+          prev.map((v) =>
+            v.id === visitId
+              ? {
+                  ...v,
+                  status: 'STUDENT_ACCEPTED',
+                  decisionStatus: 'ACCEPTED',
+                  decisionTimestamp: decisionTime,
+                  refundCalculated: 0,
+                  refundStatus: 'RETAINED_ACCEPTED',
+                }
+              : v
+          )
+        );
+        return {
+          success: true,
+          refundAmount: 0,
+          message: 'Congratulations! Accommodation booking accepted. Room reservation confirmed.',
+        };
+      } else {
+        setVisits((prev) =>
+          prev.map((v) =>
+            v.id === visitId
+              ? {
+                  ...v,
+                  status: 'STUDENT_REJECTED',
+                  decisionStatus: 'REJECTED',
+                  decisionTimestamp: decisionTime,
+                  rejectionReason: reason || 'Room did not meet student requirements',
+                  refundCalculated: 82.50,
+                  refundStatus: 'PROCESSED_SIMULATED',
+                  refundedAmount: 82.50,
+                }
+              : v
+          )
+        );
+        return {
+          success: true,
+          refundAmount: 82.50,
+          message: 'Accommodation rejected within permitted 12-hour window. Eligible for ₹82.50 (55%) refund guarantee.',
+        };
+      }
+    },
+    [visits]
+  );
+
+  // Periodic expiration and automated notification reminder scheduler
+  const checkAndExpireDecisions = useCallback(() => {
+    const nowMs = Date.now();
+    setVisits((prev) => {
+      let changed = false;
+      const updated = prev.map((v) => {
+        if (v.status === 'VISIT_COMPLETED_DECISION_PENDING' && v.visitCompletedAt) {
+          const completedMs = new Date(v.visitCompletedAt).getTime();
+          const elapsedMs = nowMs - completedMs;
+          const deadlineMs = v.decisionDeadline
+            ? new Date(v.decisionDeadline).getTime()
+            : completedMs + 12 * 60 * 60 * 1000;
+
+          const currentNotifications = v.notificationsSent ? [...v.notificationsSent] : [];
+          let notificationsUpdated = false;
+
+          // Check all 7 milestone intervals
+          for (const milestone of DECISION_REMINDER_SCHEDULE) {
+            if (elapsedMs >= milestone.afterMs) {
+              const alreadySent = currentNotifications.some((n) => n.milestone === milestone.id);
+              if (!alreadySent) {
+                currentNotifications.push({
+                  id: `notif-${v.id}-${milestone.id}`,
+                  milestone: milestone.id,
+                  message: milestone.message,
+                  timestamp: new Date().toISOString(),
+                });
+                notificationsUpdated = true;
+              }
+            }
+          }
+
+          if (nowMs > deadlineMs) {
+            changed = true;
+            return {
+              ...v,
+              status: 'DECISION_EXPIRED' as const,
+              decisionStatus: 'EXPIRED' as const,
+              refundCalculated: 0,
+              refundStatus: 'FORFEITED_FULL' as const,
+              notificationsSent: currentNotifications,
+            };
+          } else if (notificationsUpdated) {
+            changed = true;
+            return {
+              ...v,
+              notificationsSent: currentNotifications,
+            };
+          }
+        }
+        return v;
+      });
+      return changed ? updated : prev;
+    });
+  }, []);
+
+  // Interval timer for checking decision expirations
+  useEffect(() => {
+    checkAndExpireDecisions();
+    const interval = setInterval(checkAndExpireDecisions, 15000);
+    return () => clearInterval(interval);
+  }, [checkAndExpireDecisions]);
 
   const updateAvailableInspectionSlots = useCallback((slots: string[]) => {
     setAvailableInspectionSlots(slots);
@@ -1024,6 +1344,12 @@ export const PropertyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         updateVisitStatus,
         approveVisit,
         rejectVisit,
+        proposeOwnerAvailability,
+        declineVisitByOwner,
+        confirmVisitByColin,
+        markVisitCompletedByVolunteer,
+        submitStudentDecision,
+        checkAndExpireDecisions,
         availableInspectionSlots,
         updateAvailableInspectionSlots,
         certifications,

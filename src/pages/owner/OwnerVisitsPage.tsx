@@ -35,17 +35,32 @@ export const OwnerVisitsPage: React.FC = () => {
   const [rejectingVisitId, setRejectingVisitId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('Owner unavailable for requested time slot');
 
-  // Filtered Visits
+  // Filtered Visits with all Phase 3A mediated statuses
   const upcomingVisits = useMemo(() => {
-    return visits.filter((v) => v.status === 'Confirmed' || v.status === 'Pending');
+    return visits.filter(
+      (v) =>
+        v.status === 'Confirmed' ||
+        v.status === 'Pending' ||
+        v.status === 'VISIT_CONFIRMED' ||
+        v.status === 'PENDING_COLIN_REVIEW' ||
+        v.status === 'AWAITING_OWNER_AVAILABILITY' ||
+        v.status === 'AWAITING_COLIN_CONFIRMATION' ||
+        v.status === 'VISIT_COMPLETED_DECISION_PENDING'
+    );
   }, [visits]);
 
   const completedVisits = useMemo(() => {
-    return visits.filter((v) => v.status === 'Completed');
+    return visits.filter((v) => v.status === 'Completed' || v.status === 'STUDENT_ACCEPTED');
   }, [visits]);
 
   const cancelledVisits = useMemo(() => {
-    return visits.filter((v) => v.status === 'Cancelled' || v.status === 'Visited - Rejected');
+    return visits.filter(
+      (v) =>
+        v.status === 'Cancelled' ||
+        v.status === 'Visited - Rejected' ||
+        v.status === 'STUDENT_REJECTED' ||
+        v.status === 'DECISION_EXPIRED'
+    );
   }, [visits]);
 
   const currentList = activeTab === 'upcoming' ? upcomingVisits : activeTab === 'completed' ? completedVisits : cancelledVisits;
@@ -185,26 +200,43 @@ export const OwnerVisitsPage: React.FC = () => {
                   {/* Top: Student Name & Status */}
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-base font-black text-colin-navy">
-                        {visit.studentName}
-                      </h3>
-                      <span className="text-xs text-colin-charcoal-500 font-semibold">
-                        {visit.studentPhone}
+                      <div className="flex items-center gap-1.5">
+                        <h3 className="text-base font-black text-colin-navy">
+                          {visit.studentName}
+                        </h3>
+                        {visit.studentAge && (
+                          <span className="text-xs text-colin-charcoal-500 font-semibold">
+                            ({visit.studentAge} yrs)
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[11px] text-colin-charcoal-500 font-mono font-semibold">
+                        Ref: {visit.bookingReference || visit.id}
                       </span>
                     </div>
 
                     <span
                       className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full ${
-                        isConfirmed
+                        isConfirmed || visit.status === 'VISIT_CONFIRMED'
                           ? 'bg-emerald-100 text-emerald-800'
-                          : isPending
+                          : isPending || visit.status === 'PENDING_COLIN_REVIEW' || visit.status === 'AWAITING_OWNER_AVAILABILITY'
                           ? 'bg-amber-100 text-amber-800'
-                          : isCompleted
+                          : visit.status === 'VISIT_COMPLETED_DECISION_PENDING'
+                          ? 'bg-purple-100 text-purple-900 animate-pulse'
+                          : isCompleted || visit.status === 'STUDENT_ACCEPTED'
                           ? 'bg-colin-teal/15 text-colin-teal-700'
                           : 'bg-rose-100 text-rose-800'
                       }`}
                     >
-                      {visit.status}
+                      {visit.status === 'VISIT_COMPLETED_DECISION_PENDING'
+                        ? '12h Decision Pending'
+                        : visit.status === 'STUDENT_ACCEPTED'
+                        ? 'Booking Finalized'
+                        : visit.status === 'STUDENT_REJECTED'
+                        ? 'Student Rejected'
+                        : visit.status === 'DECISION_EXPIRED'
+                        ? 'Decision Expired'
+                        : visit.status}
                     </span>
                   </div>
 
@@ -224,6 +256,11 @@ export const OwnerVisitsPage: React.FC = () => {
                         <Clock size={12} />
                         {visit.timeSlot}
                       </span>
+                    </div>
+
+                    <div className="text-[10px] text-colin-charcoal-500 pt-1 border-t border-colin-charcoal-200/50 flex items-center justify-between">
+                      <span>Escort: <strong className="text-colin-navy">{visit.assignedVolunteer?.name || visit.meetingGuideName || 'COLIN Ambassador'}</strong></span>
+                      <span className="text-emerald-700 font-semibold">🔒 Mediated</span>
                     </div>
                   </div>
 

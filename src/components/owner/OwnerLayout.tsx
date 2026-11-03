@@ -205,6 +205,12 @@ export const OwnerLayout: React.FC = () => {
           to: '/owner/dashboard',
           label: 'Dashboard',
           icon: LayoutDashboard,
+          accent: {
+            iconColor: 'text-teal-600',
+            activeBg: 'bg-teal-600 text-white shadow-sm',
+            hoverBg: 'hover:bg-teal-50 hover:text-teal-900',
+            indicator: 'bg-teal-500',
+          },
         },
       ],
     },
@@ -216,6 +222,12 @@ export const OwnerLayout: React.FC = () => {
           label: 'My Properties',
           icon: Building2,
           badge: ownerProperties.length,
+          accent: {
+            iconColor: 'text-colin-navy',
+            activeBg: 'bg-colin-navy text-white shadow-sm',
+            hoverBg: 'hover:bg-colin-navy-50 hover:text-colin-navy-950',
+            indicator: 'bg-colin-navy',
+          },
         },
         {
           to: '/owner/rooms',
@@ -223,25 +235,43 @@ export const OwnerLayout: React.FC = () => {
           icon: BedDouble,
           badge: totalAvailableBeds ? `${totalAvailableBeds} beds` : undefined,
           badgeColor: 'bg-colin-teal/15 text-colin-teal-700',
+          accent: {
+            iconColor: 'text-blue-600',
+            activeBg: 'bg-blue-600 text-white shadow-sm',
+            hoverBg: 'hover:bg-blue-50 hover:text-blue-900',
+            indicator: 'bg-blue-500',
+          },
         },
       ],
     },
     {
-      group: 'LEADS & VISITS',
+      group: 'LEADS & COORDINATION',
       items: [
         {
           to: '/owner/enquiries',
-          label: 'Student Enquiries',
+          label: 'Student Coordination',
           icon: MessageSquareText,
           badge: newEnquiriesCount > 0 ? newEnquiriesCount : undefined,
           badgeColor: 'bg-colin-orange text-white font-extrabold',
+          accent: {
+            iconColor: 'text-amber-600',
+            activeBg: 'bg-amber-600 text-white shadow-sm',
+            hoverBg: 'hover:bg-amber-50 hover:text-amber-900',
+            indicator: 'bg-amber-500',
+          },
         },
         {
           to: '/owner/visits',
-          label: 'In-Person Visits',
+          label: 'Visits & Bookings',
           icon: CalendarCheck,
           badge: pendingVisitsCount > 0 ? pendingVisitsCount : undefined,
           badgeColor: 'bg-emerald-600 text-white font-extrabold',
+          accent: {
+            iconColor: 'text-teal-600',
+            activeBg: 'bg-teal-700 text-white shadow-sm',
+            hoverBg: 'hover:bg-teal-50 hover:text-teal-900',
+            indicator: 'bg-teal-600',
+          },
         },
       ],
     },
@@ -250,15 +280,27 @@ export const OwnerLayout: React.FC = () => {
       items: [
         {
           to: '/owner/certification',
-          label: 'COLIN Certification',
+          label: 'COLIN Verification',
           icon: ShieldCheck,
           badge: activeCertifiedCount > 0 ? 'Certified' : 'Audit',
           badgeColor: activeCertifiedCount > 0 ? 'bg-colin-teal/15 text-colin-teal-700' : 'bg-amber-100 text-amber-800',
+          accent: {
+            iconColor: 'text-emerald-600',
+            activeBg: 'bg-emerald-600 text-white shadow-sm',
+            hoverBg: 'hover:bg-emerald-50 hover:text-emerald-900',
+            indicator: 'bg-emerald-500',
+          },
         },
         {
           to: '/owner/monetisation',
-          label: 'Growth & Ads',
+          label: 'Growth & Promotions',
           icon: TrendingUp,
+          accent: {
+            iconColor: 'text-orange-600',
+            activeBg: 'bg-orange-600 text-white shadow-sm',
+            hoverBg: 'hover:bg-orange-50 hover:text-orange-900',
+            indicator: 'bg-orange-500',
+          },
         },
       ],
     },
@@ -270,17 +312,35 @@ export const OwnerLayout: React.FC = () => {
           label: 'Subscription',
           icon: Crown,
           badge: subscription.tier,
-          badgeColor: 'bg-colin-navy text-white text-[9px] uppercase font-bold',
+          badgeColor: 'bg-violet-100 text-violet-800 text-[9px] uppercase font-bold',
+          accent: {
+            iconColor: 'text-violet-600',
+            activeBg: 'bg-violet-600 text-white shadow-sm',
+            hoverBg: 'hover:bg-violet-50 hover:text-violet-900',
+            indicator: 'bg-violet-500',
+          },
         },
         {
           to: '/owner/analytics',
           label: 'Analytics & Revenue',
           icon: BarChart3,
+          accent: {
+            iconColor: 'text-indigo-600',
+            activeBg: 'bg-indigo-600 text-white shadow-sm',
+            hoverBg: 'hover:bg-indigo-50 hover:text-indigo-900',
+            indicator: 'bg-indigo-500',
+          },
         },
         {
           to: '/owner/settings',
           label: 'Business Settings',
           icon: Settings,
+          accent: {
+            iconColor: 'text-slate-600',
+            activeBg: 'bg-slate-700 text-white shadow-sm',
+            hoverBg: 'hover:bg-slate-100 hover:text-slate-900',
+            indicator: 'bg-slate-500',
+          },
         },
       ],
     },
@@ -432,12 +492,12 @@ export const OwnerLayout: React.FC = () => {
         </div>
       </header>
 
-      {/* Main Workspace with Sidebar & Content */}
-      <div className="flex-1 flex overflow-hidden">
+      {/* Main Workspace with Sticky Sidebar & Naturally Scrolling Content */}
+      <div className="flex-1 flex flex-col md:flex-row">
         
-        {/* Desktop Collapsible Sidebar */}
+        {/* Desktop Sticky Sidebar */}
         <aside
-          className={`hidden md:flex flex-col border-r border-colin-charcoal-200/80 bg-white transition-all duration-300 relative z-20 ${
+          className={`hidden md:flex flex-col border-r border-colin-charcoal-200/80 bg-white transition-all duration-300 sticky top-16 h-[calc(100vh-4rem)] z-20 shrink-0 ${
             isCollapsed ? 'w-20' : 'w-64'
           }`}
         >
@@ -451,7 +511,7 @@ export const OwnerLayout: React.FC = () => {
           </button>
 
           {/* Host Business Header Card */}
-          <div className="p-4 border-b border-colin-charcoal-100 flex items-center gap-3">
+          <div className="p-4 border-b border-colin-charcoal-100 flex items-center gap-3 shrink-0">
             <img
               src={ownerProfile.avatar || user?.avatar || 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=100&q=80'}
               alt="Owner"
@@ -477,8 +537,8 @@ export const OwnerLayout: React.FC = () => {
             )}
           </div>
 
-          {/* Navigation Links Grouping */}
-          <div className="flex-1 overflow-y-auto py-3 px-3 space-y-6">
+          {/* Navigation Links Grouping (Independently scrollable) */}
+          <div className="flex-1 overflow-y-auto py-3 px-3 space-y-5">
             {navSections.map((section) => (
               <div key={section.group} className="space-y-1">
                 {!isCollapsed && (
@@ -494,28 +554,42 @@ export const OwnerLayout: React.FC = () => {
                         key={item.to}
                         to={item.to}
                         className={({ isActive }) =>
-                          `flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                          `flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-bold transition-all relative group ${
                             isActive
-                              ? 'bg-colin-navy text-white shadow-sm'
-                              : 'text-colin-charcoal-600 hover:text-colin-navy hover:bg-colin-navy-50/70'
+                              ? item.accent.activeBg
+                              : `text-colin-charcoal-600 ${item.accent.hoverBg}`
                           } ${isCollapsed ? 'justify-center' : ''}`
                         }
                         title={isCollapsed ? item.label : undefined}
                       >
-                        <Icon size={17} className="shrink-0" />
-                        {!isCollapsed && (
-                          <div className="flex-1 flex items-center justify-between">
-                            <span>{item.label}</span>
-                            {item.badge !== undefined && (
+                        {({ isActive }) => (
+                          <>
+                            {isActive && (
                               <span
-                                className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
-                                  item.badgeColor || 'bg-colin-charcoal-100 text-colin-charcoal-700'
-                                }`}
-                              >
-                                {item.badge}
-                              </span>
+                                className={`absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-r-full ${item.accent.indicator}`}
+                              />
                             )}
-                          </div>
+                            <Icon
+                              size={17}
+                              className={`shrink-0 transition-colors ${
+                                isActive ? 'text-white' : item.accent.iconColor
+                              }`}
+                            />
+                            {!isCollapsed && (
+                              <div className="flex-1 flex items-center justify-between min-w-0">
+                                <span className="truncate">{item.label}</span>
+                                {item.badge !== undefined && (
+                                  <span
+                                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
+                                      item.badgeColor || (isActive ? 'bg-white/20 text-white' : 'bg-colin-charcoal-100 text-colin-charcoal-700')
+                                    }`}
+                                  >
+                                    {item.badge}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </>
                         )}
                       </NavLink>
                     );
@@ -525,8 +599,8 @@ export const OwnerLayout: React.FC = () => {
             ))}
           </div>
 
-          {/* Bottom Footer Actions */}
-          <div className="p-3 border-t border-colin-charcoal-100 space-y-2">
+          {/* Bottom Footer Actions (Pinned) */}
+          <div className="p-3 border-t border-colin-charcoal-100 space-y-2 shrink-0">
             {!isCollapsed && (
               <div className="bg-colin-navy-50/60 rounded-2xl p-2.5 border border-colin-navy-100 text-center space-y-1">
                 <div className="text-[11px] font-bold text-colin-navy flex items-center justify-center gap-1">
@@ -592,12 +666,12 @@ export const OwnerLayout: React.FC = () => {
                           className={({ isActive }) =>
                             `flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold ${
                               isActive
-                                ? 'bg-colin-navy text-white'
-                                : 'text-colin-charcoal-600 hover:bg-colin-charcoal-100'
+                                ? item.accent.activeBg
+                                : `text-colin-charcoal-600 ${item.accent.hoverBg}`
                             }`
                           }
                         >
-                          <Icon size={16} />
+                          <Icon size={16} className={item.accent.iconColor} />
                           <span>{item.label}</span>
                         </NavLink>
                       );
@@ -619,8 +693,8 @@ export const OwnerLayout: React.FC = () => {
           </div>
         )}
 
-        {/* Dynamic Route Content */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+        {/* Dynamic Route Content (natural document scroll, not trapped in nested container!) */}
+        <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8">
           <Outlet />
         </main>
       </div>

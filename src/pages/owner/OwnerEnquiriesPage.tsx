@@ -1,572 +1,777 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useProperties } from '../../context/PropertyContext';
-import { Enquiry, EnquiryStatus } from '../../types';
+import { VisitBooking } from '../../types';
 import {
-  MessageSquareText,
+  ShieldCheck,
   Search,
-  Phone,
-  Mail,
-  Send,
-  Building2,
-  FileText,
-  X,
-  MessageCircle,
   Calendar,
   Clock,
   CheckCircle2,
+  AlertCircle,
+  Building2,
+  X,
+  PlusCircle,
+  Lock,
+  UserCheck,
+  Timer,
+  Check,
+  XCircle,
+  Sparkles,
 } from 'lucide-react';
 import { Button } from '../../components/common/Button';
 
-const STATUS_OPTIONS: EnquiryStatus[] = [
-  'New',
-  'Contacted',
-  'Interested',
-  'Visit Scheduled',
-  'Converted',
-  'Closed',
-];
+// The 10 canonical Mediated Statuses mandated by Section 4
+export interface StatusTabOption {
+  key: string;
+  label: string;
+  badgeCount?: number;
+}
 
 export const OwnerEnquiriesPage: React.FC = () => {
-  const { enquiries, updateEnquiryStatus, addEnquiryNote } = useProperties();
+  const {
+    visits,
+    proposeOwnerAvailability,
+    declineVisitByOwner,
+    confirmVisitByColin,
+    markVisitCompletedByVolunteer,
+    checkAndExpireDecisions,
+  } = useProperties();
 
-  // Search & Filter
+  // Search & Active Tab
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [selectedStatusTab, setSelectedStatusTab] = useState<string>('all');
 
-  // Selected Enquiry for View / Notes Modal
-  const [activeEnquiry, setActiveEnquiry] = useState<Enquiry | null>(null);
+  // Modal State for Providing Host Availability
+  const [availabilityModalBooking, setAvailabilityModalBooking] = useState<VisitBooking | null>(null);
+  const [proposedDate, setProposedDate] = useState('');
+  const [proposedSlot, setProposedSlot] = useState('11:00 AM - 12:30 PM');
+  const [isAlternative, setIsAlternative] = useState(false);
+  const [availabilityNotes, setAvailabilityNotes] = useState('');
+  const [isDeclining, setIsDeclining] = useState(false);
+  const [declineReason, setDeclineReason] = useState('');
+
+  // Modal State for Internal Notes
+  const [notesModalBooking, setNotesModalBooking] = useState<VisitBooking | null>(null);
   const [newNoteText, setNewNoteText] = useState('');
 
-  // Demonstration Contact Drawer / Modal
-  const [contactModalEnquiry, setContactModalEnquiry] = useState<Enquiry | null>(null);
-  const [contactMode, setContactMode] = useState<'whatsapp' | 'email' | 'call'>('whatsapp');
-  const [contactMessage, setContactMessage] = useState('');
-  const [contactSentSuccess, setContactSentSuccess] = useState(false);
+  // Internal Notes storage mapped by booking ID
+  const [internalNotesMap, setInternalNotesMap] = useState<Record<string, string[]>>(() => {
+    try {
+      const stored = localStorage.getItem('colin_booking_internal_notes');
+      return stored ? JSON.parse(stored) : {};
+    } catch {
+      return {};
+    }
+  });
 
-  // Filtered Enquiries
-  const filteredEnquiries = useMemo(() => {
-    return enquiries.filter((e) => {
-      if (selectedStatus !== 'all' && e.status !== selectedStatus) return false;
+  // Ticking timer state for countdown re-rendering every second
+  const [, setNow] = useState(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(Date.now());
+      checkAndExpireDecisions();
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [checkAndExpireDecisions]);
+
+  // Save internal notes map
+  const handleSaveNote = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!notesModalBooking || !newNoteText.trim()) return;
+
+    const bId = notesModalBooking.id;
+    const existing = internalNotesMap[bId] || [];
+    const updated = [...existing, `${new Date().toLocaleDateString('en-IN')}: ${newNoteText.trim()}`];
+    const newMap = { ...internalNotesMap, [bId]: updated };
+
+    setInternalNotesMap(newMap);
+    try {
+      localStorage.setItem('colin_booking_internal_notes', JSON.stringify(newMap));
+    } catch {}
+
+    setNewNoteText('');
+  };
+
+  // Helper to calculate countdown time remaining
+  const getRemainingTime = (deadlineStr?: string) => {
+    if (!deadlineStr) return null;
+    const diff = new Date(deadlineStr).getTime() - Date.now();
+    if (diff <= 0) return '00h 00m 00s (Expired)';
+
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const secs = Math.floor((diff % (1000 * 60)) / 1000);
+
+    return `${String(hours).padStart(2, '0')}h ${String(mins).padStart(2, '0')}m ${String(secs).padStart(2, '0')}s remaining`;
+  };
+
+  // Canonical tab filters
+  const statusTabs: StatusTabOption[] = useMemo(() => {
+    return [
+      { key: 'all', label: 'All Requests' },
+      {
+        key: 'PENDING_COLIN_REVIEW',
+        label: 'New Enquiries',
+        badgeCount: visits.filter((v) => v.status === 'PENDING_COLIN_REVIEW' || v.status === 'Pending').length,
+      },
+      {
+        key: 'AWAITING_OWNER_AVAILABILITY',
+        label: 'Awaiting Owner Availability',
+        badgeCount: visits.filter((v) => v.status === 'AWAITING_OWNER_AVAILABILITY').length,
+      },
+      {
+        key: 'AWAITING_COLIN_CONFIRMATION',
+        label: 'Availability Submitted to COLIN',
+        badgeCount: visits.filter((v) => v.status === 'AWAITING_COLIN_CONFIRMATION').length,
+      },
+      {
+        key: 'VISIT_CONFIRMED',
+        label: 'Visit Scheduled',
+        badgeCount: visits.filter((v) => v.status === 'VISIT_CONFIRMED' || v.status === 'Confirmed').length,
+      },
+      {
+        key: 'UPCOMING_VISITS',
+        label: 'Upcoming Visits',
+        badgeCount: visits.filter(
+          (v) => v.status === 'VISIT_CONFIRMED' || v.status === 'Confirmed' || v.status === 'PENDING_COLIN_REVIEW'
+        ).length,
+      },
+      {
+        key: 'COMPLETED_VISITS',
+        label: 'Completed Visits',
+        badgeCount: visits.filter((v) => v.status === 'Completed' || v.visitCompletedAt !== undefined).length,
+      },
+      {
+        key: 'VISIT_COMPLETED_DECISION_PENDING',
+        label: 'Student Decision Pending',
+        badgeCount: visits.filter((v) => v.status === 'VISIT_COMPLETED_DECISION_PENDING').length,
+      },
+      {
+        key: 'STUDENT_ACCEPTED',
+        label: 'Converted',
+        badgeCount: visits.filter((v) => v.status === 'STUDENT_ACCEPTED').length,
+      },
+      {
+        key: 'STUDENT_REJECTED',
+        label: 'Rejected Bookings',
+        badgeCount: visits.filter((v) => v.status === 'STUDENT_REJECTED' || v.status === 'Visited - Rejected').length,
+      },
+      {
+        key: 'DECISION_EXPIRED',
+        label: 'Expired Decisions',
+        badgeCount: visits.filter((v) => v.status === 'DECISION_EXPIRED').length,
+      },
+    ];
+  }, [visits]);
+
+  // Filtered requests
+  const filteredVisits = useMemo(() => {
+    return visits.filter((v) => {
+      // Tab matching
+      if (selectedStatusTab !== 'all') {
+        if (selectedStatusTab === 'UPCOMING_VISITS') {
+          if (
+            v.status !== 'VISIT_CONFIRMED' &&
+            v.status !== 'Confirmed' &&
+            v.status !== 'PENDING_COLIN_REVIEW' &&
+            v.status !== 'AWAITING_OWNER_AVAILABILITY'
+          ) {
+            return false;
+          }
+        } else if (selectedStatusTab === 'COMPLETED_VISITS') {
+          if (
+            v.status !== 'Completed' &&
+            v.status !== 'VISIT_COMPLETED_DECISION_PENDING' &&
+            v.status !== 'STUDENT_ACCEPTED' &&
+            v.status !== 'STUDENT_REJECTED' &&
+            v.status !== 'DECISION_EXPIRED'
+          ) {
+            return false;
+          }
+        } else if (selectedStatusTab === 'PENDING_COLIN_REVIEW') {
+          if (v.status !== 'PENDING_COLIN_REVIEW' && v.status !== 'Pending') return false;
+        } else if (selectedStatusTab === 'VISIT_CONFIRMED') {
+          if (v.status !== 'VISIT_CONFIRMED' && v.status !== 'Confirmed') return false;
+        } else if (selectedStatusTab === 'STUDENT_REJECTED') {
+          if (v.status !== 'STUDENT_REJECTED' && v.status !== 'Visited - Rejected') return false;
+        } else if (v.status !== selectedStatusTab) {
+          return false;
+        }
+      }
+
+      // Search Query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        return (
-          e.studentName.toLowerCase().includes(q) ||
-          e.propertyTitle.toLowerCase().includes(q) ||
-          e.message.toLowerCase().includes(q) ||
-          (e.studentUniversity && e.studentUniversity.toLowerCase().includes(q))
-        );
+        const ref = (v.bookingReference || v.id).toLowerCase();
+        const student = (v.studentName || '').toLowerCase();
+        const property = (v.propertyTitle || v.propertyName || '').toLowerCase();
+        return ref.includes(q) || student.includes(q) || property.includes(q);
       }
+
       return true;
     });
-  }, [enquiries, selectedStatus, searchQuery]);
+  }, [visits, selectedStatusTab, searchQuery]);
 
-  // Derived count metrics
-  const newCount = enquiries.filter((e) => e.status === 'New').length;
-  const contactedCount = enquiries.filter((e) => e.status === 'Contacted').length;
-  const visitScheduledCount = enquiries.filter((e) => e.status === 'Visit Scheduled').length;
-  const convertedCount = enquiries.filter((e) => e.status === 'Converted').length;
-
-  // Add internal note
-  const handleAddNote = (e: React.FormEvent) => {
+  // Submit availability form
+  const handleSubmitAvailability = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeEnquiry || !newNoteText.trim()) return;
-    addEnquiryNote(activeEnquiry.id, newNoteText.trim());
-    setNewNoteText('');
-    // refresh active enquiry reference
-    const updated = enquiries.find((enq) => enq.id === activeEnquiry.id);
-    if (updated) {
-      setActiveEnquiry({
-        ...updated,
-        internalNotes: updated.internalNotes ? [...updated.internalNotes, newNoteText.trim()] : [newNoteText.trim()],
+    if (!availabilityModalBooking) return;
+
+    if (isDeclining) {
+      declineVisitByOwner(availabilityModalBooking.id, declineReason || 'Host unavailable for requested slot');
+    } else {
+      proposeOwnerAvailability(availabilityModalBooking.id, {
+        date: proposedDate || availabilityModalBooking.date,
+        timeSlot: proposedSlot,
+        isAlternative,
+        notes: availabilityNotes,
+        submittedAt: new Date().toISOString(),
       });
     }
-  };
 
-  // Open Contact Dialog
-  const handleOpenContact = (enquiry: Enquiry, mode: 'whatsapp' | 'email' | 'call') => {
-    setContactModalEnquiry(enquiry);
-    setContactMode(mode);
-    setContactSentSuccess(false);
-
-    if (mode === 'whatsapp') {
-      setContactMessage(
-        `Hello ${enquiry.studentName}, thank you for enquiring about ${enquiry.propertyTitle}. We have open beds available for your desired move-in date. Would you like to schedule an in-person physical inspection visit this week?`
-      );
-    } else if (mode === 'email') {
-      setContactMessage(
-        `Dear ${enquiry.studentName},\n\nWe received your enquiry for ${enquiry.propertyTitle} via the COLIN Verified Student Accommodation Platform.\n\nOur property is physically inspected and verified. Please let us know if you would like to book a guided campus visit pass.\n\nBest regards,\nProperty Host Management`
-      );
-    } else {
-      setContactMessage('');
-    }
-  };
-
-  // Submit Demonstration Contact
-  const handleSendContact = (e: React.FormEvent) => {
-    e.preventDefault();
-    setContactSentSuccess(true);
-    if (contactModalEnquiry) {
-      // Auto-update status to 'Contacted' if it was 'New'
-      if (contactModalEnquiry.status === 'New') {
-        updateEnquiryStatus(contactModalEnquiry.id, 'Contacted');
-      }
-      addEnquiryNote(
-        contactModalEnquiry.id,
-        `Host sent ${contactMode.toUpperCase()} communication on ${new Date().toLocaleDateString('en-IN')}`
-      );
-    }
-    setTimeout(() => {
-      setContactSentSuccess(false);
-      setContactModalEnquiry(null);
-    }, 2000);
+    setAvailabilityModalBooking(null);
+    setIsDeclining(false);
+    setDeclineReason('');
   };
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12 animate-fadeIn">
-      
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-black text-colin-navy font-display flex items-center gap-2">
-            <MessageSquareText size={28} className="text-colin-orange" />
-            <span>Student Enquiry Management</span>
+      {/* Header Banner */}
+      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-colin-charcoal-200/90 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+              COLIN Mediated Coordination
+            </span>
+            <span className="text-xs text-colin-charcoal-500 font-medium">
+              Privacy-Protected Student In-Person Visits
+            </span>
+          </div>
+
+          <h1 className="text-2xl sm:text-3xl font-black text-colin-navy tracking-tight font-display">
+            Student Enquiry Management
           </h1>
-          <p className="text-xs text-colin-charcoal-500 mt-1">
-            Track student leads from DU, Christ, Symbiosis and IIT campuses. Follow up with prospective scholars and log internal notes.
+          <p className="text-xs text-colin-charcoal-500 max-w-2xl leading-relaxed">
+            All student communications and property inspections are coordinated exclusively through verified COLIN campus coordinators. Student contact details are shielded to preserve platform integrity and verified zero-brokerage guarantees.
           </p>
         </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-auto">
-          <span className="text-xs font-bold text-colin-navy bg-white border border-colin-charcoal-200 px-3 py-1.5 rounded-xl shadow-sm">
-            Total Leads: {enquiries.length}
-          </span>
-          {newCount > 0 && (
-            <span className="text-xs font-extrabold bg-colin-orange text-white px-3 py-1.5 rounded-xl shadow-sm">
-              {newCount} New
-            </span>
-          )}
+        {/* Privacy Shield Badge Card */}
+        <div className="bg-colin-navy-50/70 border border-colin-navy-100 rounded-2xl p-4 text-xs space-y-1 shrink-0 max-w-xs">
+          <div className="flex items-center gap-1.5 font-bold text-colin-navy">
+            <Lock size={14} className="text-colin-teal" />
+            <span>Zero Direct Contact Policy</span>
+          </div>
+          <p className="text-[11px] text-colin-charcoal-600">
+            No personal phone, email, or WhatsApp numbers are shared. A verified COLIN ambassador physically accompanies every student visit.
+          </p>
         </div>
       </div>
 
-      {/* KPI Pipeline Ribbon */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <button
-          onClick={() => setSelectedStatus(selectedStatus === 'New' ? 'all' : 'New')}
-          className={`p-4 rounded-2xl border text-left transition-all ${
-            selectedStatus === 'New'
-              ? 'bg-colin-navy text-white border-colin-navy shadow-sm'
-              : 'bg-white text-colin-charcoal-700 border-colin-charcoal-200 hover:border-colin-orange'
-          }`}
-        >
-          <span className="text-[10px] font-bold uppercase opacity-80 block">New Enquiries</span>
-          <span className="text-2xl font-black font-display">{newCount}</span>
-          <span className="text-[11px] block opacity-80">Awaiting initial reply</span>
-        </button>
-
-        <button
-          onClick={() => setSelectedStatus(selectedStatus === 'Contacted' ? 'all' : 'Contacted')}
-          className={`p-4 rounded-2xl border text-left transition-all ${
-            selectedStatus === 'Contacted'
-              ? 'bg-colin-navy text-white border-colin-navy shadow-sm'
-              : 'bg-white text-colin-charcoal-700 border-colin-charcoal-200 hover:border-colin-teal'
-          }`}
-        >
-          <span className="text-[10px] font-bold uppercase opacity-80 block">Contacted</span>
-          <span className="text-2xl font-black font-display">{contactedCount}</span>
-          <span className="text-[11px] block opacity-80">Message or call sent</span>
-        </button>
-
-        <button
-          onClick={() => setSelectedStatus(selectedStatus === 'Visit Scheduled' ? 'all' : 'Visit Scheduled')}
-          className={`p-4 rounded-2xl border text-left transition-all ${
-            selectedStatus === 'Visit Scheduled'
-              ? 'bg-colin-navy text-white border-colin-navy shadow-sm'
-              : 'bg-white text-colin-charcoal-700 border-colin-charcoal-200 hover:border-emerald-500'
-          }`}
-        >
-          <span className="text-[10px] font-bold uppercase opacity-80 block">Visit Scheduled</span>
-          <span className="text-2xl font-black font-display">{visitScheduledCount}</span>
-          <span className="text-[11px] block opacity-80">Physical visit pending</span>
-        </button>
-
-        <button
-          onClick={() => setSelectedStatus(selectedStatus === 'Converted' ? 'all' : 'Converted')}
-          className={`p-4 rounded-2xl border text-left transition-all ${
-            selectedStatus === 'Converted'
-              ? 'bg-colin-navy text-white border-colin-navy shadow-sm'
-              : 'bg-white text-colin-charcoal-700 border-colin-charcoal-200 hover:border-colin-teal'
-          }`}
-        >
-          <span className="text-[10px] font-bold uppercase opacity-80 block">Converted</span>
-          <span className="text-2xl font-black font-display">{convertedCount}</span>
-          <span className="text-[11px] block opacity-80">Room booked / deposit paid</span>
-        </button>
+      {/* Strict Privacy Protection Notice Banner */}
+      <div className="bg-amber-50/80 border border-amber-200 rounded-2xl p-4 flex items-start gap-3 text-xs text-amber-900">
+        <ShieldCheck size={18} className="text-amber-600 shrink-0 mt-0.5" />
+        <div className="space-y-0.5">
+          <span className="font-bold">COLIN Safe Intermediary Architecture</span>
+          <p className="text-[11px] text-amber-800 leading-relaxed">
+            Owners review student request criteria (name, age, requested stay, room tier) and provide available time slots to COLIN. COLIN assigns an authorized campus leader to escort the student on-site and verify physical visit completion.
+          </p>
+        </div>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="bg-white rounded-2xl p-4 border border-colin-charcoal-200/90 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="relative w-full sm:w-80">
-          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-colin-charcoal-400" />
+      {/* Search & 10 Canonical Status Tabs */}
+      <div className="space-y-3">
+        {/* Search Bar */}
+        <div className="relative">
+          <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-colin-charcoal-400" />
           <input
             type="text"
-            placeholder="Search by student name or college..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 text-xs rounded-xl border border-colin-charcoal-300 focus:outline-none focus:ring-2 focus:ring-colin-navy"
+            placeholder="Search by student name, property, or booking reference (e.g. COLIN-VIS-2026-0001)..."
+            className="w-full pl-11 pr-4 py-3 bg-white border border-colin-charcoal-200/90 rounded-2xl text-xs text-colin-charcoal focus:ring-2 focus:ring-colin-navy focus:outline-none shadow-sm"
           />
         </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-auto overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
-          <span className="text-xs font-bold text-colin-charcoal-500 shrink-0">Status:</span>
-          <button
-            onClick={() => setSelectedStatus('all')}
-            className={`text-xs font-bold px-3 py-1.5 rounded-xl shrink-0 transition-colors ${
-              selectedStatus === 'all'
-                ? 'bg-colin-navy text-white shadow-sm'
-                : 'bg-colin-charcoal-100 text-colin-charcoal-600 hover:bg-colin-charcoal-200'
-            }`}
-          >
-            All
-          </button>
-          {STATUS_OPTIONS.map((st) => (
-            <button
-              key={st}
-              onClick={() => setSelectedStatus(st)}
-              className={`text-xs font-bold px-3 py-1.5 rounded-xl shrink-0 transition-colors ${
-                selectedStatus === st
-                  ? 'bg-colin-navy text-white shadow-sm'
-                  : 'bg-colin-charcoal-100 text-colin-charcoal-600 hover:bg-colin-charcoal-200'
-              }`}
-            >
-              {st}
-            </button>
-          ))}
+        {/* 10 Status Tabs (Scrollable pill row) */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-2 pt-1 no-scrollbar">
+          {statusTabs.map((tab) => {
+            const isActive = selectedStatusTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setSelectedStatusTab(tab.key)}
+                className={`whitespace-nowrap px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shrink-0 ${
+                  isActive
+                    ? 'bg-colin-navy text-white shadow-sm'
+                    : 'bg-white hover:bg-colin-navy-50/70 text-colin-charcoal-600 border border-colin-charcoal-200/90'
+                }`}
+              >
+                <span>{tab.label}</span>
+                {tab.badgeCount !== undefined && tab.badgeCount > 0 && (
+                  <span
+                    className={`text-[10px] font-extrabold px-1.5 py-0.2 rounded-full ${
+                      isActive ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800'
+                    }`}
+                  >
+                    {tab.badgeCount}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Enquiries List */}
-      {filteredEnquiries.length === 0 ? (
-        <div className="bg-white rounded-3xl p-12 border border-colin-charcoal-200 text-center space-y-4">
-          <div className="w-16 h-16 rounded-2xl bg-colin-navy-50 text-colin-navy flex items-center justify-center mx-auto">
-            <MessageSquareText size={32} className="text-colin-charcoal-400" />
-          </div>
-          <div className="space-y-1">
-            <h3 className="text-base font-extrabold text-colin-navy">No Enquiries Found</h3>
+      {/* Booking Requests List */}
+      <div className="space-y-4">
+        {filteredVisits.length === 0 ? (
+          <div className="bg-white rounded-3xl p-12 text-center border border-colin-charcoal-200/90 space-y-3">
+            <Building2 size={36} className="text-colin-charcoal-300 mx-auto" />
+            <h3 className="text-base font-bold text-colin-navy">No visit coordination requests found</h3>
             <p className="text-xs text-colin-charcoal-500 max-w-sm mx-auto">
-              No student messages match the current status or search filter.
+              There are currently no student requests matching your selected filter. All incoming booking requests mediated by COLIN will appear here.
             </p>
           </div>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {filteredEnquiries.map((enquiry) => {
+        ) : (
+          filteredVisits.map((v) => {
+            const notes = internalNotesMap[v.id] || [];
+            const remainingTimeStr =
+              v.status === 'VISIT_COMPLETED_DECISION_PENDING' ? getRemainingTime(v.decisionDeadline) : null;
+
             return (
               <div
-                key={enquiry.id}
-                className="bg-white rounded-3xl border border-colin-charcoal-200 p-5 shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row md:items-center justify-between gap-5"
+                key={v.id}
+                className="bg-white rounded-3xl border border-colin-charcoal-200/90 p-5 sm:p-6 shadow-sm hover:shadow-md transition-shadow space-y-4"
               >
-                {/* Left: Student & Message */}
-                <div className="space-y-2 min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-black text-colin-navy">
-                      {enquiry.studentName}
+                {/* Card Top Row: Booking Ref, Status, and Fee Info */}
+                <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-colin-charcoal-100">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black tracking-wider text-colin-navy bg-colin-navy-50 px-2.5 py-1 rounded-lg border border-colin-navy-100 font-mono">
+                      {v.bookingReference || v.id}
                     </span>
-                    <span className="text-xs text-colin-charcoal-500 font-semibold">
-                      ({enquiry.studentUniversity || 'College Scholar'})
-                    </span>
-                    <span
-                      className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full ${
-                        enquiry.status === 'New'
-                          ? 'bg-colin-orange text-white'
-                          : enquiry.status === 'Visit Scheduled'
-                          ? 'bg-emerald-600 text-white'
-                          : enquiry.status === 'Converted'
-                          ? 'bg-colin-teal text-white'
-                          : 'bg-colin-charcoal-100 text-colin-charcoal-700'
-                      }`}
-                    >
-                      {enquiry.status}
+                    <span className="text-[11px] font-bold text-colin-charcoal-400">
+                      Created {v.createdAt || 'Recent'}
                     </span>
                   </div>
 
-                  <p className="text-xs text-colin-charcoal-700 leading-relaxed bg-colin-offwhite p-3 rounded-2xl border border-colin-charcoal-100">
-                    "{enquiry.message}"
-                  </p>
+                  {/* Status Indicator Badge */}
+                  <div className="flex items-center gap-2">
+                    {v.status === 'PENDING_COLIN_REVIEW' || v.status === 'Pending' ? (
+                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 flex items-center gap-1.5">
+                        <AlertCircle size={13} />
+                        <span>1. New Visit Request (Action Required)</span>
+                      </span>
+                    ) : v.status === 'AWAITING_OWNER_AVAILABILITY' ? (
+                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 flex items-center gap-1.5">
+                        <Clock size={13} />
+                        <span>2. Awaiting Owner Availability</span>
+                      </span>
+                    ) : v.status === 'AWAITING_COLIN_CONFIRMATION' ? (
+                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800 flex items-center gap-1.5">
+                        <Check size={13} />
+                        <span>3. Availability Submitted to COLIN</span>
+                      </span>
+                    ) : v.status === 'VISIT_CONFIRMED' || v.status === 'Confirmed' ? (
+                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 flex items-center gap-1.5">
+                        <CheckCircle2 size={13} />
+                        <span>4. Visit Confirmed by COLIN</span>
+                      </span>
+                    ) : v.status === 'VISIT_COMPLETED_DECISION_PENDING' ? (
+                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-900 flex items-center gap-1.5 animate-pulse">
+                        <Timer size={13} />
+                        <span>7. Student Decision Pending (12h Timer)</span>
+                      </span>
+                    ) : v.status === 'STUDENT_ACCEPTED' ? (
+                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 flex items-center gap-1.5">
+                        <Sparkles size={13} />
+                        <span>8. Booking Finalized (Student Accepted)</span>
+                      </span>
+                    ) : v.status === 'STUDENT_REJECTED' || v.status === 'Visited - Rejected' ? (
+                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 flex items-center gap-1.5">
+                        <XCircle size={13} />
+                        <span>9. Student Rejected Stay</span>
+                      </span>
+                    ) : v.status === 'DECISION_EXPIRED' ? (
+                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-800 flex items-center gap-1.5">
+                        <Clock size={13} />
+                        <span>10. Decision Expired (Non-Refundable)</span>
+                      </span>
+                    ) : (
+                      <span className="px-3 py-1 rounded-full text-xs font-bold bg-colin-charcoal-100 text-colin-charcoal-700">
+                        {v.status}
+                      </span>
+                    )}
 
-                  <div className="flex flex-wrap items-center gap-4 text-[11px] text-colin-charcoal-500">
-                    <span className="font-bold text-colin-navy flex items-center gap-1">
-                      <Building2 size={12} className="text-colin-teal" />
-                      {enquiry.propertyTitle}
+                    <span className="text-xs font-bold text-colin-teal bg-colin-teal/10 px-2.5 py-1 rounded-full border border-colin-teal/20">
+                      ₹{v.feePaid || 150} Paid Pass
                     </span>
-                    {enquiry.preferredMoveIn && (
-                      <span className="flex items-center gap-1">
-                        <Calendar size={12} />
-                        Move-in: {enquiry.preferredMoveIn}
-                      </span>
-                    )}
-                    <span className="flex items-center gap-1">
-                      <Clock size={12} />
-                      Received: {enquiry.date}
-                    </span>
-                    {enquiry.internalNotes && enquiry.internalNotes.length > 0 && (
-                      <span className="text-colin-teal font-bold flex items-center gap-1">
-                        <FileText size={12} />
-                        {enquiry.internalNotes.length} Internal Notes
-                      </span>
-                    )}
                   </div>
                 </div>
 
-                {/* Right: Contact & Status Controls */}
-                <div className="flex flex-col sm:flex-row md:flex-col items-start md:items-end gap-3 shrink-0">
-                  {/* Status Dropdown */}
-                  <div className="space-y-1 w-full sm:w-auto">
-                    <label className="text-[10px] font-bold text-colin-charcoal-400 uppercase tracking-wider block">
-                      Pipeline Stage
-                    </label>
-                    <select
-                      value={enquiry.status}
-                      onChange={(e) => updateEnquiryStatus(enquiry.id, e.target.value as EnquiryStatus)}
-                      className="text-xs font-bold text-colin-navy bg-colin-offwhite border border-colin-charcoal-200 rounded-xl px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-colin-navy"
-                    >
-                      {STATUS_OPTIONS.map((st) => (
-                        <option key={st} value={st}>
-                          {st}
-                        </option>
-                      ))}
-                    </select>
+                {/* Card Main Grid: Student & Property Specs (Strictly Zero Private Phone/Email) */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                  {/* Column 1: Student Information (Restricted to Name, Age, University) */}
+                  <div className="space-y-1.5 p-3.5 bg-colin-navy-50/50 rounded-2xl border border-colin-navy-100/60">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-colin-charcoal-500 flex items-center gap-1">
+                      <Lock size={11} className="text-colin-teal" />
+                      <span>Student Scholar (Shielded)</span>
+                    </div>
+                    <div className="text-sm font-black text-colin-navy">{v.studentName}</div>
+                    <div className="text-colin-charcoal-600">
+                      Age: <span className="font-semibold text-colin-navy">{v.studentAge || 20} years</span>
+                    </div>
+                    <div className="text-[11px] text-colin-charcoal-500">
+                      Room Interest: <span className="font-semibold text-colin-navy">{v.roomTypeInterested || 'Standard Sharing'}</span>
+                    </div>
                   </div>
 
-                  {/* Contact Buttons */}
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleOpenContact(enquiry, 'whatsapp')}
-                      className="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-xs font-bold flex items-center gap-1.5 transition-colors"
-                      title="Simulated WhatsApp Contact"
-                    >
-                      <MessageCircle size={14} />
-                      <span>WhatsApp</span>
-                    </button>
+                  {/* Column 2: Property & Inspection Slot */}
+                  <div className="space-y-1.5 p-3.5 bg-colin-navy-50/50 rounded-2xl border border-colin-navy-100/60">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-colin-charcoal-500">
+                      Requested Property & Slot
+                    </div>
+                    <div className="text-sm font-black text-colin-navy truncate">
+                      {v.propertyTitle || v.propertyName}
+                    </div>
+                    <div className="text-colin-charcoal-600 flex items-center gap-1">
+                      <Calendar size={12} className="text-colin-teal" />
+                      <span>{v.date}</span>
+                    </div>
+                    <div className="text-[11px] text-colin-charcoal-500 flex items-center gap-1">
+                      <Clock size={12} className="text-colin-teal" />
+                      <span>{v.timeSlot}</span>
+                    </div>
+                  </div>
 
-                    <button
-                      onClick={() => handleOpenContact(enquiry, 'email')}
-                      className="px-3 py-1.5 rounded-xl bg-colin-navy-50 text-colin-navy hover:bg-colin-navy-100 border border-colin-navy-200 text-xs font-bold flex items-center gap-1.5 transition-colors"
-                      title="Simulated Email Contact"
-                    >
-                      <Mail size={14} />
-                      <span>Email</span>
-                    </button>
+                  {/* Column 3: COLIN Coordination & Escort Status */}
+                  <div className="space-y-1.5 p-3.5 bg-colin-navy-50/50 rounded-2xl border border-colin-navy-100/60">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-colin-charcoal-500">
+                      COLIN Coordination Desk
+                    </div>
+                    <div className="text-sm font-bold text-colin-navy flex items-center gap-1.5">
+                      <UserCheck size={14} className="text-emerald-600" />
+                      <span>{v.assignedVolunteer?.name || v.meetingGuideName || 'Ambassador Pending'}</span>
+                    </div>
+                    <div className="text-[11px] text-colin-charcoal-500">
+                      {v.assignedVolunteer?.role || 'Campus Inspection Guide'}
+                    </div>
+                    <div className="text-[10px] text-emerald-700 font-semibold">
+                      55% (₹82.50) refund policy protected
+                    </div>
+                  </div>
+                </div>
 
-                    <button
-                      onClick={() => setActiveEnquiry(enquiry)}
-                      className="px-3 py-1.5 rounded-xl bg-white text-colin-charcoal-700 hover:bg-colin-charcoal-100 border border-colin-charcoal-200 text-xs font-bold flex items-center gap-1.5 transition-colors"
-                      title="View Notes & Details"
-                    >
-                      <FileText size={14} />
-                      <span>Notes</span>
-                    </button>
+                {/* 12-Hour Decision Countdown Banner (when status is VISIT_COMPLETED_DECISION_PENDING) */}
+                {v.status === 'VISIT_COMPLETED_DECISION_PENDING' && (
+                  <div className="bg-purple-50 border border-purple-200 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div className="space-y-1">
+                      <div className="text-xs font-black text-purple-950 flex items-center gap-1.5 uppercase tracking-wide">
+                        <Timer size={16} className="text-purple-700 animate-spin" />
+                        <span>12-Hour Decision Window In Progress</span>
+                      </div>
+                      <p className="text-[11px] text-purple-800">
+                        Physical visit completed by {v.completedByVolunteer?.name || 'COLIN Ambassador'}. Student decision countdown is active.
+                      </p>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <span className="font-mono text-xs font-black text-purple-900 bg-white px-3 py-1.5 rounded-xl border border-purple-200 shadow-sm block">
+                        {remainingTimeStr || '12h 00m 00s remaining'}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Decision Finalized Result Banner */}
+                {v.status === 'STUDENT_ACCEPTED' && (
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3 text-xs text-emerald-900 flex items-center gap-2">
+                    <Sparkles size={16} className="text-emerald-700 shrink-0" />
+                    <span>
+                      <strong>Booking Finalized:</strong> Student accepted accommodation. Full ₹150 booking fee retained by COLIN. Room bed marked reserved.
+                    </span>
+                  </div>
+                )}
+
+                {v.status === 'STUDENT_REJECTED' && (
+                  <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3 text-xs text-rose-900 flex items-center gap-2">
+                    <XCircle size={16} className="text-rose-700 shrink-0" />
+                    <span>
+                      <strong>Student Rejected Stay:</strong> Reason: "{v.rejectionReason || 'Did not meet requirements'}". 55% refund (₹82.50) credited to student. ₹67.50 retained for volunteer accompaniment.
+                    </span>
+                  </div>
+                )}
+
+                {v.status === 'DECISION_EXPIRED' && (
+                  <div className="bg-slate-100 border border-slate-200 rounded-2xl p-3 text-xs text-slate-800 flex items-center gap-2">
+                    <Clock size={16} className="text-slate-600 shrink-0" />
+                    <span>
+                      <strong>Decision Window Expired:</strong> Student did not submit accept/reject within 12 hours. ₹150 booking fee is fully non-refundable. Room released to market.
+                    </span>
+                  </div>
+                )}
+
+                {/* Host Action Buttons (Mediated through COLIN) */}
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                  {/* Left: Internal Notes trigger */}
+                  <button
+                    onClick={() => setNotesModalBooking(v)}
+                    className="text-xs font-bold text-colin-charcoal-600 hover:text-colin-navy flex items-center gap-1.5 hover:underline"
+                  >
+                    <span>Internal Notes ({notes.length})</span>
+                    <PlusCircle size={14} className="text-colin-teal" />
+                  </button>
+
+                  {/* Right: State Transition Buttons */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Step 2 Owner Availability Actions */}
+                    {(v.status === 'PENDING_COLIN_REVIEW' ||
+                      v.status === 'Pending' ||
+                      v.status === 'AWAITING_OWNER_AVAILABILITY') && (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="primary"
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5"
+                          onClick={() => {
+                            setAvailabilityModalBooking(v);
+                            setProposedDate(v.date);
+                            setProposedSlot(v.timeSlot);
+                            setIsAlternative(false);
+                            setIsDeclining(false);
+                          }}
+                        >
+                          Confirm Availability to COLIN
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-xs font-bold border-amber-300 text-amber-800 hover:bg-amber-50 px-3 py-1.5"
+                          onClick={() => {
+                            setAvailabilityModalBooking(v);
+                            setProposedDate(v.date);
+                            setProposedSlot(v.timeSlot);
+                            setIsAlternative(true);
+                            setIsDeclining(false);
+                          }}
+                        >
+                          Suggest Alternative Slot
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-xs font-bold text-rose-600 hover:bg-rose-50 px-3 py-1.5"
+                          onClick={() => {
+                            setAvailabilityModalBooking(v);
+                            setIsDeclining(true);
+                          }}
+                        >
+                          Decline Request
+                        </Button>
+                      </>
+                    )}
+
+                    {/* Step 3: Simulation Helper for COLIN Coordination Confirmation */}
+                    {v.status === 'AWAITING_COLIN_CONFIRMATION' && (
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-1.5"
+                        onClick={() => confirmVisitByColin(v.id)}
+                      >
+                        [COLIN Desk Simulation: Assign Ambassador & Confirm Visit]
+                      </Button>
+                    )}
+
+                    {/* Step 4: Simulation Helper for Authorized COLIN Volunteer Physical Visit Completion */}
+                    {(v.status === 'VISIT_CONFIRMED' || v.status === 'Confirmed') && (
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold px-3 py-1.5"
+                        onClick={() => markVisitCompletedByVolunteer(v.id)}
+                      >
+                        [Volunteer Simulation: Mark Visit as Completed (Starts 12h Timer)]
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>
             );
-          })}
-        </div>
-      )}
+          })
+        )}
+      </div>
 
-      {/* ================= VIEW & NOTES MODAL ================= */}
-      {activeEnquiry && (
-        <div className="fixed inset-0 z-50 bg-colin-navy-950/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 border border-colin-charcoal-200 shadow-2xl space-y-5 animate-scaleUp">
-            
+      {/* Modal: Submit Availability to COLIN */}
+      {availabilityModalBooking && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-colin-navy-950/70 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl border border-colin-charcoal-200 space-y-5 animate-scaleUp">
             <div className="flex items-center justify-between pb-3 border-b border-colin-charcoal-100">
-              <div>
-                <h3 className="text-base font-black text-colin-navy font-display">
-                  Enquiry Details & Internal Notes
-                </h3>
-                <span className="text-xs text-colin-charcoal-400">
-                  {activeEnquiry.studentName} • {activeEnquiry.propertyTitle}
+              <div className="space-y-0.5">
+                <span className="text-[10px] font-black uppercase text-amber-700 tracking-wider">
+                  COLIN Coordination Desk
                 </span>
+                <h3 className="text-lg font-black text-colin-navy">
+                  {isDeclining
+                    ? 'Decline Visit Request'
+                    : isAlternative
+                    ? 'Suggest Alternative Slot to COLIN'
+                    : 'Confirm Availability to COLIN'}
+                </h3>
               </div>
-              <button onClick={() => setActiveEnquiry(null)}>
+              <button
+                onClick={() => setAvailabilityModalBooking(null)}
+                className="p-1 rounded-full text-colin-charcoal-400 hover:text-colin-navy"
+              >
                 <X size={18} />
               </button>
             </div>
 
-            {/* Student Contact Info (Masked if private) */}
-            <div className="p-3 bg-colin-offwhite rounded-2xl border border-colin-charcoal-100 space-y-1.5 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-colin-charcoal-500 font-semibold">Phone Contact:</span>
-                <span className="font-bold text-colin-navy">
-                  {activeEnquiry.privacyRestricted ? '+91 98*** ***** (Protected)' : activeEnquiry.studentPhone}
-                </span>
+            <form onSubmit={handleSubmitAvailability} className="space-y-4 text-xs">
+              <div className="p-3 bg-colin-navy-50 rounded-2xl space-y-1">
+                <div className="font-bold text-colin-navy">
+                  Student: {availabilityModalBooking.studentName} ({availabilityModalBooking.studentAge || 20} yrs)
+                </div>
+                <div className="text-colin-charcoal-600">
+                  {availabilityModalBooking.propertyTitle || availabilityModalBooking.propertyName}
+                </div>
+                <div className="text-colin-charcoal-500 font-mono text-[11px]">
+                  Ref: {availabilityModalBooking.bookingReference || availabilityModalBooking.id}
+                </div>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-colin-charcoal-500 font-semibold">Student Email:</span>
-                <span className="font-bold text-colin-navy">
-                  {activeEnquiry.privacyRestricted ? 'scholar***@colin.in (Protected)' : activeEnquiry.studentEmail}
-                </span>
+
+              {!isDeclining ? (
+                <>
+                  <div className="space-y-1">
+                    <label className="font-bold text-colin-charcoal-700 uppercase tracking-wide">
+                      Available Inspection Date:
+                    </label>
+                    <input
+                      type="text"
+                      value={proposedDate}
+                      onChange={(e) => setProposedDate(e.target.value)}
+                      placeholder="e.g. Tomorrow, Nov 4"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-colin-charcoal-300 focus:ring-2 focus:ring-colin-navy focus:outline-none"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="font-bold text-colin-charcoal-700 uppercase tracking-wide">
+                      Available Time Window:
+                    </label>
+                    <select
+                      value={proposedSlot}
+                      onChange={(e) => setProposedSlot(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-colin-charcoal-300 focus:ring-2 focus:ring-colin-navy focus:outline-none"
+                    >
+                      <option value="10:00 AM - 11:30 AM">10:00 AM - 11:30 AM</option>
+                      <option value="11:30 AM - 01:00 PM">11:30 AM - 01:00 PM</option>
+                      <option value="02:30 PM - 04:00 PM">02:30 PM - 04:00 PM</option>
+                      <option value="05:00 PM - 06:30 PM">05:00 PM - 06:30 PM</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="font-bold text-colin-charcoal-700 uppercase tracking-wide">
+                      Internal Host Notes for COLIN Coordinator (Optional):
+                    </label>
+                    <textarea
+                      value={availabilityNotes}
+                      onChange={(e) => setAvailabilityNotes(e.target.value)}
+                      placeholder="e.g. Caretaker Ramesh will facilitate gate biometric access..."
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-colin-charcoal-300 focus:ring-2 focus:ring-colin-navy focus:outline-none resize-none h-20"
+                    />
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-1">
+                  <label className="font-bold text-colin-charcoal-700 uppercase tracking-wide">
+                    Reason for Declining Slot:
+                  </label>
+                  <textarea
+                    value={declineReason}
+                    onChange={(e) => setDeclineReason(e.target.value)}
+                    placeholder="e.g. Full occupancy expected or deep renovation in progress..."
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-colin-charcoal-300 focus:ring-2 focus:ring-colin-navy focus:outline-none resize-none h-24"
+                    required
+                  />
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setAvailabilityModalBooking(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  size="sm"
+                  variant="primary"
+                  className={isDeclining ? 'bg-rose-600 hover:bg-rose-700 text-white' : 'bg-emerald-600 hover:bg-emerald-700 text-white'}
+                >
+                  {isDeclining ? 'Confirm Decline' : 'Submit Availability to COLIN'}
+                </Button>
               </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Internal Host Notes */}
+      {notesModalBooking && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-colin-navy-950/70 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-colin-charcoal-200 space-y-4 animate-scaleUp">
+            <div className="flex items-center justify-between pb-3 border-b border-colin-charcoal-100">
+              <h3 className="text-base font-black text-colin-navy">
+                Internal Notes: {notesModalBooking.bookingReference || notesModalBooking.id}
+              </h3>
+              <button
+                onClick={() => setNotesModalBooking(null)}
+                className="p-1 rounded-full text-colin-charcoal-400 hover:text-colin-navy"
+              >
+                <X size={18} />
+              </button>
             </div>
 
-            {/* Internal Notes History */}
-            <div className="space-y-2">
-              <span className="text-xs font-bold text-colin-charcoal-700 uppercase tracking-wider block">
-                Internal Management Notes ({activeEnquiry.internalNotes?.length || 0})
-              </span>
-              <div className="max-h-40 overflow-y-auto space-y-2">
-                {(!activeEnquiry.internalNotes || activeEnquiry.internalNotes.length === 0) ? (
-                  <p className="text-xs text-colin-charcoal-400 italic">
-                    No notes recorded yet. Add notes regarding parental calls, room choices, or follow-ups below.
-                  </p>
-                ) : (
-                  activeEnquiry.internalNotes.map((note, idx) => (
-                    <div key={idx} className="p-2.5 bg-colin-navy-50/70 rounded-xl text-xs text-colin-charcoal-700 border border-colin-navy-100">
-                      {note}
-                    </div>
-                  ))
-                )}
-              </div>
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {(internalNotesMap[notesModalBooking.id] || []).length === 0 ? (
+                <div className="text-xs text-colin-charcoal-400 text-center py-4">No internal notes added yet.</div>
+              ) : (
+                (internalNotesMap[notesModalBooking.id] || []).map((n, idx) => (
+                  <div key={idx} className="p-2.5 rounded-xl bg-colin-navy-50 text-xs text-colin-charcoal-700">
+                    {n}
+                  </div>
+                ))
+              )}
             </div>
 
-            {/* Add New Note Form */}
-            <form onSubmit={handleAddNote} className="space-y-2 pt-2 border-t border-colin-charcoal-100">
-              <label className="text-xs font-bold text-colin-charcoal-700 uppercase block">
-                Add New Host Note
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="e.g. Student requested ground floor room due to ankle injury..."
-                  value={newNoteText}
-                  onChange={(e) => setNewNoteText(e.target.value)}
-                  className="flex-1 px-3 py-2 text-xs rounded-xl border border-colin-charcoal-300 focus:outline-none focus:ring-2 focus:ring-colin-navy"
-                />
-                <Button type="submit" variant="primary" size="sm" className="bg-colin-navy hover:bg-colin-navy-800">
+            <form onSubmit={handleSaveNote} className="space-y-3">
+              <textarea
+                value={newNoteText}
+                onChange={(e) => setNewNoteText(e.target.value)}
+                placeholder="Log internal note (e.g. Student prefers quiet corner bed; family arriving Friday)..."
+                className="w-full px-3.5 py-2.5 rounded-xl border border-colin-charcoal-300 text-xs focus:ring-2 focus:ring-colin-navy focus:outline-none resize-none h-20"
+                required
+              />
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="ghost" size="sm" onClick={() => setNotesModalBooking(null)}>
+                  Close
+                </Button>
+                <Button type="submit" size="sm" variant="primary">
                   Save Note
                 </Button>
               </div>
             </form>
-
-            <div className="pt-2 flex justify-end">
-              <Button variant="outline" size="sm" onClick={() => setActiveEnquiry(null)}>
-                Close
-              </Button>
-            </div>
           </div>
         </div>
       )}
-
-      {/* ================= DEMONSTRATION CONTACT MODAL ================= */}
-      {contactModalEnquiry && (
-        <div className="fixed inset-0 z-50 bg-colin-navy-950/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 border border-colin-charcoal-200 shadow-2xl space-y-5 animate-scaleUp">
-            
-            <div className="flex items-center justify-between pb-3 border-b border-colin-charcoal-100">
-              <div className="flex items-center gap-2">
-                {contactMode === 'whatsapp' ? (
-                  <MessageCircle size={20} className="text-emerald-600" />
-                ) : contactMode === 'email' ? (
-                  <Mail size={20} className="text-colin-navy" />
-                ) : (
-                  <Phone size={20} className="text-colin-teal" />
-                )}
-                <h3 className="text-base font-black text-colin-navy">
-                  Contact Student via {contactMode.toUpperCase()}
-                </h3>
-              </div>
-              <button onClick={() => setContactModalEnquiry(null)}>
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <span className="text-xs text-colin-charcoal-400">Recipient Student</span>
-                <p className="text-sm font-black text-colin-navy">
-                  {contactModalEnquiry.studentName} ({contactModalEnquiry.studentUniversity || 'Student'})
-                </p>
-                <p className="text-xs text-colin-charcoal-500">
-                  {contactMode === 'whatsapp' ? contactModalEnquiry.studentPhone : contactModalEnquiry.studentEmail}
-                </p>
-              </div>
-
-              {contactMode === 'call' ? (
-                <div className="p-4 bg-colin-navy-50 rounded-2xl border border-colin-navy-100 text-center space-y-2">
-                  <Phone size={28} className="mx-auto text-colin-navy" />
-                  <p className="text-xs font-bold text-colin-navy">
-                    Simulated Direct Campus Call
-                  </p>
-                  <p className="text-xs text-colin-charcoal-600">
-                    Calling {contactModalEnquiry.studentPhone} via COLIN Verified Host Dialler...
-                  </p>
-                </div>
-              ) : (
-                <form onSubmit={handleSendContact} className="space-y-3">
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-colin-charcoal-700 uppercase">
-                      Draft Message
-                    </label>
-                    <textarea
-                      rows={5}
-                      required
-                      value={contactMessage}
-                      onChange={(e) => setContactMessage(e.target.value)}
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-colin-charcoal-300 focus:outline-none focus:ring-2 focus:ring-colin-navy"
-                    />
-                  </div>
-
-                  {contactSentSuccess ? (
-                    <div className="p-3 bg-emerald-50 text-emerald-800 rounded-xl text-center text-xs font-bold flex items-center justify-center gap-1.5">
-                      <CheckCircle2 size={16} className="text-emerald-600" />
-                      <span>Message Dispatched via Demonstration Gateway!</span>
-                    </div>
-                  ) : (
-                    <div className="flex justify-end gap-2 pt-2">
-                      <Button variant="outline" size="sm" onClick={() => setContactModalEnquiry(null)}>
-                        Cancel
-                      </Button>
-                      <Button
-                        type="submit"
-                        variant="primary"
-                        size="sm"
-                        className="bg-colin-navy hover:bg-colin-navy-800"
-                        leftIcon={<Send size={13} />}
-                      >
-                        Send {contactMode.toUpperCase()}
-                      </Button>
-                    </div>
-                  )}
-                </form>
-              )}
-            </div>
-
-            {contactMode === 'call' && (
-              <div className="flex justify-end gap-2 pt-2">
-                <Button variant="outline" size="sm" onClick={() => setContactModalEnquiry(null)}>
-                  Close
-                </Button>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => {
-                    setContactSentSuccess(true);
-                    addEnquiryNote(contactModalEnquiry.id, `Phone call logged by host on ${new Date().toLocaleDateString('en-IN')}`);
-                    setTimeout(() => {
-                      setContactSentSuccess(false);
-                      setContactModalEnquiry(null);
-                    }, 1500);
-                  }}
-                  className="bg-colin-navy"
-                >
-                  Log Call as Completed
-                </Button>
-              </div>
-            )}
-
-          </div>
-        </div>
-      )}
-
     </div>
   );
 };
