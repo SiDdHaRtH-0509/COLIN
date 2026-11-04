@@ -67,25 +67,31 @@ function openDB(): Promise<IDBDatabase> {
   });
 }
 
+const getPhotoKey = (userId?: string) => (userId ? `student_avatar_${userId}` : PHOTO_KEY);
+const getFallbackKey = (userId?: string) => (userId ? `${LOCAL_STORAGE_FALLBACK_KEY}_${userId}` : LOCAL_STORAGE_FALLBACK_KEY);
+
 /**
- * Saves profile photo to IndexedDB with localStorage fallback
+ * Saves profile photo to IndexedDB with localStorage fallback (scoped by userId)
  */
-export async function saveProfilePhoto(dataUrl: string): Promise<boolean> {
+export async function saveProfilePhoto(dataUrl: string, userId?: string): Promise<boolean> {
+  const targetKey = getPhotoKey(userId);
+  const fallbackKey = getFallbackKey(userId);
+
   try {
     const db = await openDB();
     return new Promise((resolve) => {
       const tx = db.transaction(STORE_NAME, 'readwrite');
       const store = tx.objectStore(STORE_NAME);
-      const req = store.put(dataUrl, PHOTO_KEY);
+      const req = store.put(dataUrl, targetKey);
 
       req.onsuccess = () => {
         // Also keep sync flag
-        localStorage.setItem('colin_has_custom_avatar', 'true');
+        localStorage.setItem(`colin_has_custom_avatar_${userId || 'default'}`, 'true');
         resolve(true);
       };
       req.onerror = () => {
         try {
-          localStorage.setItem(LOCAL_STORAGE_FALLBACK_KEY, dataUrl);
+          localStorage.setItem(fallbackKey, dataUrl);
           resolve(true);
         } catch {
           resolve(false);
@@ -94,8 +100,8 @@ export async function saveProfilePhoto(dataUrl: string): Promise<boolean> {
     });
   } catch {
     try {
-      localStorage.setItem(LOCAL_STORAGE_FALLBACK_KEY, dataUrl);
-      localStorage.setItem('colin_has_custom_avatar', 'true');
+      localStorage.setItem(fallbackKey, dataUrl);
+      localStorage.setItem(`colin_has_custom_avatar_${userId || 'default'}`, 'true');
       return true;
     } catch {
       return false;
@@ -104,45 +110,51 @@ export async function saveProfilePhoto(dataUrl: string): Promise<boolean> {
 }
 
 /**
- * Retrieves the stored profile photo
+ * Retrieves the stored profile photo (scoped by userId)
  */
-export async function getProfilePhoto(): Promise<string | null> {
+export async function getProfilePhoto(userId?: string): Promise<string | null> {
+  const targetKey = getPhotoKey(userId);
+  const fallbackKey = getFallbackKey(userId);
+
   try {
     const db = await openDB();
     return new Promise((resolve) => {
       const tx = db.transaction(STORE_NAME, 'readonly');
       const store = tx.objectStore(STORE_NAME);
-      const req = store.get(PHOTO_KEY);
+      const req = store.get(targetKey);
 
       req.onsuccess = () => {
         if (req.result) {
           resolve(req.result as string);
         } else {
-          resolve(localStorage.getItem(LOCAL_STORAGE_FALLBACK_KEY));
+          resolve(localStorage.getItem(fallbackKey));
         }
       };
       req.onerror = () => {
-        resolve(localStorage.getItem(LOCAL_STORAGE_FALLBACK_KEY));
+        resolve(localStorage.getItem(fallbackKey));
       };
     });
   } catch {
-    return localStorage.getItem(LOCAL_STORAGE_FALLBACK_KEY);
+    return localStorage.getItem(fallbackKey);
   }
 }
 
 /**
- * Removes custom profile photo from storage
+ * Removes custom profile photo from storage (scoped by userId)
  */
-export async function deleteProfilePhoto(): Promise<boolean> {
-  localStorage.removeItem(LOCAL_STORAGE_FALLBACK_KEY);
-  localStorage.removeItem('colin_has_custom_avatar');
+export async function deleteProfilePhoto(userId?: string): Promise<boolean> {
+  const targetKey = getPhotoKey(userId);
+  const fallbackKey = getFallbackKey(userId);
+
+  localStorage.removeItem(fallbackKey);
+  localStorage.removeItem(`colin_has_custom_avatar_${userId || 'default'}`);
 
   try {
     const db = await openDB();
     return new Promise((resolve) => {
       const tx = db.transaction(STORE_NAME, 'readwrite');
       const store = tx.objectStore(STORE_NAME);
-      const req = store.delete(PHOTO_KEY);
+      const req = store.delete(targetKey);
       req.onsuccess = () => resolve(true);
       req.onerror = () => resolve(true);
     });

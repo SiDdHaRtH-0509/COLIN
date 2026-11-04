@@ -125,6 +125,53 @@ const calculateExpirationDate = (duration: '6-month' | '12-month', fromDate = ne
   return d.toISOString().split('T')[0];
 };
 
+const getOwnerProfileKey = (userId?: string) => `colin_owner_${userId || 'usr-owner-01'}_profile`;
+const getOwnerSubscriptionKey = (userId?: string) => `colin_owner_${userId || 'usr-owner-01'}_subscription`;
+const getOwnerSponsorshipsKey = (userId?: string) => `colin_owner_${userId || 'usr-owner-01'}_sponsorships`;
+const getOwnerPhotographyKey = (userId?: string) => `colin_owner_${userId || 'usr-owner-01'}_photography`;
+const getOwnerInspectionSlotsKey = (userId?: string) => `colin_owner_${userId || 'usr-owner-01'}_inspection_slots`;
+
+const getDefaultOwnerProfile = (u?: any): OwnerProfile => {
+  if (u?.id === 'usr-owner-01' || !u) {
+    return INITIAL_OWNER_PROFILE;
+  }
+  return {
+    id: u.id,
+    ownerName: u.name || 'Property Host',
+    businessName: `${u.name || 'Owner'}'s Residences`,
+    phone: u.phone || '',
+    email: u.email || '',
+    city: 'Delhi NCR',
+    address: '',
+    isVerified: false,
+    pan: '',
+    gstin: '',
+    avatar: u.avatar || '',
+    notificationPreferences: {
+      whatsapp: true,
+      email: true,
+      sms: false,
+      instantEnquiryAlerts: true,
+    },
+  };
+};
+
+const getDefaultOwnerSubscription = (u?: any): OwnerSubscription => {
+  if (u?.id === 'usr-owner-01' || !u) {
+    return INITIAL_SUBSCRIPTION;
+  }
+  return {
+    tier: 'FREE',
+    billingCycle: 'annual',
+    price: 0,
+    startedAt: new Date().toISOString().split('T')[0],
+    expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    propertyLimit: 1,
+    features: ['Standard campus directory listing', 'COLIN Mediated student enquiries'],
+    paymentHistory: [],
+  };
+};
+
 export const PropertyProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
 
@@ -178,40 +225,45 @@ export const PropertyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return INITIAL_CERTIFICATIONS;
   });
 
-  // 5. Subscription State
+  // 5. Subscription State (User-Scoped)
   const [subscription, setSubscription] = useState<OwnerSubscription>(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEYS.SUBSCRIPTION);
-      if (stored) return JSON.parse(stored);
+      const key = getOwnerSubscriptionKey(user?.id);
+      const stored = localStorage.getItem(key) || localStorage.getItem(STORAGE_KEYS.SUBSCRIPTION);
+      if (stored && user?.id === 'usr-owner-01') return JSON.parse(stored);
+      if (stored && user?.id) return JSON.parse(stored);
     } catch {}
-    return INITIAL_SUBSCRIPTION;
+    return getDefaultOwnerSubscription(user);
   });
 
-  // 6. Sponsorships State
+  // 6. Sponsorships State (User-Scoped)
   const [sponsorships, setSponsorships] = useState<SponsorshipCampaign[]>(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEYS.SPONSORSHIPS);
+      const key = getOwnerSponsorshipsKey(user?.id);
+      const stored = localStorage.getItem(key);
       if (stored) return JSON.parse(stored);
     } catch {}
-    return INITIAL_SPONSORSHIPS;
+    return user?.id === 'usr-owner-01' || !user ? INITIAL_SPONSORSHIPS : [];
   });
 
-  // 7. Photography Bookings State
+  // 7. Photography Bookings State (User-Scoped)
   const [photographyBookings, setPhotographyBookings] = useState<PhotographyBooking[]>(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEYS.PHOTOGRAPHY);
+      const key = getOwnerPhotographyKey(user?.id);
+      const stored = localStorage.getItem(key);
       if (stored) return JSON.parse(stored);
     } catch {}
-    return INITIAL_PHOTOGRAPHY;
+    return user?.id === 'usr-owner-01' || !user ? INITIAL_PHOTOGRAPHY : [];
   });
 
-  // 8. Owner Profile State
+  // 8. Owner Profile State (User-Scoped)
   const [ownerProfile, setOwnerProfile] = useState<OwnerProfile>(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEYS.OWNER_PROFILE);
+      const key = getOwnerProfileKey(user?.id);
+      const stored = localStorage.getItem(key);
       if (stored) return JSON.parse(stored);
     } catch {}
-    return INITIAL_OWNER_PROFILE;
+    return getDefaultOwnerProfile(user);
   });
 
   // 9. Visits State (Synced with Student Visits storage key)
@@ -223,16 +275,17 @@ export const PropertyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return INITIAL_STUDENT_VISITS;
   });
 
-  // 10. Inspection Slots State
+  // 10. Inspection Slots State (User-Scoped)
   const [availableInspectionSlots, setAvailableInspectionSlots] = useState<string[]>(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEYS.INSPECTION_SLOTS);
+      const key = getOwnerInspectionSlotsKey(user?.id);
+      const stored = localStorage.getItem(key);
       if (stored) return JSON.parse(stored);
     } catch {}
     return DEFAULT_INSPECTION_SLOTS;
   });
 
-  // Sync to localStorage
+  // Sync Global Data to localStorage
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEYS.PROPERTIES, JSON.stringify(properties));
@@ -259,37 +312,118 @@ export const PropertyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEYS.SUBSCRIPTION, JSON.stringify(subscription));
+      localStorage.setItem(STORAGE_KEYS.VISITS, JSON.stringify(visits));
+    } catch {}
+  }, [visits]);
+
+  // Reactive reload when authenticated owner changes (Login / Logout / Account switch)
+  useEffect(() => {
+    const ownerId = user?.id;
+    const isDemoOwner = ownerId === 'usr-owner-01';
+
+    // Profile
+    try {
+      const pKey = getOwnerProfileKey(ownerId);
+      const storedP = localStorage.getItem(pKey);
+      if (storedP) {
+        setOwnerProfile(JSON.parse(storedP));
+      } else {
+        const freshProfile = getDefaultOwnerProfile(user);
+        setOwnerProfile(freshProfile);
+        localStorage.setItem(pKey, JSON.stringify(freshProfile));
+      }
+    } catch {
+      setOwnerProfile(getDefaultOwnerProfile(user));
+    }
+
+    // Subscription
+    try {
+      const sKey = getOwnerSubscriptionKey(ownerId);
+      const storedS = localStorage.getItem(sKey);
+      if (storedS) {
+        setSubscription(JSON.parse(storedS));
+      } else {
+        const freshSub = getDefaultOwnerSubscription(user);
+        setSubscription(freshSub);
+        localStorage.setItem(sKey, JSON.stringify(freshSub));
+      }
+    } catch {
+      setSubscription(getDefaultOwnerSubscription(user));
+    }
+
+    // Sponsorships
+    try {
+      const spKey = getOwnerSponsorshipsKey(ownerId);
+      const storedSp = localStorage.getItem(spKey);
+      setSponsorships(storedSp ? JSON.parse(storedSp) : (isDemoOwner || !user ? INITIAL_SPONSORSHIPS : []));
+    } catch {
+      setSponsorships(isDemoOwner || !user ? INITIAL_SPONSORSHIPS : []);
+    }
+
+    // Photography
+    try {
+      const phKey = getOwnerPhotographyKey(ownerId);
+      const storedPh = localStorage.getItem(phKey);
+      setPhotographyBookings(storedPh ? JSON.parse(storedPh) : (isDemoOwner || !user ? INITIAL_PHOTOGRAPHY : []));
+    } catch {
+      setPhotographyBookings(isDemoOwner || !user ? INITIAL_PHOTOGRAPHY : []);
+    }
+
+    // Inspection slots
+    try {
+      const slKey = getOwnerInspectionSlotsKey(ownerId);
+      const storedSl = localStorage.getItem(slKey);
+      setAvailableInspectionSlots(storedSl ? JSON.parse(storedSl) : (isDemoOwner || !user ? DEFAULT_INSPECTION_SLOTS : []));
+    } catch {
+      setAvailableInspectionSlots(isDemoOwner || !user ? DEFAULT_INSPECTION_SLOTS : []);
+    }
+  }, [user]);
+
+  // Sync User-Scoped Owner Data
+  useEffect(() => {
+    const ownerId = user?.id;
+    if (ownerId && ownerProfile.id !== ownerId) {
+      // Prevents writing stale profile into the new user's scoped key
+      return;
+    }
+    try {
+      localStorage.setItem(getOwnerProfileKey(ownerId), JSON.stringify(ownerProfile));
+      if (ownerId === 'usr-owner-01') {
+        localStorage.setItem(STORAGE_KEYS.OWNER_PROFILE, JSON.stringify(ownerProfile));
+      }
+    } catch {}
+  }, [ownerProfile]);
+
+  useEffect(() => {
+    const ownerId = user?.id;
+    if (ownerId && subscription.tier === 'PRO' && ownerId !== 'usr-owner-01') {
+      const sKey = getOwnerSubscriptionKey(ownerId);
+      const existing = localStorage.getItem(sKey);
+      if (!existing) return;
+    }
+    try {
+      localStorage.setItem(getOwnerSubscriptionKey(ownerId), JSON.stringify(subscription));
+      if (ownerId === 'usr-owner-01') {
+        localStorage.setItem(STORAGE_KEYS.SUBSCRIPTION, JSON.stringify(subscription));
+      }
     } catch {}
   }, [subscription]);
 
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEYS.SPONSORSHIPS, JSON.stringify(sponsorships));
+      localStorage.setItem(getOwnerSponsorshipsKey(user?.id), JSON.stringify(sponsorships));
     } catch {}
   }, [sponsorships]);
 
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEYS.PHOTOGRAPHY, JSON.stringify(photographyBookings));
+      localStorage.setItem(getOwnerPhotographyKey(user?.id), JSON.stringify(photographyBookings));
     } catch {}
   }, [photographyBookings]);
 
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEYS.OWNER_PROFILE, JSON.stringify(ownerProfile));
-    } catch {}
-  }, [ownerProfile]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.VISITS, JSON.stringify(visits));
-    } catch {}
-  }, [visits]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.INSPECTION_SLOTS, JSON.stringify(availableInspectionSlots));
+      localStorage.setItem(getOwnerInspectionSlotsKey(user?.id), JSON.stringify(availableInspectionSlots));
     } catch {}
   }, [availableInspectionSlots]);
 
@@ -311,19 +445,41 @@ export const PropertyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
 
-  // Filter properties owned by current user (defaults to Col. Rajesh Sharma if in demo owner mode)
+  // Filter properties owned by current user (strict account isolation)
   const ownerProperties = useMemo(() => {
     const currentOwnerId = user?.id || 'usr-owner-01';
     return properties.filter((p) => {
+      // Default demo owner has prop-1, prop-7, and any user-created properties
+      if (currentOwnerId === 'usr-owner-01') {
+        if (p.ownerId === 'usr-owner-01' || p.id === 'prop-1' || p.id === 'prop-7' || p.id.startsWith('prop-owner-demo-')) {
+          return true;
+        }
+        return false;
+      }
+      // Non-demo registered owner has strictly their own properties
       if (p.ownerId === currentOwnerId) return true;
       if (user?.email && p.ownerEmail === user.email) return true;
-      // Default demo owner has prop-1, prop-7, and any user-created properties
-      if (currentOwnerId === 'usr-owner-01' && (p.id === 'prop-1' || p.id === 'prop-7' || p.id.startsWith('prop-owner-'))) {
-        return true;
-      }
       return false;
     });
   }, [properties, user]);
+
+  // Scoped enquiries for the active owner
+  const contextEnquiries = useMemo(() => {
+    if (!user || user.id === 'usr-owner-01') {
+      return enquiries;
+    }
+    const ownerPropIds = new Set(ownerProperties.map((p) => p.id));
+    return enquiries.filter((e) => ownerPropIds.has(e.propertyId));
+  }, [enquiries, ownerProperties, user]);
+
+  // Scoped certifications for the active owner
+  const contextCertifications = useMemo(() => {
+    if (!user || user.id === 'usr-owner-01') {
+      return certifications;
+    }
+    const ownerPropIds = new Set(ownerProperties.map((p) => p.id));
+    return certifications.filter((c) => ownerPropIds.has(c.propertyId));
+  }, [certifications, ownerProperties, user]);
 
   // Helper to re-derive a property's available rooms, beds, and occupancy status from rooms list
   const syncPropertyAvailability = useCallback((propertyId: string, currentRooms: Room[]) => {
@@ -398,15 +554,8 @@ export const PropertyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         inspectionApproved: false,
         rating: 5.0,
         reviewsCount: 0,
-        featuredImage:
-          propertyData.featuredImage ||
-          'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80',
-        galleryImages: propertyData.galleryImages && propertyData.galleryImages.length > 0
-          ? propertyData.galleryImages
-          : [
-              'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80',
-              'https://images.unsplash.com/photo-1595526114035-0d45ed16cfbf?auto=format&fit=crop&w=1200&q=80',
-            ],
+        featuredImage: propertyData.featuredImage ?? '',
+        galleryImages: propertyData.galleryImages ?? (propertyData.featuredImage ? [propertyData.featuredImage] : []),
         availableFrom: propertyData.availableFrom || 'Immediate',
         occupancyStatus: 'Available',
         description: propertyData.description || 'Verified student accommodation listed on COLIN.',
@@ -466,25 +615,43 @@ export const PropertyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     [user, ownerProfile]
   );
 
-  // Update Property
-  const updateProperty = useCallback((id: string, updates: Partial<Property>) => {
-    setProperties((prev) =>
-      prev.map((p) => {
-        if (p.id === id) {
-          return { ...p, ...updates };
-        }
-        return p;
-      })
-    );
-  }, []);
+  // Update Property (With strict user authorization)
+  const updateProperty = useCallback(
+    (id: string, updates: Partial<Property>) => {
+      setProperties((prev) =>
+        prev.map((p) => {
+          if (p.id === id) {
+            // Check cross-user modification
+            if (user && user.id !== 'usr-owner-01' && p.ownerId && p.ownerId !== user.id) {
+              console.warn(`Unauthorized property update on ${id} by user ${user.id}`);
+              return p;
+            }
+            return { ...p, ...updates };
+          }
+          return p;
+        })
+      );
+    },
+    [user]
+  );
 
-  // Delete Property
-  const deleteProperty = useCallback((id: string) => {
-    setProperties((prev) => prev.filter((p) => p.id !== id));
-    setRooms((prev) => prev.filter((r) => r.propertyId !== id));
-    setEnquiries((prev) => prev.filter((e) => e.propertyId !== id));
-    setCertifications((prev) => prev.filter((c) => c.propertyId !== id));
-  }, []);
+  // Delete Property (With strict user authorization)
+  const deleteProperty = useCallback(
+    (id: string) => {
+      setProperties((prev) => {
+        const target = prev.find((p) => p.id === id);
+        if (user && user.id !== 'usr-owner-01' && target?.ownerId && target.ownerId !== user.id) {
+          console.warn(`Unauthorized property deletion on ${id} by user ${user.id}`);
+          return prev;
+        }
+        return prev.filter((p) => p.id !== id);
+      });
+      setRooms((prev) => prev.filter((r) => r.propertyId !== id));
+      setEnquiries((prev) => prev.filter((e) => e.propertyId !== id));
+      setCertifications((prev) => prev.filter((c) => c.propertyId !== id));
+    },
+    [user]
+  );
 
   // Toggle listing active/paused
   const toggleListingStatus = useCallback((id: string) => {
@@ -1336,7 +1503,7 @@ export const PropertyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         updateRoom,
         deleteRoom,
         updateRoomOccupancy,
-        enquiries,
+        enquiries: contextEnquiries,
         addEnquiry,
         updateEnquiryStatus,
         addEnquiryNote,
@@ -1352,7 +1519,7 @@ export const PropertyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         checkAndExpireDecisions,
         availableInspectionSlots,
         updateAvailableInspectionSlots,
-        certifications,
+        certifications: contextCertifications,
         requestCertification,
         assignInspector,
         submitInspectionReport,

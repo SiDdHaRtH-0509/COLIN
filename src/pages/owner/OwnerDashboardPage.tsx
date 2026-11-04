@@ -5,7 +5,6 @@ import {
   Building2,
   BedDouble,
   MessageSquareText,
-  CalendarCheck,
   ShieldCheck,
   Crown,
   Clock,
@@ -17,7 +16,6 @@ import {
   BarChart3,
   Layers,
   CheckCheck,
-  BellRing,
 } from 'lucide-react';
 import { Button } from '../../components/common/Button';
 
@@ -26,7 +24,6 @@ export const OwnerDashboardPage: React.FC = () => {
     ownerProperties,
     rooms,
     enquiries,
-    visits,
     certifications,
     subscription,
     ownerProfile,
@@ -55,25 +52,14 @@ export const OwnerDashboardPage: React.FC = () => {
   const totalEnquiriesCount = enquiries.length;
   const newEnquiriesCount = enquiries.filter((e) => e.status === 'New').length;
 
-  // Visits metrics (both upcoming confirmed visits and new requests)
-  const upcomingVisits = visits.filter(
-    (v) =>
-      v.status === 'Confirmed' ||
-      v.status === 'Pending' ||
-      v.status === 'VISIT_CONFIRMED' ||
-      v.status === 'PENDING_COLIN_REVIEW' ||
-      v.status === 'AWAITING_OWNER_AVAILABILITY'
-  );
-  const upcomingVisitsCount = upcomingVisits.length;
-
   // Certification metrics
   const certifiedPropertiesCount = ownerProperties.filter((p) => p.isColinCertified).length;
 
-  // Chronological activity stream
+  // Chronological activity stream (Enquiries & Physical Audits)
   const recentActivities = useMemo(() => {
     const list: Array<{
       id: string;
-      type: 'enquiry' | 'visit' | 'certification';
+      type: 'enquiry' | 'certification';
       title: string;
       subtitle: string;
       date: string;
@@ -81,7 +67,7 @@ export const OwnerDashboardPage: React.FC = () => {
       badgeClass: string;
     }> = [];
 
-    enquiries.slice(0, 3).forEach((e) => {
+    enquiries.slice(0, 4).forEach((e) => {
       list.push({
         id: `act-enq-${e.id}`,
         type: 'enquiry',
@@ -93,22 +79,7 @@ export const OwnerDashboardPage: React.FC = () => {
       });
     });
 
-    visits.slice(0, 3).forEach((v) => {
-      list.push({
-        id: `act-vis-${v.id}`,
-        type: 'visit',
-        title: `Visit for ${v.studentName}`,
-        subtitle: `${v.propertyTitle} • ${v.date} (${v.timeSlot})`,
-        date: v.date,
-        status: v.status,
-        badgeClass:
-          v.status === 'Confirmed' || v.status === 'VISIT_CONFIRMED'
-            ? 'bg-emerald-600 text-white'
-            : 'bg-amber-100 text-amber-800',
-      });
-    });
-
-    certifications.slice(0, 2).forEach((c) => {
+    certifications.slice(0, 3).forEach((c) => {
       list.push({
         id: `act-cert-${c.id}`,
         type: 'certification',
@@ -121,7 +92,7 @@ export const OwnerDashboardPage: React.FC = () => {
     });
 
     return list.slice(0, 6);
-  }, [enquiries, visits, certifications]);
+  }, [enquiries, certifications]);
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto pb-12 animate-fadeIn">
@@ -230,18 +201,20 @@ export const OwnerDashboardPage: React.FC = () => {
           </div>
         </div>
 
-        {/* 4. Upcoming In-Person Visits */}
+        {/* 4. COLIN Physical Verification Status */}
         <div className="bg-white rounded-3xl p-5 border border-colin-charcoal-200/90 shadow-sm space-y-2">
           <div className="flex items-center justify-between text-colin-charcoal-500">
-            <span className="text-xs font-bold uppercase tracking-wider">Visit Appointments</span>
-            <CalendarCheck size={18} className="text-emerald-600" />
+            <span className="text-xs font-bold uppercase tracking-wider">Quality & Safety</span>
+            <ShieldCheck size={18} className="text-colin-teal" />
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-black text-colin-navy font-display">{upcomingVisitsCount}</span>
-            <span className="text-xs text-emerald-600 font-bold">₹150 Pass Paid</span>
+            <span className="text-3xl font-black text-colin-navy font-display">{certifiedPropertiesCount}</span>
+            <span className="text-xs text-colin-teal font-bold">
+              {totalProperties > 0 ? Math.round((certifiedPropertiesCount / totalProperties) * 100) : 0}% Verified
+            </span>
           </div>
           <div className="text-[11px] text-colin-charcoal-500">
-            <span>55% refund guarantee active</span>
+            <span>Physical audit guarantee</span>
           </div>
         </div>
       </div>
@@ -272,92 +245,109 @@ export const OwnerDashboardPage: React.FC = () => {
             </div>
 
             {/* Properties List */}
-            <div className="divide-y divide-colin-charcoal-100">
-              {ownerProperties.map((prop) => {
-                const propRooms = rooms.filter((r) => r.propertyId === prop.id);
-                const propBeds = propRooms.reduce(
-                  (acc, r) => acc + (r.status === 'available' ? r.availableBeds : 0),
-                  0
-                );
-                const propTotalBeds = propRooms.reduce((acc, r) => acc + r.totalBeds, 0);
+            {ownerProperties.length === 0 ? (
+              <div className="py-8 text-center space-y-3">
+                <Building2 size={36} className="text-colin-charcoal-300 mx-auto" />
+                <div className="space-y-1">
+                  <h3 className="text-sm font-bold text-colin-navy">No Properties Listed Yet</h3>
+                  <p className="text-xs text-colin-charcoal-500 max-w-sm mx-auto">
+                    Publish your first property to start receiving student enquiries and scheduling COLIN physical audits.
+                  </p>
+                </div>
+                <Link to="/owner/properties">
+                  <Button variant="primary" size="sm" className="text-xs font-bold">
+                    Add Your First Property
+                  </Button>
+                </Link>
+              </div>
+            ) : (
+              <div className="divide-y divide-colin-charcoal-100">
+                {ownerProperties.map((prop) => {
+                  const propRooms = rooms.filter((r) => r.propertyId === prop.id);
+                  const propBeds = propRooms.reduce(
+                    (acc, r) => acc + (r.status === 'available' ? r.availableBeds : 0),
+                    0
+                  );
+                  const propTotalBeds = propRooms.reduce((acc, r) => acc + r.totalBeds, 0);
 
-                return (
-                  <div key={prop.id} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <img
-                        src={prop.featuredImage}
-                        alt={prop.title}
-                        className="w-14 h-14 rounded-2xl object-cover border border-colin-charcoal-200 shrink-0"
-                      />
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-sm font-bold text-colin-navy truncate">{prop.title}</h3>
-                          {prop.isColinCertified && (
-                            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-colin-teal/15 text-colin-teal-700 shrink-0">
-                              Verified 99/100
+                  return (
+                    <div key={prop.id} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <img
+                          src={prop.featuredImage}
+                          alt={prop.title}
+                          className="w-14 h-14 rounded-2xl object-cover border border-colin-charcoal-200 shrink-0"
+                        />
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-sm font-bold text-colin-navy truncate">{prop.title}</h3>
+                            {prop.isColinCertified && (
+                              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-colin-teal/15 text-colin-teal-700 shrink-0">
+                                Verified 99/100
+                              </span>
+                            )}
+                            {prop.isSponsored && (
+                              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-colin-orange/15 text-colin-orange shrink-0">
+                                Sponsored
+                              </span>
+                            )}
+                          </div>
+
+                          <p className="text-xs text-colin-charcoal-500 truncate">
+                            {prop.neighborhood}, {prop.city} • ₹{prop.rentMonthly.toLocaleString('en-IN')}/mo
+                          </p>
+
+                          <div className="flex items-center gap-3 text-[11px] text-colin-charcoal-600 mt-1">
+                            <span className="font-semibold text-colin-navy">
+                              {propBeds} of {propTotalBeds} beds available
                             </span>
-                          )}
-                          {prop.isSponsored && (
-                            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-colin-orange/15 text-colin-orange shrink-0">
-                              Sponsored
+                            <span>•</span>
+                            <span
+                              className={
+                                prop.listingStatus === 'active' || !prop.listingStatus
+                                  ? 'text-emerald-600 font-bold'
+                                  : 'text-amber-600 font-bold'
+                              }
+                            >
+                              {prop.listingStatus === 'active' || !prop.listingStatus ? '● Active Listing' : '○ Paused'}
                             </span>
-                          )}
-                        </div>
-
-                        <p className="text-xs text-colin-charcoal-500 truncate">
-                          {prop.neighborhood}, {prop.city} • ₹{prop.rentMonthly.toLocaleString('en-IN')}/mo
-                        </p>
-
-                        <div className="flex items-center gap-3 text-[11px] text-colin-charcoal-600 mt-1">
-                          <span className="font-semibold text-colin-navy">
-                            {propBeds} of {propTotalBeds} beds available
-                          </span>
-                          <span>•</span>
-                          <span
-                            className={
-                              prop.listingStatus === 'active' || !prop.listingStatus
-                                ? 'text-emerald-600 font-bold'
-                                : 'text-amber-600 font-bold'
-                            }
-                          >
-                            {prop.listingStatus === 'active' || !prop.listingStatus ? '● Active Listing' : '○ Paused'}
-                          </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Actions */}
-                    <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-                      <button
-                        onClick={() => toggleListingStatus(prop.id)}
-                        className={`text-xs font-bold px-3 py-1.5 rounded-xl border transition-colors ${
-                          prop.listingStatus === 'paused'
-                            ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
-                            : 'bg-colin-charcoal-50 border-colin-charcoal-200 text-colin-charcoal-700 hover:bg-colin-charcoal-100'
-                        }`}
-                      >
-                        {prop.listingStatus === 'paused' ? 'Publish' : 'Pause'}
-                      </button>
-
-                      <Link to="/owner/rooms">
-                        <Button variant="outline" size="sm" className="text-xs font-bold px-3 py-1.5">
-                          Rooms ({propRooms.length})
-                        </Button>
-                      </Link>
-
-                      <Link to={`/student/property/${prop.id}`} target="_blank" rel="noopener noreferrer">
+                      {/* Actions */}
+                      <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
                         <button
-                          className="p-1.5 text-colin-charcoal-400 hover:text-colin-navy rounded-lg"
-                          title="Preview student view"
+                          onClick={() => toggleListingStatus(prop.id)}
+                          className={`text-xs font-bold px-3 py-1.5 rounded-xl border transition-colors ${
+                            prop.listingStatus === 'paused'
+                              ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
+                              : 'bg-colin-charcoal-50 border-colin-charcoal-200 text-colin-charcoal-700 hover:bg-colin-charcoal-100'
+                          }`}
                         >
-                          <ExternalLink size={16} />
+                          {prop.listingStatus === 'paused' ? 'Publish' : 'Pause'}
                         </button>
-                      </Link>
+
+                        <Link to="/owner/rooms">
+                          <Button variant="outline" size="sm" className="text-xs font-bold px-3 py-1.5">
+                            Rooms ({propRooms.length})
+                          </Button>
+                        </Link>
+
+                        <Link to={`/student/property/${prop.id}`} target="_blank" rel="noopener noreferrer">
+                          <button
+                            className="p-1.5 text-colin-charcoal-400 hover:text-colin-navy rounded-lg"
+                            title="Preview student view"
+                          >
+                            <ExternalLink size={16} />
+                          </button>
+                        </Link>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* 2. Property Management Summary */}
@@ -506,68 +496,75 @@ export const OwnerDashboardPage: React.FC = () => {
             </div>
           </div>
 
-          {/* 5. Upcoming In-Person Visits */}
+          {/* 5. Physical Audit & Quality Standards */}
           <div className="bg-white rounded-3xl border border-colin-charcoal-200/90 shadow-sm p-6 space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-base font-black text-colin-navy font-display flex items-center gap-2">
-                <CalendarCheck size={18} className="text-emerald-600" />
-                <span>Upcoming Visits</span>
-              </h2>
-              <Link to="/owner/visits" className="text-xs font-bold text-colin-teal hover:underline">
-                View All Schedule →
+              <div>
+                <h2 className="text-base font-black text-colin-navy font-display flex items-center gap-2">
+                  <ShieldCheck size={18} className="text-colin-teal" />
+                  <span>Physical Audit & Quality Standards</span>
+                </h2>
+                <p className="text-xs text-colin-charcoal-500">
+                  On-site safety, hygiene, and amenities verification by student campus ambassadors
+                </p>
+              </div>
+              <Link to="/owner/certification">
+                <Button variant="ghost" size="sm" className="text-xs font-bold text-colin-teal">
+                  Audit Hub →
+                </Button>
               </Link>
             </div>
 
-            {upcomingVisits.length === 0 ? (
+            {ownerProperties.length === 0 ? (
               <div className="text-center py-6 text-colin-charcoal-400 text-xs">
-                No upcoming student visits scheduled.
+                List a property to schedule a 100-point physical verification audit.
               </div>
             ) : (
               <div className="space-y-3">
-                {upcomingVisits.slice(0, 3).map((visit) => (
-                  <div
-                    key={visit.id}
-                    className="p-3.5 bg-colin-navy-50/60 rounded-2xl border border-colin-navy-100 space-y-2"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-black text-colin-navy">{visit.studentName}</span>
-                        {visit.studentAge && (
-                          <span className="text-[10px] text-colin-charcoal-500 font-semibold">
-                            ({visit.studentAge} yrs)
+                {ownerProperties.slice(0, 3).map((prop) => {
+                  const cert = certifications.find((c) => c.propertyId === prop.id);
+                  const isCertified = prop.isColinCertified || cert?.status === 'Certified';
+
+                  return (
+                    <div
+                      key={prop.id}
+                      className="p-3.5 bg-colin-navy-50/50 rounded-2xl border border-colin-navy-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+                    >
+                      <div className="space-y-0.5 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-black text-colin-navy truncate">{prop.title}</span>
+                          <span
+                            className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
+                              isCertified
+                                ? 'bg-colin-teal/15 text-colin-teal-700'
+                                : 'bg-amber-100 text-amber-800'
+                            }`}
+                          >
+                            {isCertified ? 'COLIN Certified 99/100' : 'Audit Pending'}
                           </span>
-                        )}
-                        <span className="text-[10px] text-colin-charcoal-400">
-                          Ref: {visit.bookingReference || visit.id}
-                        </span>
+                        </div>
+                        <p className="text-[11px] text-colin-charcoal-500 truncate">
+                          {prop.neighborhood}, {prop.city} • Safety, fire alarms, and Wi-Fi compliance
+                        </p>
                       </div>
-                      <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                          visit.status === 'Confirmed' || visit.status === 'VISIT_CONFIRMED'
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : 'bg-amber-100 text-amber-800'
-                        }`}
-                      >
-                        {visit.status === 'VISIT_CONFIRMED' || visit.status === 'Confirmed'
-                          ? 'Confirmed Visit'
-                          : 'Awaiting Coordination'}
-                      </span>
-                    </div>
 
-                    <p className="text-[11px] text-colin-charcoal-600">{visit.propertyTitle}</p>
-
-                    <div className="flex flex-wrap items-center justify-between text-[10px] text-colin-charcoal-500 pt-1 border-t border-colin-navy-100/60 gap-2">
-                      <span className="flex items-center gap-1 font-semibold text-colin-navy">
-                        <Clock size={11} className="text-colin-teal" />
-                        {visit.date} ({visit.timeSlot})
-                      </span>
-                      <span className="text-colin-charcoal-600">
-                        Escort: {visit.assignedVolunteer?.name || 'COLIN Ambassador'}
-                      </span>
-                      <span className="font-bold text-colin-teal">Fee Paid: ₹{visit.feePaid}</span>
+                      <div className="shrink-0 flex items-center gap-2">
+                        {isCertified ? (
+                          <span className="text-[11px] font-bold text-emerald-700 flex items-center gap-1 bg-emerald-50 px-2.5 py-1 rounded-xl border border-emerald-100">
+                            <CheckCheck size={13} className="text-emerald-600" />
+                            Verified Badge Active
+                          </span>
+                        ) : (
+                          <Link to="/owner/certification">
+                            <Button size="sm" variant="outline" className="text-xs font-bold px-3 py-1">
+                              Request Audit
+                            </Button>
+                          </Link>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -709,34 +706,34 @@ export const OwnerDashboardPage: React.FC = () => {
             </div>
           </div>
 
-          {/* 2. Upcoming Visit Notifications & Urgent Alerts */}
+          {/* 2. Centralized Visit Coordination & Privacy Guidelines */}
           <div className="bg-white rounded-3xl border border-colin-charcoal-200/90 shadow-sm p-6 space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-black text-colin-navy font-display flex items-center gap-2">
-                <BellRing size={18} className="text-colin-navy" />
-                <span>Visit Notifications</span>
+                <ShieldCheck size={18} className="text-colin-teal" />
+                <span>Centralized Coordination</span>
               </h2>
-              <span className="w-2 h-2 rounded-full bg-colin-orange animate-ping" />
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             </div>
 
             <div className="space-y-2 text-xs">
-              <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-100 space-y-1">
-                <div className="font-bold text-emerald-900 flex items-center gap-1.5">
-                  <CheckCircle2 size={13} className="text-emerald-700 shrink-0" />
-                  <span>Visit Confirmed with Ambassador</span>
+              <div className="p-3 bg-colin-navy-50/70 rounded-2xl border border-colin-navy-100 space-y-1">
+                <div className="font-bold text-colin-navy flex items-center gap-1.5">
+                  <CheckCircle2 size={13} className="text-colin-teal shrink-0" />
+                  <span>Ambassador-Escorted Visits</span>
                 </div>
-                <p className="text-[11px] text-emerald-800">
-                  Aarav Mehra's visit confirmed. Ambassador Tanya Kapoor assigned for 11:30 AM tomorrow.
+                <p className="text-[11px] text-colin-charcoal-600">
+                  All student visits are managed and accompanied by verified COLIN campus coordinators.
                 </p>
               </div>
 
-              <div className="p-3 bg-colin-navy-50 rounded-2xl border border-colin-navy-100 space-y-1">
-                <div className="font-bold text-colin-navy flex items-center gap-1.5">
-                  <Clock size={13} className="text-colin-navy shrink-0" />
-                  <span>55% Refund Policy Guard Active</span>
+              <div className="p-3 bg-amber-50/70 rounded-2xl border border-amber-100 space-y-1">
+                <div className="font-bold text-amber-900 flex items-center gap-1.5">
+                  <AlertCircle size={13} className="text-amber-700 shrink-0" />
+                  <span>Host & Student Privacy Guard</span>
                 </div>
-                <p className="text-[11px] text-colin-charcoal-600">
-                  Student paid ₹150 visit pass. If room rejected upon physical inspection, ₹82.50 refund applies.
+                <p className="text-[11px] text-amber-800">
+                  Direct off-platform contacts are blocked to protect zero-brokerage pricing and student safety.
                 </p>
               </div>
             </div>

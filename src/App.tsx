@@ -32,7 +32,7 @@ import { OwnerDashboardPage } from './pages/owner/OwnerDashboardPage';
 import { OwnerPropertiesPage } from './pages/owner/OwnerPropertiesPage';
 import { OwnerRoomsPage } from './pages/owner/OwnerRoomsPage';
 import { OwnerEnquiriesPage } from './pages/owner/OwnerEnquiriesPage';
-import { OwnerVisitsPage } from './pages/owner/OwnerVisitsPage';
+import { OwnerVisitsAccessDenied } from './pages/owner/OwnerVisitsAccessDenied';
 import { OwnerCertificationPage } from './pages/owner/OwnerCertificationPage';
 import { OwnerMonetisationPage } from './pages/owner/OwnerMonetisationPage';
 import { OwnerSubscriptionPage } from './pages/owner/OwnerSubscriptionPage';
@@ -95,7 +95,7 @@ const AppContent: React.FC = () => {
             <Route path="properties" element={<OwnerPropertiesPage />} />
             <Route path="rooms" element={<OwnerRoomsPage />} />
             <Route path="enquiries" element={<OwnerEnquiriesPage />} />
-            <Route path="visits" element={<OwnerVisitsPage />} />
+            <Route path="visits" element={<OwnerVisitsAccessDenied />} />
             <Route path="certification" element={<OwnerCertificationPage />} />
             <Route path="monetisation" element={<OwnerMonetisationPage />} />
             <Route path="subscription" element={<OwnerSubscriptionPage />} />

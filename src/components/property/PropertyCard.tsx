@@ -10,7 +10,9 @@ import {
   Lock, 
   Star, 
   ArrowRight,
-  Compass
+  Compass,
+  Building2,
+  Camera,
 } from 'lucide-react';
 import { Badge } from '../common/Badge';
 import { ColinCertifiedBadge } from '../common/ColinCertifiedBadge';
@@ -53,12 +55,30 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property }) => {
     >
       {/* 1. Image Section — Large, Clean & Uncluttered */}
       <div className="relative aspect-[16/10] w-full overflow-hidden bg-slate-100">
-        <img
-          src={property.featuredImage}
-          alt={property.title}
-          className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
-          loading="lazy"
-        />
+        {property.featuredImage ? (
+          <img
+            src={property.featuredImage}
+            alt={property.title}
+            className="w-full h-full object-cover transition-transform duration-500 ease-out group-hover:scale-105"
+            loading="lazy"
+          />
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100 text-slate-400 space-y-1.5 p-4">
+            <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center text-slate-400 shadow-sm border border-slate-200">
+              <Building2 size={20} className="text-colin-navy/40" />
+            </div>
+            <span className="text-xs font-bold text-colin-charcoal-600">No Photos Uploaded</span>
+            <span className="text-[10px] text-colin-charcoal-400">In-person inspection available</span>
+          </div>
+        )}
+
+        {/* Photo Count Indicator */}
+        {property.galleryImages && property.galleryImages.length > 1 && (
+          <div className="absolute bottom-3 left-3 bg-colin-navy-950/80 backdrop-blur-md text-white text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 z-10 pointer-events-none">
+            <Camera size={11} className="text-colin-orange" />
+            <span>{property.galleryImages.length} Photos</span>
+          </div>
+        )}
 
         {/* Refined gradient overlay only at the top for badge legibility */}
         <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/50 via-black/20 to-transparent pointer-events-none" />

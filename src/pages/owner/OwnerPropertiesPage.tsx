@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import { useProperties } from '../../context/PropertyContext';
 import { Property, AccommodationType, GenderPreference } from '../../types';
 import {
@@ -19,9 +20,17 @@ import {
   Zap,
   MapPin,
   Calendar,
+  Camera,
 } from 'lucide-react';
 import { Button } from '../../components/common/Button';
 import { CITIES, UNIVERSITIES_LIST } from '../../data/mockData';
+import { PropertyPhotoUploader } from '../../components/owner/PropertyPhotoUploader';
+import {
+  PropertyPhoto,
+  savePropertyPhotos,
+  getPropertyPhotos,
+  deletePropertyPhotos,
+} from '../../utils/propertyImageStorage';
 
 const COMMON_AMENITIES = [
   'High-Speed Wi-Fi (300 Mbps)',
@@ -46,6 +55,7 @@ const DEFAULT_RULES = [
 ];
 
 export const OwnerPropertiesPage: React.FC = () => {
+  const { user } = useAuth();
   const {
     ownerProperties,
     addProperty,
@@ -72,6 +82,10 @@ export const OwnerPropertiesPage: React.FC = () => {
   const [renewalDuration, setRenewalDuration] = useState<'6-month' | '12-month'>('12-month');
   const [renewalSuccess, setRenewalSuccess] = useState(false);
 
+  // Uploaded Photos State
+  const [formPhotos, setFormPhotos] = useState<PropertyPhoto[]>([]);
+  const [selectedPreviewImage, setSelectedPreviewImage] = useState<string | null>(null);
+
   // Form State
   const [formData, setFormData] = useState<Partial<Property>>({
     title: '',
@@ -92,11 +106,8 @@ export const OwnerPropertiesPage: React.FC = () => {
     sharingType: 'double',
     amenities: ['High-Speed Wi-Fi (300 Mbps)', 'Split Air Conditioning', 'Biometric 24/7 Security Entry', 'Daily Room Housekeeping'],
     description: '',
-    featuredImage: 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80',
-    galleryImages: [
-      'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80',
-      'https://images.unsplash.com/photo-1595526114035-0d45ed16cfbf?auto=format&fit=crop&w=1200&q=80',
-    ],
+    featuredImage: '',
+    galleryImages: [],
     houseRules: DEFAULT_RULES,
     listingDuration: '12-month',
   });
@@ -112,6 +123,7 @@ export const OwnerPropertiesPage: React.FC = () => {
     }
 
     setEditingProperty(null);
+    setFormPhotos([]); // Always initialize with 0 photos for fresh additions
     setFormData({
       title: '',
       category: 'pg',
@@ -131,11 +143,8 @@ export const OwnerPropertiesPage: React.FC = () => {
       sharingType: 'double',
       amenities: ['High-Speed Wi-Fi (300 Mbps)', 'Split Air Conditioning', 'Biometric 24/7 Security Entry', 'Daily Room Housekeeping'],
       description: 'Comfortable, safe, and academically oriented student accommodation.',
-      featuredImage: 'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80',
-      galleryImages: [
-        'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=1200&q=80',
-        'https://images.unsplash.com/photo-1595526114035-0d45ed16cfbf?auto=format&fit=crop&w=1200&q=80',
-      ],
+      featuredImage: '',
+      galleryImages: [],
       houseRules: DEFAULT_RULES,
       listingDuration: '12-month',
     });
@@ -144,15 +153,56 @@ export const OwnerPropertiesPage: React.FC = () => {
   };
 
   // Open Form for Editing
-  const handleOpenEdit = (property: Property) => {
+  const handleOpenEdit = async (property: Property) => {
     setEditingProperty(property);
     setFormData({ ...property });
     setFormError(null);
+
+    // Retrieve property photos from IndexedDB with owner isolation
+    try {
+      const stored = await getPropertyPhotos(property.id, user?.id);
+      if (stored && stored.length > 0) {
+        setFormPhotos(stored);
+      } else if (property.galleryImages && property.galleryImages.length > 0) {
+        // Fallback to galleryImages if present
+        const legacy: PropertyPhoto[] = property.galleryImages.map((url, i) => ({
+          id: `photo-${property.id}-${i}-${Date.now()}`,
+          propertyId: property.id,
+          ownerId: user?.id || 'usr-owner-01',
+          name: `Photo ${i + 1}.jpg`,
+          size: 450 * 1024,
+          type: 'image/jpeg',
+          dataUrl: url,
+          isCover: url === property.featuredImage || i === 0,
+          createdAt: new Date().toISOString(),
+        }));
+        setFormPhotos(legacy);
+      } else if (property.featuredImage) {
+        setFormPhotos([
+          {
+            id: `photo-${property.id}-0-${Date.now()}`,
+            propertyId: property.id,
+            ownerId: user?.id || 'usr-owner-01',
+            name: 'Cover Photo.jpg',
+            size: 450 * 1024,
+            type: 'image/jpeg',
+            dataUrl: property.featuredImage,
+            isCover: true,
+            createdAt: new Date().toISOString(),
+          },
+        ]);
+      } else {
+        setFormPhotos([]);
+      }
+    } catch {
+      setFormPhotos([]);
+    }
+
     setIsFormOpen(true);
   };
 
   // Submit Form
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
 
@@ -169,10 +219,27 @@ export const OwnerPropertiesPage: React.FC = () => {
       return;
     }
 
+    // Determine primary cover photo and gallery
+    const coverPhoto = formPhotos.find((p) => p.isCover) || formPhotos[0];
+    const featuredImageUrl = coverPhoto ? coverPhoto.dataUrl : '';
+    const galleryUrls = formPhotos.map((p) => p.dataUrl);
+
+    const propertyPayload: Partial<Property> = {
+      ...formData,
+      featuredImage: featuredImageUrl,
+      galleryImages: galleryUrls,
+    };
+
     if (editingProperty) {
-      updateProperty(editingProperty.id, formData);
+      updateProperty(editingProperty.id, propertyPayload);
+      if (user?.id) {
+        await savePropertyPhotos(editingProperty.id, user.id, formPhotos);
+      }
     } else {
-      addProperty(formData);
+      const created = addProperty(propertyPayload);
+      if (created && created.id && user?.id) {
+        await savePropertyPhotos(created.id, user.id, formPhotos);
+      }
     }
 
     setIsFormOpen(false);
@@ -306,11 +373,29 @@ export const OwnerPropertiesPage: React.FC = () => {
                 <div>
                   {/* Image with Badges */}
                   <div className="relative h-48 w-full overflow-hidden bg-colin-charcoal-100">
-                    <img
-                      src={property.featuredImage}
-                      alt={property.title}
-                      className="w-full h-full object-cover"
-                    />
+                    {property.featuredImage ? (
+                      <img
+                        src={property.featuredImage}
+                        alt={property.title}
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center bg-slate-100 text-slate-400 space-y-1.5 p-4">
+                        <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center text-slate-400 shadow-sm border border-slate-200">
+                          <Building2 size={20} className="text-colin-navy/40" />
+                        </div>
+                        <span className="text-xs font-bold text-colin-charcoal-600">No Photos Uploaded</span>
+                        <span className="text-[10px] text-colin-charcoal-400">Click Edit to add photographs</span>
+                      </div>
+                    )}
+
+                    {/* Photo Count Badge */}
+                    {property.galleryImages && property.galleryImages.length > 0 && (
+                      <div className="absolute bottom-3 left-3 bg-colin-navy-950/80 backdrop-blur-md text-white text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 z-10">
+                        <Camera size={11} className="text-colin-orange" />
+                        <span>{property.galleryImages.length} Photo{property.galleryImages.length > 1 ? 's' : ''}</span>
+                      </div>
+                    )}
 
                     {/* Top Status Badges */}
                     <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
@@ -660,18 +745,13 @@ export const OwnerPropertiesPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Image URL & Description */}
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-colin-charcoal-700 uppercase tracking-wider">
-                  Featured Photo Image URL
-                </label>
-                <input
-                  type="url"
-                  value={formData.featuredImage}
-                  onChange={(e) => setFormData({ ...formData, featuredImage: e.target.value })}
-                  className="w-full px-3.5 py-2 text-xs rounded-xl border border-colin-charcoal-300 focus:ring-2 focus:ring-colin-navy focus:outline-none"
-                />
-              </div>
+              {/* PROPERTY PHOTOGRAPHS (0/8 Upload System) */}
+              <PropertyPhotoUploader
+                photos={formPhotos}
+                onChange={setFormPhotos}
+                ownerId={user?.id || 'usr-owner-01'}
+                propertyId={editingProperty ? editingProperty.id : `new-prop-${Date.now()}`}
+              />
 
               <div className="space-y-1">
                 <label className="text-xs font-bold text-colin-charcoal-700 uppercase tracking-wider">
@@ -753,11 +833,39 @@ export const OwnerPropertiesPage: React.FC = () => {
               </button>
             </div>
 
-            <img
-              src={previewProperty.featuredImage}
-              alt={previewProperty.title}
-              className="w-full h-52 object-cover rounded-2xl"
-            />
+            {/* Interactive Preview Photo Gallery */}
+            {previewProperty.featuredImage ? (
+              <div className="space-y-2">
+                <img
+                  src={selectedPreviewImage || previewProperty.featuredImage}
+                  alt={previewProperty.title}
+                  className="w-full h-56 object-cover rounded-2xl border border-colin-charcoal-200"
+                />
+                {previewProperty.galleryImages && previewProperty.galleryImages.length > 1 && (
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {previewProperty.galleryImages.map((imgUrl, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setSelectedPreviewImage(imgUrl)}
+                        className={`relative w-16 h-12 rounded-xl overflow-hidden shrink-0 border-2 transition-all ${
+                          (selectedPreviewImage || previewProperty.featuredImage) === imgUrl
+                            ? 'border-colin-orange scale-105 shadow-sm'
+                            : 'border-transparent opacity-70 hover:opacity-100'
+                        }`}
+                      >
+                        <img src={imgUrl} alt={`Thumbnail ${idx + 1}`} className="w-full h-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="w-full h-48 bg-slate-100 rounded-2xl flex flex-col items-center justify-center text-slate-400 border border-slate-200">
+                <Building2 size={32} className="text-colin-navy/40 mb-1" />
+                <span className="text-xs font-bold text-colin-charcoal-600">No Photographs Uploaded</span>
+              </div>
+            )}
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -900,8 +1008,9 @@ export const OwnerPropertiesPage: React.FC = () => {
                 variant="primary"
                 size="sm"
                 className="bg-rose-600 hover:bg-rose-700 text-white font-bold"
-                onClick={() => {
+                onClick={async () => {
                   deleteProperty(deleteConfirmId);
+                  await deletePropertyPhotos(deleteConfirmId);
                   setDeleteConfirmId(null);
                 }}
               >

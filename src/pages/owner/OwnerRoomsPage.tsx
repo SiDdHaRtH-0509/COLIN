@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useProperties } from '../../context/PropertyContext';
 import { Room, SharingType, RoomStatus } from '../../types';
 import {
@@ -205,7 +206,22 @@ export const OwnerRoomsPage: React.FC = () => {
         )}
       </div>
 
-      {/* Property Selector Bar */}
+      {ownerProperties.length === 0 ? (
+        <div className="bg-white rounded-3xl p-12 border border-colin-charcoal-200 text-center space-y-4">
+          <Building2 size={40} className="text-colin-charcoal-300 mx-auto" />
+          <h3 className="text-base font-extrabold text-colin-navy">No Properties Listed Yet</h3>
+          <p className="text-xs text-colin-charcoal-500 max-w-sm mx-auto">
+            Add your first property listing to configure and manage room inventory.
+          </p>
+          <Link to="/owner/properties">
+            <Button variant="primary" size="sm" className="text-xs font-bold">
+              Add Your First Property
+            </Button>
+          </Link>
+        </div>
+      ) : (
+        <>
+          {/* Property Selector Bar */}
       <div className="bg-white rounded-2xl p-4 border border-colin-charcoal-200/90 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-3 w-full sm:w-auto">
           <Building2 size={18} className="text-colin-navy shrink-0" />
@@ -399,6 +415,8 @@ export const OwnerRoomsPage: React.FC = () => {
             );
           })}
         </div>
+      )}
+      </>
       )}
 
       {/* ================= ADD / EDIT ROOM MODAL ================= */}

@@ -413,6 +413,7 @@ export interface OwnerProfile {
   address: string;
   city: string;
   avatar: string;
+  isVerified?: boolean;
   gstin?: string;
   pan?: string;
   bankAccount?: {

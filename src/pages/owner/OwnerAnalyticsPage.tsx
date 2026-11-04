@@ -13,9 +13,12 @@ import {
 export const OwnerAnalyticsPage: React.FC = () => {
   const { ownerProperties, rooms, enquiries, visits, sponsorships } = useProperties();
 
-  // Metrics
-  const totalBeds = rooms.reduce((acc, r) => acc + r.totalBeds, 0);
-  const availableBeds = rooms.reduce((acc, r) => acc + (r.status === 'available' ? r.availableBeds : 0), 0);
+  // Metrics (Strictly scoped to owner's properties)
+  const ownerPropertyIds = useMemo(() => new Set(ownerProperties.map((p) => p.id)), [ownerProperties]);
+  const ownerRooms = useMemo(() => rooms.filter((r) => ownerPropertyIds.has(r.propertyId)), [rooms, ownerPropertyIds]);
+
+  const totalBeds = ownerRooms.reduce((acc, r) => acc + r.totalBeds, 0);
+  const availableBeds = ownerRooms.reduce((acc, r) => acc + (r.status === 'available' ? r.availableBeds : 0), 0);
   const occupiedBeds = Math.max(0, totalBeds - availableBeds);
   const occupancyPercent = totalBeds > 0 ? Math.round((occupiedBeds / totalBeds) * 100) : 0;
 

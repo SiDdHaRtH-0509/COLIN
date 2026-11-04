@@ -8,7 +8,6 @@ import { StudentProvider, useStudent } from '../context/StudentContext';
 import { ToastProvider } from '../context/ToastContext';
 import { OwnerLayout } from '../components/owner/OwnerLayout';
 import { OwnerEnquiriesPage } from '../pages/owner/OwnerEnquiriesPage';
-import { OwnerDashboardPage } from '../pages/owner/OwnerDashboardPage';
 import { StudentVisitsPage } from '../pages/student/StudentVisitsPage';
 import { PROPERTIES } from '../data/mockData';
 import {
@@ -903,10 +902,10 @@ describe('Phase 3A: COLIN-Mediated Booking & 12-Hour Decision System', () => {
     };
     localStorage.setItem('colin_student_visits', JSON.stringify([sharedVisit]));
 
-    // Render Owner Dashboard
+    // Render Owner Enquiries (Phase 3B: Visits removed from Dashboard, mediated via Enquiries)
     const { unmount: unmountOwner } = render(
       <TestProviderWrapper
-        initialRoute="/owner/dashboard"
+        initialRoute="/owner/enquiries"
         initialAuthUser={{
           id: 'usr-owner-01',
           name: 'Col. Rajesh Sharma',
@@ -916,13 +915,13 @@ describe('Phase 3A: COLIN-Mediated Booking & 12-Hour Decision System', () => {
       >
         <Routes>
           <Route path="/owner/*" element={<OwnerLayout />}>
-            <Route path="dashboard" element={<OwnerDashboardPage />} />
+            <Route path="enquiries" element={<OwnerEnquiriesPage />} />
           </Route>
         </Routes>
       </TestProviderWrapper>
     );
 
-    // Verify Owner Dashboard shows the enquiry/visit request
+    // Verify Owner Enquiries shows the enquiry/visit request
     expect(screen.getByText(/COLIN-VIS-SYNC-99/i)).toBeInTheDocument();
     unmountOwner();
 

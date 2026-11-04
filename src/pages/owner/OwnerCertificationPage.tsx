@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useProperties } from '../../context/PropertyContext';
 import {
   CertificationStage,
@@ -134,20 +135,37 @@ export const OwnerCertificationPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-auto">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setIsSimulationOpen(!isSimulationOpen)}
-            className="text-xs font-bold border-colin-teal text-colin-teal-800"
-            leftIcon={<Zap size={14} className="text-colin-orange" />}
-          >
-            {isSimulationOpen ? 'Hide Audit Simulator' : 'Inspector Test Sandbox'}
-          </Button>
-        </div>
+        {ownerProperties.length > 0 && (
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsSimulationOpen(!isSimulationOpen)}
+              className="text-xs font-bold border-colin-teal text-colin-teal-800"
+              leftIcon={<Zap size={14} className="text-colin-orange" />}
+            >
+              {isSimulationOpen ? 'Hide Audit Simulator' : 'Inspector Test Sandbox'}
+            </Button>
+          </div>
+        )}
       </div>
 
-      {/* Property Selector */}
+      {ownerProperties.length === 0 ? (
+        <div className="bg-white rounded-3xl p-12 border border-colin-charcoal-200 text-center space-y-4">
+          <ShieldCheck size={40} className="text-colin-charcoal-300 mx-auto" />
+          <h3 className="text-base font-extrabold text-colin-navy">No Properties Listed Yet</h3>
+          <p className="text-xs text-colin-charcoal-500 max-w-sm mx-auto">
+            Add your first property listing to request and schedule on-site physical certification audits.
+          </p>
+          <Link to="/owner/properties">
+            <Button variant="primary" size="sm" className="text-xs font-bold">
+              Add Your First Property
+            </Button>
+          </Link>
+        </div>
+      ) : (
+        <>
+          {/* Property Selector */}
       <div className="bg-white rounded-2xl p-4 border border-colin-charcoal-200/90 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-3 w-full sm:w-auto">
           <Building2 size={18} className="text-colin-navy shrink-0" />
@@ -540,6 +558,8 @@ export const OwnerCertificationPage: React.FC = () => {
         </div>
 
       </div>
+      </>
+      )}
 
       {/* ================= AUDIT REQUEST MODAL (With Simulated Payment) ================= */}
       {isRequestModalOpen && (

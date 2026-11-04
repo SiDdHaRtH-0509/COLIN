@@ -11,7 +11,7 @@ import { OwnerDashboardPage } from '../pages/owner/OwnerDashboardPage';
 import { OwnerPropertiesPage } from '../pages/owner/OwnerPropertiesPage';
 import { OwnerRoomsPage } from '../pages/owner/OwnerRoomsPage';
 import { OwnerEnquiriesPage } from '../pages/owner/OwnerEnquiriesPage';
-import { OwnerVisitsPage } from '../pages/owner/OwnerVisitsPage';
+import { OwnerVisitsAccessDenied } from '../pages/owner/OwnerVisitsAccessDenied';
 import { OwnerCertificationPage } from '../pages/owner/OwnerCertificationPage';
 import { OwnerSubscriptionPage } from '../pages/owner/OwnerSubscriptionPage';
 import { OwnerMonetisationPage } from '../pages/owner/OwnerMonetisationPage';
@@ -303,8 +303,9 @@ describe('Phase 3 Owner Portal — Authentication, Inventory & Monetisation', ()
       expect(screen.getByText(/Welcome back,/i)).toBeInTheDocument();
       expect(screen.getByText('Bed Occupancy')).toBeInTheDocument();
       expect(screen.getAllByText('Student Enquiries').length).toBeGreaterThan(0);
-      expect(screen.getByText('Visit Appointments')).toBeInTheDocument();
-      expect(screen.getByText('Upcoming Visits')).toBeInTheDocument();
+      expect(screen.getByText('Quality & Safety')).toBeInTheDocument();
+      expect(screen.getByText('Physical Audit & Quality Standards')).toBeInTheDocument();
+      expect(screen.queryByText('Visit Appointments')).not.toBeInTheDocument();
     });
   });
 
@@ -465,21 +466,27 @@ describe('Phase 3 Owner Portal — Authentication, Inventory & Monetisation', ()
       );
     });
 
-    it('renders visit appointments with ₹150 fee and 55% refund guarantee policy', () => {
+    it('restricts owner visit management route and displays centralized COLIN coordination screen', () => {
       render(
         <TestWrapper initialRoute="/owner/visits">
           <Routes>
             <Route path="/owner/*" element={<OwnerLayout />}>
-              <Route path="visits" element={<OwnerVisitsPage />} />
+              <Route path="visits" element={<OwnerVisitsAccessDenied />} />
             </Route>
           </Routes>
         </TestWrapper>
       );
 
-      expect(screen.getByText('Visit Management')).toBeInTheDocument();
-      expect(screen.getByText(/₹150.00 Visit Booking Fee/i)).toBeInTheDocument();
-      expect(screen.getByText(/55% \(₹82.50\) refund/i)).toBeInTheDocument();
-      expect(screen.getByText(/Manage Inspection Slots/i)).toBeInTheDocument();
+      // Verify Access Denied banner is displayed
+      expect(
+        screen.getByText('Visit Management is Exclusively Controlled by COLIN')
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/property owners do not manage, schedule, or approve student visit slot passes/i)
+      ).toBeInTheDocument();
+
+      // Verify sidebar does not render "Visits & Bookings" link
+      expect(screen.queryByText('Visits & Bookings')).not.toBeInTheDocument();
     });
   });
 

@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import { useProperties } from '../../context/PropertyContext';
 import { VisitBooking } from '../../types';
 import {
@@ -28,14 +29,21 @@ export interface StatusTabOption {
 }
 
 export const OwnerEnquiriesPage: React.FC = () => {
+  const { user } = useAuth();
   const {
+    ownerProperties,
     visits,
     proposeOwnerAvailability,
     declineVisitByOwner,
-    confirmVisitByColin,
-    markVisitCompletedByVolunteer,
     checkAndExpireDecisions,
   } = useProperties();
+
+  // Filter visits for this owner's properties only (Isolation)
+  const ownerPropertyIds = useMemo(() => new Set(ownerProperties.map((p) => p.id)), [ownerProperties]);
+  const ownerVisits = useMemo(() => {
+    if (user?.id === 'usr-owner-01') return visits;
+    return visits.filter((v) => ownerPropertyIds.has(v.propertyId));
+  }, [visits, ownerPropertyIds, user]);
 
   // Search & Active Tab
   const [searchQuery, setSearchQuery] = useState('');
@@ -112,61 +120,61 @@ export const OwnerEnquiriesPage: React.FC = () => {
       {
         key: 'PENDING_COLIN_REVIEW',
         label: 'New Enquiries',
-        badgeCount: visits.filter((v) => v.status === 'PENDING_COLIN_REVIEW' || v.status === 'Pending').length,
+        badgeCount: ownerVisits.filter((v) => v.status === 'PENDING_COLIN_REVIEW' || v.status === 'Pending').length,
       },
       {
         key: 'AWAITING_OWNER_AVAILABILITY',
         label: 'Awaiting Owner Availability',
-        badgeCount: visits.filter((v) => v.status === 'AWAITING_OWNER_AVAILABILITY').length,
+        badgeCount: ownerVisits.filter((v) => v.status === 'AWAITING_OWNER_AVAILABILITY').length,
       },
       {
         key: 'AWAITING_COLIN_CONFIRMATION',
         label: 'Availability Submitted to COLIN',
-        badgeCount: visits.filter((v) => v.status === 'AWAITING_COLIN_CONFIRMATION').length,
+        badgeCount: ownerVisits.filter((v) => v.status === 'AWAITING_COLIN_CONFIRMATION').length,
       },
       {
         key: 'VISIT_CONFIRMED',
         label: 'Visit Scheduled',
-        badgeCount: visits.filter((v) => v.status === 'VISIT_CONFIRMED' || v.status === 'Confirmed').length,
+        badgeCount: ownerVisits.filter((v) => v.status === 'VISIT_CONFIRMED' || v.status === 'Confirmed').length,
       },
       {
         key: 'UPCOMING_VISITS',
         label: 'Upcoming Visits',
-        badgeCount: visits.filter(
+        badgeCount: ownerVisits.filter(
           (v) => v.status === 'VISIT_CONFIRMED' || v.status === 'Confirmed' || v.status === 'PENDING_COLIN_REVIEW'
         ).length,
       },
       {
         key: 'COMPLETED_VISITS',
         label: 'Completed Visits',
-        badgeCount: visits.filter((v) => v.status === 'Completed' || v.visitCompletedAt !== undefined).length,
+        badgeCount: ownerVisits.filter((v) => v.status === 'Completed' || v.visitCompletedAt !== undefined).length,
       },
       {
         key: 'VISIT_COMPLETED_DECISION_PENDING',
         label: 'Student Decision Pending',
-        badgeCount: visits.filter((v) => v.status === 'VISIT_COMPLETED_DECISION_PENDING').length,
+        badgeCount: ownerVisits.filter((v) => v.status === 'VISIT_COMPLETED_DECISION_PENDING').length,
       },
       {
         key: 'STUDENT_ACCEPTED',
         label: 'Converted',
-        badgeCount: visits.filter((v) => v.status === 'STUDENT_ACCEPTED').length,
+        badgeCount: ownerVisits.filter((v) => v.status === 'STUDENT_ACCEPTED').length,
       },
       {
         key: 'STUDENT_REJECTED',
         label: 'Rejected Bookings',
-        badgeCount: visits.filter((v) => v.status === 'STUDENT_REJECTED' || v.status === 'Visited - Rejected').length,
+        badgeCount: ownerVisits.filter((v) => v.status === 'STUDENT_REJECTED' || v.status === 'Visited - Rejected').length,
       },
       {
         key: 'DECISION_EXPIRED',
         label: 'Expired Decisions',
-        badgeCount: visits.filter((v) => v.status === 'DECISION_EXPIRED').length,
+        badgeCount: ownerVisits.filter((v) => v.status === 'DECISION_EXPIRED').length,
       },
     ];
-  }, [visits]);
+  }, [ownerVisits]);
 
   // Filtered requests
   const filteredVisits = useMemo(() => {
-    return visits.filter((v) => {
+    return ownerVisits.filter((v) => {
       // Tab matching
       if (selectedStatusTab !== 'all') {
         if (selectedStatusTab === 'UPCOMING_VISITS') {
@@ -571,30 +579,6 @@ export const OwnerEnquiriesPage: React.FC = () => {
                           Decline Request
                         </Button>
                       </>
-                    )}
-
-                    {/* Step 3: Simulation Helper for COLIN Coordination Confirmation */}
-                    {v.status === 'AWAITING_COLIN_CONFIRMATION' && (
-                      <Button
-                        size="sm"
-                        variant="primary"
-                        className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-1.5"
-                        onClick={() => confirmVisitByColin(v.id)}
-                      >
-                        [COLIN Desk Simulation: Assign Ambassador & Confirm Visit]
-                      </Button>
-                    )}
-
-                    {/* Step 4: Simulation Helper for Authorized COLIN Volunteer Physical Visit Completion */}
-                    {(v.status === 'VISIT_CONFIRMED' || v.status === 'Confirmed') && (
-                      <Button
-                        size="sm"
-                        variant="primary"
-                        className="bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold px-3 py-1.5"
-                        onClick={() => markVisitCompletedByVolunteer(v.id)}
-                      >
-                        [Volunteer Simulation: Mark Visit as Completed (Starts 12h Timer)]
-                      </Button>
                     )}
                   </div>
                 </div>

@@ -9,6 +9,7 @@ interface AuthContextType {
   signup: (userData: { name: string; email: string; phone: string; role: UserRole; university?: string }) => Promise<boolean>;
   demoLogin: (role: UserRole) => void;
   logout: () => void;
+  updateUser: (updates: Partial<User>) => void;
   // Access control modal helpers
   isAuthModalOpen: boolean;
   authModalMessage: string;
@@ -42,6 +43,31 @@ const DEMO_OWNER: User = {
 };
 
 const AUTH_STORAGE_KEY = 'colin_auth_session';
+const REGISTERED_USERS_KEY = 'colin_registered_users';
+
+// Helper to retrieve all registered accounts
+const getStoredRegisteredUsers = (): User[] => {
+  try {
+    const raw = localStorage.getItem(REGISTERED_USERS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+};
+
+// Helper to persist a registered user
+const persistRegisteredUser = (userData: User) => {
+  try {
+    const users = getStoredRegisteredUsers();
+    const idx = users.findIndex((u) => u.email.toLowerCase() === userData.email.toLowerCase());
+    if (idx >= 0) {
+      users[idx] = userData;
+    } else {
+      users.push(userData);
+    }
+    localStorage.setItem(REGISTERED_USERS_KEY, JSON.stringify(users));
+  } catch {}
+};
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -53,7 +79,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [intendedUrl, setIntendedUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check localStorage for existing demo session
+    // Check localStorage for existing session
     try {
       const stored = localStorage.getItem(AUTH_STORAGE_KEY);
       if (stored) {
@@ -70,58 +96,107 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(newUser);
     try {
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(newUser));
-    } catch {
-      // Ignore localStorage quotas in demo mode
-    }
+    } catch {}
   };
 
   const login = async (email: string, role: UserRole = 'student'): Promise<boolean> => {
     setIsLoading(true);
-    // Simulate brief network delay
-    await new Promise((resolve) => setTimeout(resolve, 600));
+    await new Promise((resolve) => setTimeout(resolve, 150));
 
+    const cleanEmail = email.trim().toLowerCase();
+
+    // 1. Check if user was previously registered
+    const registered = getStoredRegisteredUsers();
+    const existing = registered.find((u) => u.email.toLowerCase() === cleanEmail);
+    if (existing) {
+      saveSession(existing);
+      setIsLoading(false);
+      setIsAuthModalOpen(false);
+      return true;
+    }
+
+    // 2. Check demo accounts
+    if (
+      cleanEmail === DEMO_STUDENT.email.toLowerCase() ||
+      cleanEmail === 'student.demo@colin.in' ||
+      cleanEmail === 'student@colin.in'
+    ) {
+      saveSession(DEMO_STUDENT);
+      setIsLoading(false);
+      setIsAuthModalOpen(false);
+      return true;
+    }
+    if (
+      cleanEmail === DEMO_OWNER.email.toLowerCase() ||
+      cleanEmail === 'owner.demo@colin.in' ||
+      cleanEmail === 'owner@colin.in'
+    ) {
+      saveSession(DEMO_OWNER);
+      setIsLoading(false);
+      setIsAuthModalOpen(false);
+      return true;
+    }
+
+    // 3. Fresh user creation
+    const prefix = role === 'student' ? 'usr-student' : 'usr-owner';
     const newUser: User = {
-      id: `usr-${Date.now()}`,
+      id: `${prefix}-${Date.now()}`,
       name: email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) || 'COLIN Member',
       email: email,
-      phone: '+91 98100 ' + Math.floor(10000 + Math.random() * 90000),
+      phone: '',
       role: role,
       university: role === 'student' ? 'Delhi University' : undefined,
       city: 'Delhi NCR',
-      avatar: role === 'student'
-        ? 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'
-        : 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80',
-      memberSince: 'November 2026',
+      avatar: undefined, // New user has no pre-populated photo
+      memberSince: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
     };
 
+    persistRegisteredUser(newUser);
     saveSession(newUser);
     setIsLoading(false);
     setIsAuthModalOpen(false);
     return true;
   };
 
-  const signup = async (userData: { name: string; email: string; phone: string; role: UserRole; university?: string }): Promise<boolean> => {
+  const signup = async (userData: {
+    name: string;
+    email: string;
+    phone: string;
+    role: UserRole;
+    university?: string;
+  }): Promise<boolean> => {
     setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 700));
+    await new Promise((resolve) => setTimeout(resolve, 150));
 
+    const cleanEmail = userData.email.trim().toLowerCase();
+    const registered = getStoredRegisteredUsers();
+    const existing = registered.find((u) => u.email.toLowerCase() === cleanEmail);
+
+    const prefix = userData.role === 'student' ? 'usr-student' : 'usr-owner';
     const newUser: User = {
-      id: `usr-${Date.now()}`,
+      id: existing ? existing.id : `${prefix}-${Date.now()}`,
       name: userData.name,
       email: userData.email,
       phone: userData.phone,
       role: userData.role,
       university: userData.university,
       city: 'Delhi NCR',
-      avatar: userData.role === 'student'
-        ? 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=200&q=80'
-        : 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80',
-      memberSince: 'November 2026',
+      avatar: undefined, // Fresh user has no pre-populated photo
+      memberSince: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
     };
 
+    persistRegisteredUser(newUser);
     saveSession(newUser);
     setIsLoading(false);
     setIsAuthModalOpen(false);
     return true;
+  };
+
+  const updateUser = (updates: Partial<User>) => {
+    if (!user) return;
+    const updatedUser: User = { ...user, ...updates };
+    persistRegisteredUser(updatedUser);
+    saveSession(updatedUser);
   };
 
   const demoLogin = (role: UserRole) => {
@@ -134,9 +209,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
     try {
       localStorage.removeItem(AUTH_STORAGE_KEY);
-    } catch {
-      // Ignore
-    }
+    } catch {}
   };
 
   const openAuthModal = (targetUrl?: string, customMessage?: string) => {
@@ -159,6 +232,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signup,
         demoLogin,
         logout,
+        updateUser,
         isAuthModalOpen,
         authModalMessage,
         openAuthModal,
