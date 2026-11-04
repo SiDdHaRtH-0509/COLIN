@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { PROPERTIES, CITIES, UNIVERSITIES_LIST } from '../../data/mockData';
 import { AccommodationType, GenderPreference, SharingType, isPropertyCertified, Property } from '../../types';
 import { useStudent } from '../../context/StudentContext';
+import { useProperties } from '../../context/PropertyContext';
 import {
   getCurrentUserLocation,
   calculateHaversineDistance,
@@ -258,10 +259,20 @@ export const StudentExplorePage: React.FC = () => {
     userCoords,
   ]);
 
+  let propertiesSource = PROPERTIES;
+  try {
+    const propCtx = useProperties();
+    if (propCtx?.properties) {
+      propertiesSource = propCtx.properties;
+    }
+  } catch {}
+
   // Compute GPS distances and filter/sort properties
   const filteredProperties = useMemo(() => {
     // 1. Map properties with calculated GPS distance if userCoords available
-    const propertiesWithDistance: PropertyWithGps[] = PROPERTIES.map((p) => {
+    const propertiesWithDistance: PropertyWithGps[] = propertiesSource
+      .filter((p) => !p.listingStatus || p.listingStatus === 'active')
+      .map((p) => {
       let gpsDistanceKm: number | undefined;
       if (userCoords && p.latitude && p.longitude) {
         gpsDistanceKm = calculateHaversineDistance(

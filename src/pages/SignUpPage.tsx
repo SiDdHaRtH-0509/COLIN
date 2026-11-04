@@ -92,7 +92,7 @@ export const SignUpPage: React.FC = () => {
         if (role === 'student') {
           navigate(redirectUrl && redirectUrl !== '/' ? redirectUrl : '/student/dashboard');
         } else {
-          navigate(redirectUrl && !redirectUrl.includes('/student') ? redirectUrl : '/');
+          navigate(redirectUrl && !redirectUrl.includes('/student') ? redirectUrl : '/owner/dashboard');
         }
       }
     } catch {

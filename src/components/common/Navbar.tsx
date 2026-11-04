@@ -6,7 +6,8 @@ import {
   X, 
   LogOut, 
   ChevronDown, 
-  ShieldCheck 
+  ShieldCheck,
+  Building 
 } from 'lucide-react';
 import { Button } from './Button';
 
@@ -94,6 +95,30 @@ export const Navbar: React.FC = () => {
                 <span>Student Portal</span>
               </Link>
             )}
+
+            {isAuthenticated && user?.role === 'owner' && (
+              <Link
+                to="/owner/dashboard"
+                className={`text-sm font-bold transition-all px-4 py-2 rounded-xl flex items-center gap-2 ${
+                  location.pathname.startsWith('/owner')
+                    ? 'text-colin-navy bg-colin-navy-50/80 font-extrabold shadow-sm'
+                    : 'text-colin-orange hover:text-colin-navy hover:bg-colin-orange/10'
+                }`}
+              >
+                <Building size={14} className="text-colin-orange" />
+                <span>Owner Portal</span>
+              </Link>
+            )}
+
+            {!isAuthenticated && (
+              <Link
+                to="/owner/dashboard"
+                className="text-xs font-bold text-colin-charcoal-500 hover:text-colin-navy hover:bg-colin-charcoal-50 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5"
+              >
+                <Building size={13} className="text-colin-orange" />
+                <span>Host / List Stay</span>
+              </Link>
+            )}
           </nav>
 
           {/* Right Side: Log In & Register / Sign Up */}
@@ -159,6 +184,66 @@ export const Navbar: React.FC = () => {
                           className="w-full text-left px-4 py-2 text-xs text-colin-navy hover:bg-colin-navy-50/70 font-bold flex items-center gap-2 transition-colors"
                         >
                           <span>My Visit Passes</span>
+                        </Link>
+                      </div>
+                    )}
+
+                    {user?.role === 'owner' && (
+                      <div className="py-1 border-b border-colin-charcoal-100">
+                        <Link
+                          to="/owner/dashboard"
+                          className="w-full text-left px-4 py-2 text-xs text-colin-navy hover:bg-colin-navy-50/70 font-bold flex items-center gap-2 transition-colors"
+                        >
+                          <Building size={14} className="text-colin-orange" />
+                          <span>Owner Dashboard</span>
+                        </Link>
+                        <Link
+                          to="/owner/properties"
+                          className="w-full text-left px-4 py-2 text-xs text-colin-navy hover:bg-colin-navy-50/70 font-medium flex items-center gap-2 transition-colors"
+                        >
+                          <span>My Properties</span>
+                        </Link>
+                        <Link
+                          to="/owner/rooms"
+                          className="w-full text-left px-4 py-2 text-xs text-colin-navy hover:bg-colin-navy-50/70 font-medium flex items-center gap-2 transition-colors"
+                        >
+                          <span>Room Inventory</span>
+                        </Link>
+                        <Link
+                          to="/owner/enquiries"
+                          className="w-full text-left px-4 py-2 text-xs text-colin-navy hover:bg-colin-navy-50/70 font-medium flex items-center gap-2 transition-colors"
+                        >
+                          <span>Student Enquiries</span>
+                        </Link>
+                        <Link
+                          to="/owner/visits"
+                          className="w-full text-left px-4 py-2 text-xs text-colin-navy hover:bg-colin-navy-50/70 font-medium flex items-center gap-2 transition-colors"
+                        >
+                          <span>In-Person Visits</span>
+                        </Link>
+                        <Link
+                          to="/owner/certification"
+                          className="w-full text-left px-4 py-2 text-xs text-colin-navy hover:bg-colin-navy-50/70 font-medium flex items-center gap-2 transition-colors"
+                        >
+                          <span>COLIN Certification</span>
+                        </Link>
+                        <Link
+                          to="/owner/monetisation"
+                          className="w-full text-left px-4 py-2 text-xs text-colin-navy hover:bg-colin-navy-50/70 font-medium flex items-center gap-2 transition-colors"
+                        >
+                          <span>Growth & Ads</span>
+                        </Link>
+                        <Link
+                          to="/owner/subscription"
+                          className="w-full text-left px-4 py-2 text-xs text-colin-navy hover:bg-colin-navy-50/70 font-medium flex items-center gap-2 transition-colors"
+                        >
+                          <span>Subscription & Plan</span>
+                        </Link>
+                        <Link
+                          to="/owner/settings"
+                          className="w-full text-left px-4 py-2 text-xs text-colin-navy hover:bg-colin-navy-50/70 font-medium flex items-center gap-2 transition-colors"
+                        >
+                          <span>Business Settings</span>
                         </Link>
                       </div>
                     )}
@@ -255,7 +340,7 @@ export const Navbar: React.FC = () => {
             </div>
           )}
 
-          <div className="pt-2 border-t border-colin-charcoal-100">
+          <div className="pt-2 border-t border-colin-charcoal-100 space-y-1">
             <Link
               to="/"
               className={`block w-full py-2.5 px-3 rounded-xl text-sm font-bold ${
@@ -266,6 +351,24 @@ export const Navbar: React.FC = () => {
             >
               Home
             </Link>
+
+            {user?.role === 'owner' && (
+              <Link
+                to="/owner/dashboard"
+                className="block w-full py-2.5 px-3 rounded-xl text-sm font-bold text-colin-navy bg-colin-orange/10 hover:bg-colin-orange/20"
+              >
+                Owner Dashboard
+              </Link>
+            )}
+
+            {user?.role === 'student' && (
+              <Link
+                to="/student/dashboard"
+                className="block w-full py-2.5 px-3 rounded-xl text-sm font-bold text-colin-teal-700 hover:bg-colin-teal-50"
+              >
+                Student Portal
+              </Link>
+            )}
           </div>
         </div>
       )}

@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { PropertyProvider } from './context/PropertyContext';
 import { StudentProvider } from './context/StudentContext';
 import { ToastProvider } from './context/ToastContext';
 import { Navbar } from './components/common/Navbar';
@@ -25,6 +26,19 @@ import { StudentTiffinConnectPage } from './pages/student/StudentTiffinConnectPa
 import { StudentPremiumPage } from './pages/student/StudentPremiumPage';
 import { StudentProfilePage } from './pages/student/StudentProfilePage';
 
+// Owner Portal Components & Pages
+import { OwnerLayout } from './components/owner/OwnerLayout';
+import { OwnerDashboardPage } from './pages/owner/OwnerDashboardPage';
+import { OwnerPropertiesPage } from './pages/owner/OwnerPropertiesPage';
+import { OwnerRoomsPage } from './pages/owner/OwnerRoomsPage';
+import { OwnerEnquiriesPage } from './pages/owner/OwnerEnquiriesPage';
+import { OwnerVisitsAccessDenied } from './pages/owner/OwnerVisitsAccessDenied';
+import { OwnerCertificationPage } from './pages/owner/OwnerCertificationPage';
+import { OwnerMonetisationPage } from './pages/owner/OwnerMonetisationPage';
+import { OwnerSubscriptionPage } from './pages/owner/OwnerSubscriptionPage';
+import { OwnerAnalyticsPage } from './pages/owner/OwnerAnalyticsPage';
+import { OwnerSettingsPage } from './pages/owner/OwnerSettingsPage';
+
 // Scroll to top component on route changes
 const ScrollToTop: React.FC = () => {
   const { pathname, hash } = useLocation();
@@ -41,11 +55,13 @@ const ScrollToTop: React.FC = () => {
 const AppContent: React.FC = () => {
   const { pathname } = useLocation();
   const isStudentWorkspace = pathname.startsWith('/student');
+  const isOwnerWorkspace = pathname.startsWith('/owner');
+  const isWorkspace = isStudentWorkspace || isOwnerWorkspace;
 
   return (
     <div className="flex flex-col min-h-screen bg-colin-offwhite font-sans text-colin-charcoal antialiased overflow-x-hidden">
       {/* Public Navbar rendered on public/landing routes */}
-      {!isStudentWorkspace && <Navbar />}
+      {!isWorkspace && <Navbar />}
 
       {/* Dynamic Route Content */}
       <main className="flex-1">
@@ -71,6 +87,21 @@ const AppContent: React.FC = () => {
             <Route path="premium" element={<StudentPremiumPage />} />
             <Route path="profile" element={<StudentProfilePage />} />
           </Route>
+
+          {/* Dedicated Owner Portal Workspace (Protected) */}
+          <Route path="/owner" element={<OwnerLayout />}>
+            <Route index element={<OwnerDashboardPage />} />
+            <Route path="dashboard" element={<OwnerDashboardPage />} />
+            <Route path="properties" element={<OwnerPropertiesPage />} />
+            <Route path="rooms" element={<OwnerRoomsPage />} />
+            <Route path="enquiries" element={<OwnerEnquiriesPage />} />
+            <Route path="visits" element={<OwnerVisitsAccessDenied />} />
+            <Route path="certification" element={<OwnerCertificationPage />} />
+            <Route path="monetisation" element={<OwnerMonetisationPage />} />
+            <Route path="subscription" element={<OwnerSubscriptionPage />} />
+            <Route path="analytics" element={<OwnerAnalyticsPage />} />
+            <Route path="settings" element={<OwnerSettingsPage />} />
+          </Route>
         </Routes>
       </main>
 
@@ -78,7 +109,7 @@ const AppContent: React.FC = () => {
       <AuthModal />
 
       {/* Comprehensive Brand Footer on public/landing routes */}
-      {!isStudentWorkspace && <Footer />}
+      {!isWorkspace && <Footer />}
     </div>
   );
 };
@@ -86,14 +117,16 @@ const AppContent: React.FC = () => {
 export const App: React.FC = () => {
   return (
     <AuthProvider>
-      <StudentProvider>
-        <ToastProvider>
-          <BrowserRouter>
-            <ScrollToTop />
-            <AppContent />
-          </BrowserRouter>
-        </ToastProvider>
-      </StudentProvider>
+      <PropertyProvider>
+        <StudentProvider>
+          <ToastProvider>
+            <BrowserRouter>
+              <ScrollToTop />
+              <AppContent />
+            </BrowserRouter>
+          </ToastProvider>
+        </StudentProvider>
+      </PropertyProvider>
     </AuthProvider>
   );
 };

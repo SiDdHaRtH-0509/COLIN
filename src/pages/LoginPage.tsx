@@ -43,12 +43,15 @@ export const LoginPage: React.FC = () => {
     }
 
     try {
-      const success = await login(email);
+      const isOwnerRole = email.toLowerCase().includes('owner') || email.toLowerCase().includes('host');
+      const success = await login(email, isOwnerRole ? 'owner' : 'student');
       if (success) {
-        if (redirectUrl && redirectUrl !== '/' && !redirectUrl.includes('/student') || email.includes('student') || !email.includes('owner')) {
-          navigate(redirectUrl && redirectUrl !== '/' ? redirectUrl : '/student/dashboard');
+        if (redirectUrl && redirectUrl !== '/') {
+          navigate(redirectUrl);
+        } else if (isOwnerRole) {
+          navigate('/owner/dashboard');
         } else {
-          navigate(redirectUrl && !redirectUrl.includes('/student') ? redirectUrl : '/');
+          navigate('/student/dashboard');
         }
       }
     } catch {
@@ -61,7 +64,7 @@ export const LoginPage: React.FC = () => {
     if (role === 'student') {
       navigate(redirectUrl && redirectUrl !== '/' ? redirectUrl : '/student/dashboard');
     } else {
-      navigate(redirectUrl && !redirectUrl.includes('/student') ? redirectUrl : '/');
+      navigate(redirectUrl && redirectUrl !== '/' && !redirectUrl.includes('/student') ? redirectUrl : '/owner/dashboard');
     }
   };
 

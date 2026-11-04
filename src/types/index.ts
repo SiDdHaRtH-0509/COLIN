@@ -114,6 +114,14 @@ export interface Property {
   inspectionChecklist?: InspectionChecklist;
   mealOptions?: string[];
   createdAt?: string;
+
+  // Phase 3 Owner & Property Management extensions
+  ownerId?: string;
+  listingStatus?: 'active' | 'paused' | 'draft' | 'expired';
+  listingDuration?: '6-month' | '12-month';
+  listingStartedAt?: string;
+  listingExpiresAt?: string;
+  brokerage?: number;
 }
 
 export interface SearchFilterState {
@@ -134,25 +142,84 @@ export interface SearchFilterState {
   sortBy?: 'rent-asc' | 'rent-desc' | 'distance' | 'rating' | 'recent';
 }
 
+export type MediatedBookingStatus =
+  | 'PENDING_COLIN_REVIEW'             // 1. New Visit Requests
+  | 'AWAITING_OWNER_AVAILABILITY'      // 2. Awaiting Owner Availability
+  | 'AWAITING_COLIN_CONFIRMATION'      // 3. Availability Submitted to COLIN
+  | 'VISIT_CONFIRMED'                  // 4. Visit Confirmed by COLIN
+  | 'VISIT_COMPLETED_DECISION_PENDING' // 7. Student Decision Pending (12-hour timer active)
+  | 'STUDENT_ACCEPTED'                 // 8. Accepted Bookings
+  | 'STUDENT_REJECTED'                 // 9. Rejected Bookings
+  | 'DECISION_EXPIRED'                 // 10. Expired Decisions
+  | 'Confirmed'                        // Phase 1/2 legacy
+  | 'Pending'                          // Phase 1/2 legacy
+  | 'Completed'                        // 6. Completed Visits / Phase 1/2 legacy
+  | 'Cancelled'                        // Phase 1/2 legacy
+  | 'Visited - Rejected';              // Phase 1/2 legacy
+
+export interface DecisionNotification {
+  id: string;
+  milestone: string;
+  message: string;
+  timestamp: string;
+}
+
+export interface OwnerAvailabilityProposal {
+  date: string;
+  timeSlot: string;
+  isAlternative?: boolean;
+  notes?: string;
+  submittedAt: string;
+  declined?: boolean;
+  declineReason?: string;
+}
+
 export interface VisitBooking {
   id: string;
+  bookingReference?: string; // e.g. "COLIN-VIS-2026-0001"
   propertyId: string;
   propertyTitle: string;
+  propertyName?: string;
   propertyImage?: string;
   propertyCity?: string;
   propertyNeighborhood?: string;
   date: string;
   timeSlot: string;
   studentName: string;
-  studentPhone: string;
-  status: 'Confirmed' | 'Pending' | 'Completed' | 'Cancelled' | 'Visited - Rejected';
+  studentPhone?: string; // Kept private from owner; restricted by coordination architecture
+  studentAge?: number;
+  roomTypeInterested?: string;
+  status: MediatedBookingStatus;
   outcomeReason?: string;
   feePaid: number;
-  refundPolicy: string;
+  refundPolicy?: string;
   refundedAmount?: number;
   meetingGuideName?: string;
   meetingGuideContact?: string;
   createdAt?: string;
+
+  // Phase 3A Mediated Coordination Extensions
+  ownerAvailability?: OwnerAvailabilityProposal;
+  assignedVolunteer?: {
+    id: string;
+    name: string;
+    role: string;
+    phone: string;
+    assignedAt?: string;
+  };
+  visitCompletedAt?: string;
+  completedByVolunteer?: {
+    id: string;
+    name: string;
+    timestamp: string;
+  };
+  decisionDeadline?: string;
+  decisionTimestamp?: string;
+  decisionStatus?: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'EXPIRED';
+  rejectionReason?: string;
+  refundCalculated?: number;
+  refundStatus?: 'PROCESSED_SIMULATED' | 'FORFEITED_FULL' | 'RETAINED_ACCEPTED' | 'NONE';
+  notificationsSent?: DecisionNotification[];
 }
 
 export interface PremiumSubscription {
@@ -204,3 +271,161 @@ export const isPropertyCertified = (property: Property): boolean => {
     property.inspectionApproved === true
   );
 };
+
+// ==========================================
+// Phase 3 — Owner Portal & Property Management
+// ==========================================
+
+export type RoomStatus = 'available' | 'occupied' | 'maintenance';
+
+export interface Room {
+  id: string;
+  propertyId: string;
+  roomNumber: string;
+  roomType: SharingType;
+  floor: string;
+  monthlyRent: number;
+  depositAmount: number;
+  totalBeds: number;
+  availableBeds: number;
+  status: RoomStatus;
+  amenities: string[];
+  description?: string;
+  updatedAt?: string;
+}
+
+export type EnquiryStatus =
+  | 'New'
+  | 'Contacted'
+  | 'Interested'
+  | 'Visit Scheduled'
+  | 'Converted'
+  | 'Closed';
+
+export interface Enquiry {
+  id: string;
+  propertyId: string;
+  propertyTitle: string;
+  studentName: string;
+  studentEmail: string;
+  studentPhone: string;
+  studentUniversity?: string;
+  message: string;
+  date: string;
+  status: EnquiryStatus;
+  internalNotes?: string[];
+  preferredMoveIn?: string;
+  roomTypeInterested?: string;
+  privacyRestricted?: boolean;
+}
+
+export type CertificationStage =
+  | 'Not Requested'
+  | 'Payment Pending'
+  | 'Inspection Requested'
+  | 'Inspector Assigned'
+  | 'Inspection Scheduled'
+  | 'Inspection Completed'
+  | 'Under Review'
+  | 'Certified'
+  | 'Rejected';
+
+export interface CertificationRequest {
+  id: string;
+  propertyId: string;
+  propertyTitle: string;
+  ownerId: string;
+  status: CertificationStage;
+  requestedAt: string;
+  inspectionFeePaid: number;
+  inspectionFeeStatus: 'Paid' | 'Pending';
+  scheduledDate?: string;
+  scheduledTimeSlot?: string;
+  inspectorName?: string;
+  inspectorContact?: string;
+  inspectorAvatar?: string;
+  inspectionScore?: number;
+  inspectionChecklist?: InspectionChecklist;
+  inspectionRemarks?: string;
+  certifiedAt?: string;
+  rejectionReason?: string;
+}
+
+export type OwnerSubscriptionTier = 'FREE' | 'PRO' | 'PREMIUM';
+
+export interface OwnerSubscriptionPayment {
+  id: string;
+  date: string;
+  plan: string;
+  amount: number;
+  status: 'Paid' | 'Pending';
+  invoiceNumber: string;
+}
+
+export interface OwnerSubscription {
+  tier: OwnerSubscriptionTier;
+  billingCycle: 'monthly' | 'annual';
+  price: number;
+  startedAt: string;
+  expiresAt: string;
+  propertyLimit: number;
+  features: string[];
+  paymentHistory: OwnerSubscriptionPayment[];
+}
+
+export type PhotographyPackage = 'HDR Essentials' | '360° Virtual Tour & HDR' | 'Full Studio & Drone Shoot';
+
+export interface PhotographyBooking {
+  id: string;
+  propertyId: string;
+  propertyTitle: string;
+  package: PhotographyPackage;
+  price: number;
+  scheduledDate: string;
+  timeSlot: string;
+  status: 'Booked' | 'Shoot Completed' | 'Processing Photos' | 'Delivered';
+  photographerName?: string;
+  photographerPhone?: string;
+  requestedAt: string;
+}
+
+export interface SponsorshipCampaign {
+  id: string;
+  propertyId: string;
+  propertyTitle: string;
+  type: 'homepage' | 'search_boost';
+  durationDays: number;
+  startDate: string;
+  endDate: string;
+  price: number;
+  status: 'Active' | 'Scheduled' | 'Completed';
+  impressions: number;
+  clicks: number;
+  leadsGenerated: number;
+}
+
+export interface OwnerProfile {
+  id: string;
+  businessName: string;
+  ownerName: string;
+  email: string;
+  phone: string;
+  address: string;
+  city: string;
+  avatar: string;
+  isVerified?: boolean;
+  gstin?: string;
+  pan?: string;
+  bankAccount?: {
+    accountNumber: string;
+    ifsc: string;
+    beneficiaryName: string;
+    bankName: string;
+  };
+  notificationPreferences: {
+    whatsapp: boolean;
+    email: boolean;
+    sms: boolean;
+    instantEnquiryAlerts: boolean;
+  };
+}

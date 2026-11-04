@@ -7,6 +7,7 @@ import {
   VisitOutcomeReason
 } from '../constants/booking';
 import { saveProfilePhoto, getProfilePhoto, deleteProfilePhoto } from '../utils/imageStorage';
+import { useAuth } from './AuthContext';
 
 export interface StudentPreferences {
   fullName: string;
@@ -66,6 +67,15 @@ interface StudentContextType {
     explanation: string;
     outcomeReason: string;
   };
+  submitStudentDecision: (
+    visitId: string,
+    decision: 'accept' | 'reject',
+    reason?: string
+  ) => {
+    success: boolean;
+    refundAmount: number;
+    message: string;
+  };
 
   // Premium Subscription
   premiumSubscription: PremiumSubscription | null;
@@ -96,6 +106,12 @@ const STORAGE_KEYS = {
   PREFERENCES: 'colin_student_preferences',
 };
 
+// Helper for user-scoped persistence partitioning
+const getScopedKey = (base: string, userId?: string | null): string => {
+  if (!userId) return `${base}_guest`;
+  return `${base}_${userId}`;
+};
+
 const DEFAULT_PREFERENCES: StudentPreferences = {
   fullName: 'Aarav Mehra',
   email: 'aarav.mehra@colin.in',
@@ -122,153 +138,316 @@ const DEFAULT_PREFERENCES: StudentPreferences = {
   emailNewsletter: false,
 };
 
+const getFreshPreferences = (user?: { name?: string; email?: string; phone?: string; university?: string; city?: string; avatar?: string } | null): StudentPreferences => ({
+  fullName: user?.name || '',
+  email: user?.email || '',
+  phone: user?.phone || '',
+  avatar: user?.avatar || '',
+  gender: '',
+  university: user?.university || '',
+  course: '',
+  academicYear: '',
+  campusLocation: '',
+  preferredCity: user?.city || 'Delhi NCR',
+  maxBudget: 15000,
+  accommodationType: '',
+  sharingPreference: '',
+  foodPreference: '',
+  moveInDate: '',
+  acRequired: false,
+  wifiRequired: false,
+  laundryRequired: false,
+  securityRequired: false,
+  foodIncludedRequired: false,
+  profileVisibility: true,
+  whatsappAlerts: true,
+  emailNewsletter: false,
+});
+
+const getLiveProperties = (): Property[] => {
+  try {
+    const stored = localStorage.getItem('colin_all_properties');
+    if (stored) return JSON.parse(stored);
+  } catch {}
+  return PROPERTIES;
+};
+
 const StudentContext = createContext<StudentContextType | undefined>(undefined);
 
 export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
+  const currentUserId = user?.id || null;
+  const isDemo = currentUserId === 'usr-student-01' || !currentUserId;
+
   // 1. Wishlist state
   const [wishlist, setWishlist] = useState<string[]>(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEYS.WISHLIST);
-      return stored ? JSON.parse(stored) : ['prop-1', 'prop-3'];
-    } catch {
-      return ['prop-1', 'prop-3'];
-    }
+      const stored = localStorage.getItem(getScopedKey(STORAGE_KEYS.WISHLIST, currentUserId));
+      if (stored) return JSON.parse(stored);
+      if (isDemo) return ['prop-1', 'prop-3'];
+    } catch {}
+    return isDemo ? ['prop-1', 'prop-3'] : [];
   });
 
   // 2. Comparison state
   const [comparisonList, setComparisonList] = useState<string[]>(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEYS.COMPARISON);
-      return stored ? JSON.parse(stored) : ['prop-1', 'prop-2'];
-    } catch {
-      return ['prop-1', 'prop-2'];
-    }
+      const stored = localStorage.getItem(getScopedKey(STORAGE_KEYS.COMPARISON, currentUserId));
+      if (stored) return JSON.parse(stored);
+      if (isDemo) return ['prop-1', 'prop-2'];
+    } catch {}
+    return isDemo ? ['prop-1', 'prop-2'] : [];
   });
 
   // 3. Recently viewed state
   const [recentlyViewed, setRecentlyViewed] = useState<string[]>(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEYS.RECENTLY_VIEWED);
-      return stored ? JSON.parse(stored) : ['prop-1', 'prop-2', 'prop-3', 'prop-4'];
-    } catch {
-      return ['prop-1', 'prop-2', 'prop-3', 'prop-4'];
-    }
+      const stored = localStorage.getItem(getScopedKey(STORAGE_KEYS.RECENTLY_VIEWED, currentUserId));
+      if (stored) return JSON.parse(stored);
+      if (isDemo) return ['prop-1', 'prop-2', 'prop-3', 'prop-4'];
+    } catch {}
+    return isDemo ? ['prop-1', 'prop-2', 'prop-3', 'prop-4'] : [];
   });
 
   // 4. Visit bookings state
   const [visits, setVisits] = useState<VisitBooking[]>(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEYS.VISITS);
-      return stored ? JSON.parse(stored) : INITIAL_STUDENT_VISITS;
-    } catch {
-      return INITIAL_STUDENT_VISITS;
-    }
+      const stored = localStorage.getItem(getScopedKey(STORAGE_KEYS.VISITS, currentUserId));
+      if (stored) return JSON.parse(stored);
+      if (isDemo) {
+        const legacy = localStorage.getItem(STORAGE_KEYS.VISITS);
+        return legacy ? JSON.parse(legacy) : INITIAL_STUDENT_VISITS;
+      }
+    } catch {}
+    return isDemo ? INITIAL_STUDENT_VISITS : [];
   });
 
   // 5. Premium subscription state
   const [premiumSubscription, setPremiumSubscription] = useState<PremiumSubscription | null>(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEYS.PREMIUM);
-      return stored ? JSON.parse(stored) : null;
-    } catch {
-      return null;
-    }
+      const stored = localStorage.getItem(getScopedKey(STORAGE_KEYS.PREMIUM, currentUserId));
+      if (stored) return JSON.parse(stored);
+    } catch {}
+    return null;
   });
 
   // 6. Tiffin subscription state
   const [tiffinSubscription, setTiffinSubscription] = useState<TiffinSubscription | null>(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEYS.TIFFIN);
-      return stored ? JSON.parse(stored) : null;
-    } catch {
-      return null;
-    }
+      const stored = localStorage.getItem(getScopedKey(STORAGE_KEYS.TIFFIN, currentUserId));
+      if (stored) return JSON.parse(stored);
+    } catch {}
+    return null;
   });
 
   // 7. Student preferences state
   const [studentPreferences, setStudentPreferences] = useState<StudentPreferences>(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEYS.PREFERENCES);
-      return stored ? JSON.parse(stored) : DEFAULT_PREFERENCES;
-    } catch {
-      return DEFAULT_PREFERENCES;
-    }
+      const stored = localStorage.getItem(getScopedKey(STORAGE_KEYS.PREFERENCES, currentUserId));
+      if (stored) return JSON.parse(stored);
+    } catch {}
+    return isDemo ? DEFAULT_PREFERENCES : getFreshPreferences(user);
   });
 
-  // Persist to localStorage
+  // Reload user-scoped data whenever active authenticated user changes
+  useEffect(() => {
+    if (!currentUserId) {
+      setWishlist(['prop-1', 'prop-3']);
+      setComparisonList(['prop-1', 'prop-2']);
+      setRecentlyViewed(['prop-1', 'prop-2', 'prop-3', 'prop-4']);
+      setVisits(INITIAL_STUDENT_VISITS);
+      setPremiumSubscription(null);
+      setTiffinSubscription(null);
+      setStudentPreferences(DEFAULT_PREFERENCES);
+      return;
+    }
+
+    const scopedIsDemo = currentUserId === 'usr-student-01';
+
+    // 1. Wishlist
+    try {
+      const raw = localStorage.getItem(getScopedKey(STORAGE_KEYS.WISHLIST, currentUserId));
+      setWishlist(raw ? JSON.parse(raw) : (scopedIsDemo ? ['prop-1', 'prop-3'] : []));
+    } catch {
+      setWishlist(scopedIsDemo ? ['prop-1', 'prop-3'] : []);
+    }
+
+    // 2. Comparison
+    try {
+      const raw = localStorage.getItem(getScopedKey(STORAGE_KEYS.COMPARISON, currentUserId));
+      setComparisonList(raw ? JSON.parse(raw) : (scopedIsDemo ? ['prop-1', 'prop-2'] : []));
+    } catch {
+      setComparisonList(scopedIsDemo ? ['prop-1', 'prop-2'] : []);
+    }
+
+    // 3. Recently viewed
+    try {
+      const raw = localStorage.getItem(getScopedKey(STORAGE_KEYS.RECENTLY_VIEWED, currentUserId));
+      setRecentlyViewed(raw ? JSON.parse(raw) : (scopedIsDemo ? ['prop-1', 'prop-2', 'prop-3', 'prop-4'] : []));
+    } catch {
+      setRecentlyViewed(scopedIsDemo ? ['prop-1', 'prop-2', 'prop-3', 'prop-4'] : []);
+    }
+
+    // 4. Visits
+    try {
+      const raw = localStorage.getItem(getScopedKey(STORAGE_KEYS.VISITS, currentUserId));
+      if (raw) {
+        setVisits(JSON.parse(raw));
+      } else if (scopedIsDemo) {
+        const legacy = localStorage.getItem(STORAGE_KEYS.VISITS);
+        setVisits(legacy ? JSON.parse(legacy) : INITIAL_STUDENT_VISITS);
+      } else {
+        setVisits([]);
+      }
+    } catch {
+      setVisits(scopedIsDemo ? INITIAL_STUDENT_VISITS : []);
+    }
+
+    // 5. Premium
+    try {
+      const raw = localStorage.getItem(getScopedKey(STORAGE_KEYS.PREMIUM, currentUserId));
+      setPremiumSubscription(raw ? JSON.parse(raw) : null);
+    } catch {
+      setPremiumSubscription(null);
+    }
+
+    // 6. Tiffin
+    try {
+      const raw = localStorage.getItem(getScopedKey(STORAGE_KEYS.TIFFIN, currentUserId));
+      setTiffinSubscription(raw ? JSON.parse(raw) : null);
+    } catch {
+      setTiffinSubscription(null);
+    }
+
+    // 7. Preferences
+    try {
+      const raw = localStorage.getItem(getScopedKey(STORAGE_KEYS.PREFERENCES, currentUserId));
+      setStudentPreferences(raw ? JSON.parse(raw) : (scopedIsDemo ? DEFAULT_PREFERENCES : getFreshPreferences(user)));
+    } catch {
+      setStudentPreferences(scopedIsDemo ? DEFAULT_PREFERENCES : getFreshPreferences(user));
+    }
+  }, [currentUserId]);
+
+  // Persist user-scoped data to localStorage
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEYS.WISHLIST, JSON.stringify(wishlist));
+      localStorage.setItem(getScopedKey(STORAGE_KEYS.WISHLIST, currentUserId), JSON.stringify(wishlist));
+      if (!currentUserId || currentUserId === 'usr-student-01') {
+        localStorage.setItem(STORAGE_KEYS.WISHLIST, JSON.stringify(wishlist));
+      }
     } catch {}
-  }, [wishlist]);
+  }, [wishlist, currentUserId]);
 
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEYS.COMPARISON, JSON.stringify(comparisonList));
+      localStorage.setItem(getScopedKey(STORAGE_KEYS.COMPARISON, currentUserId), JSON.stringify(comparisonList));
+      if (!currentUserId || currentUserId === 'usr-student-01') {
+        localStorage.setItem(STORAGE_KEYS.COMPARISON, JSON.stringify(comparisonList));
+      }
     } catch {}
-  }, [comparisonList]);
+  }, [comparisonList, currentUserId]);
 
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEYS.RECENTLY_VIEWED, JSON.stringify(recentlyViewed));
+      localStorage.setItem(getScopedKey(STORAGE_KEYS.RECENTLY_VIEWED, currentUserId), JSON.stringify(recentlyViewed));
+      if (!currentUserId || currentUserId === 'usr-student-01') {
+        localStorage.setItem(STORAGE_KEYS.RECENTLY_VIEWED, JSON.stringify(recentlyViewed));
+      }
     } catch {}
-  }, [recentlyViewed]);
+  }, [recentlyViewed, currentUserId]);
 
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEYS.VISITS, JSON.stringify(visits));
+      localStorage.setItem(getScopedKey(STORAGE_KEYS.VISITS, currentUserId), JSON.stringify(visits));
+      // For demo student or unauthenticated test mode, also sync to legacy key
+      if (!currentUserId || currentUserId === 'usr-student-01') {
+        localStorage.setItem(STORAGE_KEYS.VISITS, JSON.stringify(visits));
+      }
     } catch {}
-  }, [visits]);
+  }, [visits, currentUserId]);
+
+  // Sync visits on cross-portal or external storage events
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      const expectedKey = getScopedKey(STORAGE_KEYS.VISITS, currentUserId);
+      if ((e.key === expectedKey || ((!currentUserId || currentUserId === 'usr-student-01') && e.key === STORAGE_KEYS.VISITS)) && e.newValue) {
+        try {
+          setVisits(JSON.parse(e.newValue));
+        } catch {}
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [currentUserId]);
 
   useEffect(() => {
     try {
       if (premiumSubscription) {
-        localStorage.setItem(STORAGE_KEYS.PREMIUM, JSON.stringify(premiumSubscription));
+        localStorage.setItem(getScopedKey(STORAGE_KEYS.PREMIUM, currentUserId), JSON.stringify(premiumSubscription));
+        if (!currentUserId || currentUserId === 'usr-student-01') {
+          localStorage.setItem(STORAGE_KEYS.PREMIUM, JSON.stringify(premiumSubscription));
+        }
       } else {
-        localStorage.removeItem(STORAGE_KEYS.PREMIUM);
+        localStorage.removeItem(getScopedKey(STORAGE_KEYS.PREMIUM, currentUserId));
+        if (!currentUserId || currentUserId === 'usr-student-01') {
+          localStorage.removeItem(STORAGE_KEYS.PREMIUM);
+        }
       }
     } catch {}
-  }, [premiumSubscription]);
+  }, [premiumSubscription, currentUserId]);
 
   useEffect(() => {
     try {
       if (tiffinSubscription) {
-        localStorage.setItem(STORAGE_KEYS.TIFFIN, JSON.stringify(tiffinSubscription));
+        localStorage.setItem(getScopedKey(STORAGE_KEYS.TIFFIN, currentUserId), JSON.stringify(tiffinSubscription));
+        if (!currentUserId || currentUserId === 'usr-student-01') {
+          localStorage.setItem(STORAGE_KEYS.TIFFIN, JSON.stringify(tiffinSubscription));
+        }
       } else {
-        localStorage.removeItem(STORAGE_KEYS.TIFFIN);
+        localStorage.removeItem(getScopedKey(STORAGE_KEYS.TIFFIN, currentUserId));
+        if (!currentUserId || currentUserId === 'usr-student-01') {
+          localStorage.removeItem(STORAGE_KEYS.TIFFIN);
+        }
       }
     } catch {}
-  }, [tiffinSubscription]);
+  }, [tiffinSubscription, currentUserId]);
 
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEYS.PREFERENCES, JSON.stringify(studentPreferences));
+      localStorage.setItem(getScopedKey(STORAGE_KEYS.PREFERENCES, currentUserId), JSON.stringify(studentPreferences));
+      if (!currentUserId || currentUserId === 'usr-student-01') {
+        localStorage.setItem(STORAGE_KEYS.PREFERENCES, JSON.stringify(studentPreferences));
+      }
     } catch {}
-  }, [studentPreferences]);
+  }, [studentPreferences, currentUserId]);
 
-  // Load persisted custom photo from IndexedDB if available
+  // Load persisted custom photo from IndexedDB if available (scoped by currentUserId)
   useEffect(() => {
     let isMounted = true;
-    getProfilePhoto().then((storedPhoto) => {
-      if (isMounted && storedPhoto) {
-        setStudentPreferences((prev) => ({ ...prev, avatar: storedPhoto }));
+    getProfilePhoto(currentUserId || undefined).then((storedPhoto) => {
+      if (isMounted) {
+        if (storedPhoto) {
+          setStudentPreferences((prev) => ({ ...prev, avatar: storedPhoto }));
+        } else if (user) {
+          setStudentPreferences((prev) => ({ ...prev, avatar: user.avatar || '' }));
+        }
       }
     });
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [currentUserId, user?.avatar]);
 
   const updateProfilePhoto = async (dataUrl: string) => {
-    await saveProfilePhoto(dataUrl);
+    await saveProfilePhoto(dataUrl, currentUserId || undefined);
     setStudentPreferences((prev) => ({ ...prev, avatar: dataUrl }));
   };
 
   const removeProfilePhoto = async () => {
-    await deleteProfilePhoto();
+    await deleteProfilePhoto(currentUserId || undefined);
     setStudentPreferences((prev) => ({
       ...prev,
-      avatar: DEFAULT_PREFERENCES.avatar,
+      avatar: user?.avatar || (isDemo ? DEFAULT_PREFERENCES.avatar : ''),
     }));
   };
 
@@ -283,7 +462,7 @@ export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const clearWishlist = useCallback(() => setWishlist([]), []);
 
-  const savedProperties = PROPERTIES.filter((p) => wishlist.includes(p.id));
+  const savedProperties = getLiveProperties().filter((p) => wishlist.includes(p.id));
 
   // Comparison actions
   const addToComparison = useCallback((propertyId: string): { success: boolean; message?: string } => {
@@ -305,7 +484,7 @@ export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const isInComparison = useCallback((propertyId: string) => comparisonList.includes(propertyId), [comparisonList]);
 
-  const comparedProperties = PROPERTIES.filter((p) => comparisonList.includes(p.id));
+  const comparedProperties = getLiveProperties().filter((p) => comparisonList.includes(p.id));
 
   // Recently Viewed actions
   const addRecentlyViewed = useCallback((propertyId: string) => {
@@ -316,7 +495,7 @@ export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ child
     });
   }, []);
 
-  const recentlyViewedProperties = PROPERTIES.filter((p) => recentlyViewed.includes(p.id));
+  const recentlyViewedProperties = getLiveProperties().filter((p) => recentlyViewed.includes(p.id));
 
   // Visit bookings actions
   const bookVisit = (booking: VisitBooking) => {
@@ -372,6 +551,109 @@ export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ child
       explanation: outcome.explanation,
       outcomeReason: outcome.label,
     };
+  };
+
+  const submitStudentDecision = (
+    visitId: string,
+    decision: 'accept' | 'reject',
+    reason?: string
+  ): {
+    success: boolean;
+    refundAmount: number;
+    message: string;
+  } => {
+    const target = visits.find((v) => v.id === visitId);
+    if (!target) {
+      return {
+        success: false,
+        refundAmount: 0,
+        message: 'Visit booking record not found.',
+      };
+    }
+
+    // Prevent duplicate decisions
+    if (
+      target.decisionStatus === 'ACCEPTED' ||
+      target.decisionStatus === 'REJECTED' ||
+      target.status === 'STUDENT_ACCEPTED' ||
+      target.status === 'STUDENT_REJECTED'
+    ) {
+      return {
+        success: false,
+        refundAmount: target.refundCalculated || 0,
+        message: 'Decision has already been submitted for this visit. Multiple submissions are not allowed.',
+      };
+    }
+
+    // Check if expired
+    const nowMs = Date.now();
+    const deadlineMs = target.decisionDeadline ? new Date(target.decisionDeadline).getTime() : 0;
+    if (deadlineMs > 0 && nowMs > deadlineMs) {
+      setVisits((prev) =>
+        prev.map((v) =>
+          v.id === visitId
+            ? {
+                ...v,
+                status: 'DECISION_EXPIRED',
+                decisionStatus: 'EXPIRED',
+                refundCalculated: 0,
+                refundStatus: 'FORFEITED_FULL',
+              }
+            : v
+        )
+      );
+      return {
+        success: false,
+        refundAmount: 0,
+        message: 'The 12-hour decision window has already expired.',
+      };
+    }
+
+    const decisionTime = new Date().toISOString();
+
+    if (decision === 'accept') {
+      setVisits((prev) =>
+        prev.map((v) =>
+          v.id === visitId
+            ? {
+                ...v,
+                status: 'STUDENT_ACCEPTED',
+                decisionStatus: 'ACCEPTED',
+                decisionTimestamp: decisionTime,
+                refundCalculated: 0,
+                refundStatus: 'RETAINED_ACCEPTED',
+              }
+            : v
+        )
+      );
+      return {
+        success: true,
+        refundAmount: 0,
+        message: 'Property visit accepted! Accommodation confirmed.',
+      };
+    } else {
+      setVisits((prev) =>
+        prev.map((v) =>
+          v.id === visitId
+            ? {
+                ...v,
+                status: 'STUDENT_REJECTED',
+                decisionStatus: 'REJECTED',
+                decisionTimestamp: decisionTime,
+                rejectionReason: reason || 'Room did not meet student requirements',
+                refundCalculated: 82.50,
+                refundStatus: 'PROCESSED_SIMULATED',
+                refundedAmount: 82.50,
+              }
+            : v
+        )
+      );
+      return {
+        success: true,
+        refundAmount: 82.50,
+        message: 'Property rejected within permitted 12-hour window. Eligible for ₹82.50 (55%) refund guarantee.',
+      };
+    }
   };
 
   const upcomingVisitsCount = visits.filter((v) => v.status === 'Confirmed').length;
@@ -529,6 +811,7 @@ export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ child
         upcomingVisitsCount,
         bookVisit,
         cancelVisit,
+        submitStudentDecision,
 
         premiumSubscription,
         activatePremium,

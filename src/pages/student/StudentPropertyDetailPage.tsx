@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { PROPERTIES } from '../../data/mockData';
-import { isPropertyCertified } from '../../types';
+import { isPropertyCertified, Property } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 import { useStudent } from '../../context/StudentContext';
+import { useProperties } from '../../context/PropertyContext';
 import { useToast } from '../../context/ToastContext';
 import { VisitSlotModal } from '../../components/property/VisitSlotModal';
 import { ColinCertifiedBadge } from '../../components/common/ColinCertifiedBadge';
@@ -64,7 +65,13 @@ export const StudentPropertyDetailPage: React.FC = () => {
   const [imageModalOpen, setImageModalOpen] = useState(false);
   const [refundExpanded, setRefundExpanded] = useState(false);
 
-  const property = PROPERTIES.find((p) => p.id === id);
+  let liveProperty: Property | undefined;
+  try {
+    const propCtx = useProperties();
+    liveProperty = propCtx?.getPropertyById(id || '') || propCtx?.properties.find((p) => p.id === id);
+  } catch {}
+
+  const property = liveProperty || PROPERTIES.find((p) => p.id === id);
 
   // Track recently viewed
   useEffect(() => {
