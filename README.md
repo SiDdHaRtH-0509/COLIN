@@ -100,17 +100,27 @@ COLIN/
 │       └── colin-logo.png      # Official COLIN brand mark
 ├── docs/                       # Project documentation & engineering reports
 │   ├── MONETIZATION_STRATEGY.md # Economic model, fees, and refund architecture
+│   ├── database/               # Central relational database architecture & SQL
+│   │   ├── COLIN_DATABASE_ARCHITECTURE.md
+│   │   ├── COLIN_DATABASE_ERD.md
+│   │   ├── COLIN_DATABASE_RELATIONSHIPS.md
+│   │   ├── COLIN_DATABASE_ROLE_PERMISSION_MATRIX.md
+│   │   ├── COLIN_DATA_DICTIONARY.md
+│   │   ├── COLIN_DATA_MIGRATION_PLAN.md
+│   │   └── COLIN_CUSTOM_POSTGRESQL_CONSTRAINTS.sql
 │   └── reports/                # Milestone audit & acceptance reports
-│       ├── PHASE_1_REPORT.md
-│       ├── PHASE_2_REPORT.md
-│       ├── PHASE_2_UI_REDESIGN_REPORT.md
-│       ├── PHASE_2_UI_REDESIGN_V2_REPORT.md
-│       ├── PHASE_2_UI_REDESIGN_V3_REPORT.md
-│       ├── PHASE_2_DISCOVERY_AND_TRUST_V5_REPORT.md
-│       ├── PHASE_2_FINAL_ACCEPTANCE_REPORT.md
-│       ├── PHASE_3_REPORT.md
+│       ├── FINAL_DATABASE_ACCEPTANCE_REPORT.md
+│       ├── PHASE_4A_R2_1_2_2_FINAL_EXECUTION_REPORT.md
+│       ├── POSTGRESQL_LIVE_VERIFICATION_REPORT.md
+│       ├── DATABASE_ROLE_LIVE_PRIVILEGE_VERIFICATION.md
+│       ├── POSTGRESQL_CONCURRENCY_LIVE_EVIDENCE.md
+│       ├── LEDGER_INTEGRITY_LIVE_VERIFICATION.md
+│       ├── PRISMA_VALIDATION_AND_GENERATION_REPORT.md
+│       ├── PHASE_4A_ACCEPTANCE_REPORT.md
 │       ├── PHASE_3A_ACCEPTANCE_REPORT.md
-│       └── PHASE_3_COMPREHENSIVE_REPORT.md
+│       ├── PHASE_3_REPORT.md
+│       ├── PHASE_2_FINAL_ACCEPTANCE_REPORT.md
+│       └── PHASE_1_REPORT.md
 ├── src/
 │   ├── components/
 │   │   ├── common/             # Reusable UI (Navbar, Footer, Buttons, Badges)
@@ -192,32 +202,29 @@ You can use the following pre-configured credentials to evaluate the platform:
 
 ## Testing & Quality Assurance
 
-The codebase is thoroughly tested using **Vitest** and **React Testing Library**:
+The platform is continuously verified across **239 unique tests** (100% pass rate) with zero failures and zero skipped tests:
 
-```bash
-✓ src/test/auth.test.tsx (5 tests)
-✓ src/test/navigation.test.tsx (4 tests)
-✓ src/test/properties.test.tsx (3 tests)
-✓ src/test/phase3b_isolation.test.tsx (10 tests)
-✓ src/test/phase3_final_refinement.test.tsx (8 tests)
-✓ src/test/phase3a_booking.test.tsx (11 tests)
-✓ src/test/owner.test.tsx (26 tests)
-✓ src/test/student.test.tsx (35 tests)
-
-Test Files  8 passed (8)
-     Tests  102 passed (102)
-```
-
+* **PostgreSQL 18.4 Engine Integration** (`pnpm run test:db:integration`): **78 tests** covering 10 domains (schema invariants, visit-fee settlement policy, double-entry ledger balancing, volunteer guards, payout safety, bed reservations, 8-photo limit, append-only immutability, role permissions, and multi-client concurrency races).
+* **Unit, Invariant & Regression Suite** (`pnpm run test:unit`): **161 tests** across 11 test suites:
+  - Phase 4A.2.2.1 Database Invariant Schema Suite: 32 tests
+  - Phase 1–3 & 4A Portal/Security Regression Suites: 129 tests (Student Portal, Owner Portal, Admin Control Centre, Account Isolation, Auth, Navigation)
 * **Type Safety**: Strictly checked with `npx tsc --noEmit` (0 errors).
-* **Production Bundle**: Successfully builds with Vite tree-shaking and asset minification.
+* **Production Bundle**: Successfully builds with Vite tree-shaking and asset minification (`pnpm run build`).
 
 ---
 
 ## Documentation
 
 Full architectural documentation and milestone progress reports are available in the [`docs/`](docs/) directory:
+* [Final Database Acceptance Report](docs/reports/FINAL_DATABASE_ACCEPTANCE_REPORT.md)
+* [Phase 4A.2.2.1 Live PostgreSQL Verification Report](docs/reports/POSTGRESQL_LIVE_VERIFICATION_REPORT.md)
+* [Database Role Live Privilege Verification](docs/reports/DATABASE_ROLE_LIVE_PRIVILEGE_VERIFICATION.md)
+* [PostgreSQL Concurrency Live Evidence](docs/reports/POSTGRESQL_CONCURRENCY_LIVE_EVIDENCE.md)
+* [Ledger Integrity Live Verification](docs/reports/LEDGER_INTEGRITY_LIVE_VERIFICATION.md)
+* [Prisma Validation & Client Generation](docs/reports/PRISMA_VALIDATION_AND_GENERATION_REPORT.md)
+* [Central Database Architecture](docs/database/COLIN_DATABASE_ARCHITECTURE.md)
 * [Platform Monetization Strategy](docs/MONETIZATION_STRATEGY.md)
-* [Phase 3 Comprehensive Report](docs/reports/PHASE_3_COMPREHENSIVE_REPORT.md)
+* [Phase 4A Admin Control Centre Acceptance](docs/reports/PHASE_4A_ACCEPTANCE_REPORT.md)
 * [Phase 3A Acceptance Report](docs/reports/PHASE_3A_ACCEPTANCE_REPORT.md)
 * [Phase 2 Final Acceptance Report](docs/reports/PHASE_2_FINAL_ACCEPTANCE_REPORT.md)
 * [Phase 1 Foundation Report](docs/reports/PHASE_1_REPORT.md)

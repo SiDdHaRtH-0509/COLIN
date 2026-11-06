@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { AdminAuthProvider } from './context/AdminAuthContext';
 import { PropertyProvider } from './context/PropertyContext';
 import { StudentProvider } from './context/StudentContext';
 import { ToastProvider } from './context/ToastContext';
@@ -39,6 +40,13 @@ import { OwnerSubscriptionPage } from './pages/owner/OwnerSubscriptionPage';
 import { OwnerAnalyticsPage } from './pages/owner/OwnerAnalyticsPage';
 import { OwnerSettingsPage } from './pages/owner/OwnerSettingsPage';
 
+// Admin Control Centre Components & Pages (Phase 4A)
+import { AdminLayout } from './components/admin/AdminLayout';
+import { AdminProtectedRoute } from './components/admin/AdminProtectedRoute';
+import { AdminLoginPage } from './pages/admin/AdminLoginPage';
+import { AdminDashboardOverviewPage } from './pages/admin/AdminDashboardOverviewPage';
+import { AdminPlaceholderPage } from './pages/admin/AdminPlaceholderPage';
+
 // Scroll to top component on route changes
 const ScrollToTop: React.FC = () => {
   const { pathname, hash } = useLocation();
@@ -56,11 +64,12 @@ const AppContent: React.FC = () => {
   const { pathname } = useLocation();
   const isStudentWorkspace = pathname.startsWith('/student');
   const isOwnerWorkspace = pathname.startsWith('/owner');
-  const isWorkspace = isStudentWorkspace || isOwnerWorkspace;
+  const isAdminWorkspace = pathname.startsWith('/admin');
+  const isWorkspace = isStudentWorkspace || isOwnerWorkspace || isAdminWorkspace;
 
   return (
     <div className="flex flex-col min-h-screen bg-colin-offwhite font-sans text-colin-charcoal antialiased overflow-x-hidden">
-      {/* Public Navbar rendered on public/landing routes */}
+      {/* Public Navbar rendered strictly on public/landing routes */}
       {!isWorkspace && <Navbar />}
 
       {/* Dynamic Route Content */}
@@ -102,11 +111,38 @@ const AppContent: React.FC = () => {
             <Route path="analytics" element={<OwnerAnalyticsPage />} />
             <Route path="settings" element={<OwnerSettingsPage />} />
           </Route>
+
+          {/* Dedicated COLIN Admin Control Centre (Phase 4A) */}
+          <Route path="/admin/login" element={<AdminLoginPage />} />
+          <Route
+            path="/admin"
+            element={
+              <AdminProtectedRoute>
+                <AdminLayout />
+              </AdminProtectedRoute>
+            }
+          >
+            <Route index element={<AdminDashboardOverviewPage />} />
+            <Route path="dashboard" element={<AdminDashboardOverviewPage />} />
+            <Route path="students" element={<AdminPlaceholderPage />} />
+            <Route path="owners" element={<AdminPlaceholderPage />} />
+            <Route path="properties" element={<AdminPlaceholderPage />} />
+            <Route path="verification" element={<AdminPlaceholderPage />} />
+            <Route path="visits" element={<AdminPlaceholderPage />} />
+            <Route path="finance" element={<AdminPlaceholderPage />} />
+            <Route path="subscriptions" element={<AdminPlaceholderPage />} />
+            <Route path="sponsorships" element={<AdminPlaceholderPage />} />
+            <Route path="volunteers" element={<AdminPlaceholderPage />} />
+            <Route path="support" element={<AdminPlaceholderPage />} />
+            <Route path="analytics" element={<AdminPlaceholderPage />} />
+            <Route path="notifications" element={<AdminPlaceholderPage />} />
+            <Route path="system" element={<AdminPlaceholderPage />} />
+          </Route>
         </Routes>
       </main>
 
-      {/* Member Access Restriction Modal */}
-      <AuthModal />
+      {/* Member Access Restriction Modal (Public/Student/Owner Only) */}
+      {!isAdminWorkspace && <AuthModal />}
 
       {/* Comprehensive Brand Footer on public/landing routes */}
       {!isWorkspace && <Footer />}
@@ -117,16 +153,18 @@ const AppContent: React.FC = () => {
 export const App: React.FC = () => {
   return (
     <AuthProvider>
-      <PropertyProvider>
-        <StudentProvider>
-          <ToastProvider>
-            <BrowserRouter>
-              <ScrollToTop />
-              <AppContent />
-            </BrowserRouter>
-          </ToastProvider>
-        </StudentProvider>
-      </PropertyProvider>
+      <AdminAuthProvider>
+        <PropertyProvider>
+          <StudentProvider>
+            <ToastProvider>
+              <BrowserRouter>
+                <ScrollToTop />
+                <AppContent />
+              </BrowserRouter>
+            </ToastProvider>
+          </StudentProvider>
+        </PropertyProvider>
+      </AdminAuthProvider>
     </AuthProvider>
   );
 };
