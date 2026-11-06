@@ -1,6 +1,6 @@
 /**
  * COLIN Authentication & Authorization Middleware Interfaces
- * Phase 4A.2.2.3: Backend Core Service & API Architecture
+ * Phase 4A.2.3: Authentication & Authorization Integration
  * 
  * Enforces strict security boundaries, context extraction, and role authorization.
  * Controllers NEVER trust client-supplied role values.
@@ -9,6 +9,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { UserRoleType } from '@prisma/client';
 import { AdminRole } from '../../types/admin';
+import { TokenService } from '../auth/token.service';
 
 export class AuthenticationError extends Error {
   public readonly statusCode = 401;
@@ -35,9 +36,16 @@ export class AuthorizationError extends Error {
  * Attaches verified context to `req.context`.
  */
 export function authContextMiddleware(req: Request, _res: Response, next: NextFunction): void {
+  let token: string | null = null;
   const authHeader = req.headers.authorization;
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.substring(7).trim();
+  } else if (req.cookies && req.cookies.accessToken) {
+    token = req.cookies.accessToken;
+  }
+
+  if (!token) {
     req.context = {
       userId: '',
       role: UserRoleType.STUDENT,
@@ -47,13 +55,10 @@ export function authContextMiddleware(req: Request, _res: Response, next: NextFu
     return next();
   }
 
-  const token = authHeader.substring(7).trim();
-
-  // In test / development environments: parse structured test bearer tokens
+  // In test / development environments: preserve backwards compatibility with test fixture tokens
   // Format: test-token-<userId>-<role>[-<adminRole>]
   if (process.env.NODE_ENV !== 'production' && token.startsWith('test-token-')) {
     const parts = token.split('-');
-    // Expected: ['test', 'token', '<userId>', '<role>', '<adminRole>?']
     const userId = parts[2] || 'test-user-id';
     const roleString = (parts[3] || 'STUDENT').toUpperCase();
     const adminRoleString = parts[4] ? parts[4].toUpperCase() as AdminRole : undefined;
@@ -73,7 +78,21 @@ export function authContextMiddleware(req: Request, _res: Response, next: NextFu
     return next();
   }
 
-  // Production token parsing integration point (to be fully integrated with JWT/Session in Phase 4A.2.4)
+  // Cryptographic JWT Verification (HS256)
+  const decoded = TokenService.verifyAccessToken(token);
+  if (decoded && decoded.userId) {
+    req.context = {
+      userId: decoded.userId,
+      role: decoded.role,
+      sessionId: decoded.sessionId,
+      email: decoded.email,
+      adminRole: decoded.adminRole,
+      authenticationStatus: 'AUTHENTICATED',
+    };
+    return next();
+  }
+
+  // If token was present but invalid/expired, mark context ANONYMOUS
   req.context = {
     userId: '',
     role: UserRoleType.STUDENT,
@@ -109,6 +128,27 @@ export function requireRole(allowedRoles: UserRoleType[]) {
     }
 
     next();
+  };
+}
+
+/**
+ * Enforces resource ownership boundaries.
+ * Grants access if user owns the resource or is a verified ADMIN.
+ */
+export function requireResourceOwner(getOwnerUserId: (req: Request) => string | string[] | undefined) {
+  return (req: Request, _res: Response, next: NextFunction): void => {
+    if (!req.context || req.context.authenticationStatus !== 'AUTHENTICATED') {
+      return next(new AuthenticationError());
+    }
+
+    const rawOwnerId = getOwnerUserId(req);
+    const ownerUserId = Array.isArray(rawOwnerId) ? rawOwnerId[0] : rawOwnerId;
+
+    if (req.context.role === UserRoleType.ADMIN || (ownerUserId && req.context.userId === ownerUserId)) {
+      return next();
+    }
+
+    return next(new AuthorizationError('You are not authorized to access or modify this resource.'));
   };
 }
 

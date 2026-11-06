@@ -19,6 +19,7 @@ import {
 } from '../database/errors';
 import { RequestValidationError } from './validateRequest';
 import { AuthenticationError, AuthorizationError } from './authContext';
+import { RateLimitError } from './rateLimiter';
 import { ApiErrorResponse } from '../types/api';
 
 export function errorHandlerMiddleware(
@@ -55,7 +56,13 @@ export function errorHandlerMiddleware(
     errorCode = err.code;
     message = err.message;
   }
-  // 4. Database Errors from Central Database Layer
+  // 4. Rate Limiting Errors
+  else if (err instanceof RateLimitError) {
+    statusCode = 429;
+    errorCode = err.code;
+    message = err.message;
+  }
+  // 5. Database Errors from Central Database Layer
   else if (err instanceof DatabaseAuthorizationError) {
     statusCode = 403;
     errorCode = err.code;

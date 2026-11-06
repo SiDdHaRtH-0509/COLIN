@@ -10,6 +10,10 @@ export interface ServerConfig {
   apiPrefix: string;
   corsAllowedOrigins: string[];
   bodySizeLimit: string;
+  jwtSecret: string;
+  jwtExpiresIn: string;
+  refreshTokenExpiresInDays: number;
+  bcryptSaltRounds: number;
 }
 
 export function getServerConfig(): ServerConfig {
@@ -30,6 +34,13 @@ export function getServerConfig(): ServerConfig {
         'http://127.0.0.1:3000',
       ];
 
+  const jwtSecret = process.env.JWT_SECRET || 'colin-super-secure-production-ready-jwt-secret-key-32chars!';
+  const jwtExpiresIn = process.env.JWT_EXPIRES_IN || '15m';
+  const refreshTokenExpiresInDays = parseInt(process.env.REFRESH_TOKEN_EXPIRES_DAYS || '7', 10);
+  const bcryptSaltRounds = process.env.BCRYPT_ROUNDS
+    ? parseInt(process.env.BCRYPT_ROUNDS, 10)
+    : (nodeEnv === 'test' ? 10 : 12);
+
   return {
     port,
     host,
@@ -37,5 +48,9 @@ export function getServerConfig(): ServerConfig {
     apiPrefix,
     corsAllowedOrigins,
     bodySizeLimit,
+    jwtSecret,
+    jwtExpiresIn,
+    refreshTokenExpiresInDays,
+    bcryptSaltRounds,
   };
 }

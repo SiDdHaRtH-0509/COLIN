@@ -7,6 +7,7 @@
  */
 
 import express, { Express, Request, Response } from 'express';
+import cookieParser from 'cookie-parser';
 import { getServerConfig } from './config/serverConfig';
 import {
   requestIdMiddleware,
@@ -36,6 +37,7 @@ export function createApp(): Express {
   // 4. Request payload parsers with bounded memory ceiling
   app.use(express.json({ limit: config.bodySizeLimit }));
   app.use(express.urlencoded({ extended: true, limit: config.bodySizeLimit }));
+  app.use(cookieParser());
 
   // 5. Redacted request logging
   app.use(requestLoggerMiddleware);

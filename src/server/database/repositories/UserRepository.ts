@@ -5,7 +5,7 @@
  * Handles database operations for User accounts, profiles, and role lookups.
  */
 
-import { User, Prisma, UserRoleType } from '@prisma/client';
+import { User, Prisma, UserRoleType, UserStatus } from '@prisma/client';
 import { BaseRepository } from './BaseRepository';
 
 export interface CreateUserData {
@@ -15,6 +15,8 @@ export interface CreateUserData {
   primaryRole?: UserRoleType;
   firstName: string;
   lastName?: string;
+  collegeName?: string;
+  businessName?: string;
 }
 
 export class UserRepository extends BaseRepository {
@@ -57,27 +59,88 @@ export class UserRepository extends BaseRepository {
   }
 
   /**
-   * Creates a new user with associated UserProfile in a single operation.
+   * Creates a new user with associated UserProfile and role profiles in a single operation.
    */
   async createUser(data: CreateUserData, tx?: Prisma.TransactionClient): Promise<User> {
     return this.execute(async () => {
       const client = this.getClient(tx);
+      const role = data.primaryRole || UserRoleType.STUDENT;
+
       return client.user.create({
         data: {
           email: data.email.toLowerCase().trim(),
           phone: data.phone,
           passwordHash: data.passwordHash,
-          primaryRole: data.primaryRole || UserRoleType.STUDENT,
+          primaryRole: role,
           profile: {
             create: {
               firstName: data.firstName,
               lastName: data.lastName || '',
             },
           },
+          ...(role === UserRoleType.STUDENT
+            ? {
+                studentProfile: {
+                  create: {
+                    collegeName: data.collegeName || 'Not Specified',
+                  },
+                },
+              }
+            : {}),
+          ...(role === UserRoleType.OWNER
+            ? {
+                ownerProfile: {
+                  create: {
+                    businessName: data.businessName || null,
+                  },
+                },
+              }
+            : {}),
         },
         include: {
           profile: true,
+          studentProfile: true,
+          ownerProfile: true,
         },
+      });
+    });
+  }
+
+  /**
+   * Updates user password hash and increments update timestamp.
+   */
+  async updatePassword(id: string, passwordHash: string, tx?: Prisma.TransactionClient): Promise<User> {
+    return this.execute(async () => {
+      const client = this.getClient(tx);
+      return client.user.update({
+        where: { id },
+        data: { passwordHash },
+      });
+    });
+  }
+
+  /**
+   * Updates email verification status.
+   */
+  async updateEmailVerified(id: string, isEmailVerified = true, tx?: Prisma.TransactionClient): Promise<User> {
+    return this.execute(async () => {
+      const client = this.getClient(tx);
+      return client.user.update({
+        where: { id },
+        data: { isEmailVerified },
+      });
+    });
+  }
+
+  /**
+   * Updates user lifecycle status (ACTIVE, SUSPENDED, DELETED).
+   */
+  async updateStatus(id: string, status: UserStatus, tx?: Prisma.TransactionClient): Promise<User> {
+    return this.execute(async () => {
+      const client = this.getClient(tx);
+      return client.user.update({
+        where: { id },
+        data: { status },
       });
     });
   }
