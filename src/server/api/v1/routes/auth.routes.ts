@@ -1,9 +1,9 @@
 /**
  * COLIN Authentication & Authorization API Routes
- * Phase 4A.2.3: Authentication & Authorization Integration
+ * Phase 4A.2.3.8: Authentication Security Hardening & Independent Acceptance Audit
  * 
  * Defines routing table for identity, session lifecycle, password recovery,
- * token rotation, and RBAC-protected user self-service actions.
+ * token rotation, administrative authentication, and RBAC-protected user self-service actions.
  */
 
 import { Router } from 'express';
@@ -14,6 +14,7 @@ import { authSensitiveRateLimiter, passwordResetRateLimiter } from '../../../mid
 import {
   registerSchema,
   loginSchema,
+  adminLoginSchema,
   refreshTokenSchema,
   changePasswordSchema,
   forgotPasswordSchema,
@@ -36,6 +37,14 @@ router.post(
   authSensitiveRateLimiter.middleware(),
   validateRequest({ body: loginSchema }),
   authController.login
+);
+
+// Administrative Login (isolated from regular user accounts)
+router.post(
+  '/admin/login',
+  authSensitiveRateLimiter.middleware(),
+  validateRequest({ body: adminLoginSchema }),
+  authController.adminLogin
 );
 
 // Token Refresh & Session Termination

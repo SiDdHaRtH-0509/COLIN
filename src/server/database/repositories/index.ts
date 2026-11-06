@@ -6,3 +6,4 @@ export * from './PropertyRepository';
 export * from './BedReservationRepository';
 export * from './LedgerRepository';
 export * from './AdminAuditRepository';
+export * from './AdminAuthRepository';

@@ -8,11 +8,12 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:unit": "vitest run --exclude src/test/database/** --exclude src/test/api/** --exclude src/test/auth/auth-integration.test.ts",
+    "test:unit": "vitest run --exclude src/test/database/** --exclude src/test/api/** --exclude src/test/auth/auth-integration.test.ts --exclude src/test/auth/auth-adversarial.test.ts",
     "test:db:integration": "vitest run src/test/database/postgres-integrity.integration.test.ts --fileParallelism=false",
     "test:orm:integration": "vitest run src/test/database/backend-orm-integration.test.ts --fileParallelism=false",
     "test:api:integration": "vitest run src/test/api/backend-core-api.integration.test.ts --fileParallelism=false",
     "test:auth:integration": "vitest run src/test/auth/auth-integration.test.ts --fileParallelism=false",
+    "test:auth:adversarial": "vitest run src/test/auth/auth-adversarial.test.ts --fileParallelism=false",
     "test:watch": "vitest"
   },
   "dependencies": {

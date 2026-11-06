@@ -15,6 +15,7 @@ import {
   createCorsMiddleware,
   requestLoggerMiddleware,
   authContextMiddleware,
+  csrfProtectionMiddleware,
   errorHandlerMiddleware,
 } from './middleware';
 import v1Router from './api/v1';
@@ -44,6 +45,9 @@ export function createApp(): Express {
 
   // 6. Security & authentication context extraction
   app.use(authContextMiddleware);
+
+  // 6b. Cross-Site Request Forgery (CSRF) defense for cookie-authenticated mutations
+  app.use(csrfProtectionMiddleware);
 
   // 7. Root-level observability probe aliases for container orchestration (k8s/docker)
   app.get('/health/live', healthController.getLive);

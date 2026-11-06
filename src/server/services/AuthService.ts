@@ -240,18 +240,32 @@ export class AuthService {
       throw new AuthenticationError('User account is invalid or no longer active.');
     }
 
-    // ROTATION: Mint new refresh token and rotate database hash
+    // ROTATION: Mint new refresh token and rotate database record atomically
     const newRawRefreshToken = TokenService.generateOpaqueToken();
     const newTokenHash = TokenService.hashToken(newRawRefreshToken);
     const newExpiresAt = TokenService.getRefreshTokenExpiresAt();
 
-    await this.sessionRepo.rotateTokenHash(session.id, newTokenHash, newExpiresAt);
+    const rotationResult = await this.sessionRepo.rotateSessionAtomically(session.id, {
+      userId: user.id,
+      tokenHash: newTokenHash,
+      ipAddress: _meta.ipAddress,
+      userAgent: _meta.userAgent,
+      expiresAt: newExpiresAt,
+    });
 
-    // Mint new access token
+    if (!rotationResult.success || !rotationResult.newSession) {
+      // Replay or simultaneous race condition caught by atomic conditional update!
+      await this.sessionRepo.revokeAllUserSessions(session.userId);
+      throw new AuthenticationError('Refresh token reuse detected. All active sessions have been invalidated for security.');
+    }
+
+    const newSession = rotationResult.newSession;
+
+    // Mint new access token with newSession.id
     const accessToken = TokenService.generateAccessToken({
       userId: user.id,
       role: user.primaryRole,
-      sessionId: session.id,
+      sessionId: newSession.id,
       email: user.email,
     });
 

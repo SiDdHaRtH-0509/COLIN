@@ -9,5 +9,6 @@ export * from './cors';
 export * from './requestLogger';
 export * from './validateRequest';
 export * from './authContext';
+export * from './csrf';
 export * from './rateLimiter';
 export * from './errorHandler';

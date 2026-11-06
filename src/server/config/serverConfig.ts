@@ -34,7 +34,16 @@ export function getServerConfig(): ServerConfig {
         'http://127.0.0.1:3000',
       ];
 
-  const jwtSecret = process.env.JWT_SECRET || 'colin-super-secure-production-ready-jwt-secret-key-32chars!';
+  let jwtSecret = process.env.JWT_SECRET;
+  if (nodeEnv === 'production') {
+    if (!jwtSecret || jwtSecret.length < 32 || jwtSecret.includes('colin-super-secure-production-ready-jwt-secret-key-32chars!')) {
+      throw new Error(
+        'SECURITY VIOLATION: Production environment requires a dedicated, cryptographically strong JWT_SECRET with at least 32 characters.'
+      );
+    }
+  } else {
+    jwtSecret = jwtSecret || 'colin-super-secure-production-ready-jwt-secret-key-32chars!';
+  }
   const jwtExpiresIn = process.env.JWT_EXPIRES_IN || '15m';
   const refreshTokenExpiresInDays = parseInt(process.env.REFRESH_TOKEN_EXPIRES_DAYS || '7', 10);
   const bcryptSaltRounds = process.env.BCRYPT_ROUNDS

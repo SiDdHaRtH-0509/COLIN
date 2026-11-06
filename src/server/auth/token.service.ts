@@ -36,6 +36,8 @@ export class TokenService {
     return jwt.sign(fullPayload, config.jwtSecret, {
       expiresIn: 900, // 15 minutes in seconds
       algorithm: 'HS256',
+      issuer: 'colin-api',
+      audience: 'colin-client',
     });
   }
 
@@ -48,6 +50,8 @@ export class TokenService {
       const config = getServerConfig();
       const decoded = jwt.verify(token, config.jwtSecret, {
         algorithms: ['HS256'],
+        issuer: 'colin-api',
+        audience: 'colin-client',
       }) as AccessTokenPayload;
 
       if (decoded && decoded.tokenType === 'access' && decoded.userId) {

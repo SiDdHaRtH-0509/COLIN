@@ -80,3 +80,8 @@ export const resetPasswordSchema = z.object({
 export const verifyEmailSchema = z.object({
   token: z.string().min(1, 'Verification token is required'),
 });
+
+export const adminLoginSchema = z.object({
+  identifier: z.string().min(1, 'Username or email is required'),
+  password: z.string().min(1, 'Password is required'),
+});

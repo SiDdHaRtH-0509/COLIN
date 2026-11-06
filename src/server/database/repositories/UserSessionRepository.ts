@@ -87,6 +87,70 @@ export class UserSessionRepository extends BaseRepository {
   }
 
   /**
+   * Atomically rotates a refresh token in a single database transaction:
+   * 1. Atomically marks old session record as isRevoked: true (conditional update).
+   * 2. Inserts new active session record with new token hash and expiry.
+   * If old session was already revoked, returns { success: false } to trigger replay response.
+   */
+  async rotateSessionAtomically(
+    oldSessionId: string,
+    newSessionData: CreateSessionData
+  ): Promise<{ success: boolean; newSession?: UserSession }> {
+    return this.execute(async () => {
+      const client = this.getClient() as Prisma.TransactionClient;
+      // In BaseRepository, getClient returns PrismaClient or TransactionClient.
+      // Call $transaction on prisma client
+      const prismaClient = this.getClient();
+      if ('$transaction' in prismaClient) {
+        return prismaClient.$transaction(async (tx) => {
+          const updateResult = await tx.userSession.updateMany({
+            where: { id: oldSessionId, isRevoked: false },
+            data: { isRevoked: true, lastActivityAt: new Date() },
+          });
+
+          if (updateResult.count === 0) {
+            return { success: false };
+          }
+
+          const newSession = await tx.userSession.create({
+            data: {
+              userId: newSessionData.userId,
+              tokenHash: newSessionData.tokenHash,
+              ipAddress: newSessionData.ipAddress,
+              userAgent: newSessionData.userAgent,
+              expiresAt: newSessionData.expiresAt,
+            },
+          });
+
+          return { success: true, newSession };
+        });
+      }
+
+      // Fallback if already in transaction
+      const updateResult = await client.userSession.updateMany({
+        where: { id: oldSessionId, isRevoked: false },
+        data: { isRevoked: true, lastActivityAt: new Date() },
+      });
+
+      if (updateResult.count === 0) {
+        return { success: false };
+      }
+
+      const newSession = await client.userSession.create({
+        data: {
+          userId: newSessionData.userId,
+          tokenHash: newSessionData.tokenHash,
+          ipAddress: newSessionData.ipAddress,
+          userAgent: newSessionData.userAgent,
+          expiresAt: newSessionData.expiresAt,
+        },
+      });
+
+      return { success: true, newSession };
+    });
+  }
+
+  /**
    * Revokes a specific session by ID.
    */
   async revokeSession(id: string, tx?: Prisma.TransactionClient): Promise<UserSession> {

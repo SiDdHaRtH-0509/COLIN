@@ -1,22 +1,24 @@
 /**
  * COLIN Authentication & Identity Controller
- * Phase 4A.2.3: Authentication & Authorization Integration
+ * Phase 4A.2.3.8: Authentication Security Hardening & Independent Acceptance Audit
  * 
  * Standardized HTTP handlers for registration, authentication, token rotation,
- * password recovery, session auditing, and cookie orchestration.
+ * password recovery, session auditing, cookie orchestration, and CSRF protection.
  */
 
 import { Request, Response, NextFunction } from 'express';
 import { authService, RequestMeta } from '../../../services/AuthService';
+import { adminAuthService } from '../../../services/AdminAuthService';
+import { generateCsrfToken, setCsrfCookie } from '../../../middleware/csrf';
 import { ApiResponse } from '../../../types/api';
 
 const isProduction = process.env.NODE_ENV === 'production';
 
 export class AuthController {
   /**
-   * Helper to set secure auth cookies.
+   * Helper to set secure auth cookies and CSRF protection token.
    */
-  private setAuthCookies(res: Response, accessToken: string, refreshToken: string): void {
+  private setAuthCookies(res: Response, accessToken: string, refreshToken: string): string {
     res.cookie('accessToken', accessToken, {
       httpOnly: true,
       secure: isProduction,
@@ -32,6 +34,10 @@ export class AuthController {
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       path: '/api/v1/auth',
     });
+
+    const csrfToken = generateCsrfToken();
+    setCsrfCookie(res, csrfToken);
+    return csrfToken;
   }
 
   /**
@@ -49,6 +55,12 @@ export class AuthController {
       secure: isProduction,
       sameSite: 'lax',
       path: '/api/v1/auth',
+    });
+    res.clearCookie('csrfToken', {
+      httpOnly: false,
+      secure: isProduction,
+      sameSite: 'lax',
+      path: '/',
     });
   }
 
@@ -70,12 +82,15 @@ export class AuthController {
       const meta = this.extractMeta(req);
       const result = await authService.register(req.body, meta);
 
-      this.setAuthCookies(res, result.tokens.accessToken, result.tokens.refreshToken);
+      const csrfToken = this.setAuthCookies(res, result.tokens.accessToken, result.tokens.refreshToken);
 
-      const response: ApiResponse<typeof result> = {
+      const response: ApiResponse<typeof result & { csrfToken: string }> = {
         success: true,
         message: 'Account successfully registered and authenticated.',
-        data: result,
+        data: {
+          ...result,
+          csrfToken,
+        },
         meta: {
           requestId: req.id || 'unknown',
           timestamp: new Date().toISOString(),
@@ -96,12 +111,44 @@ export class AuthController {
       const meta = this.extractMeta(req);
       const result = await authService.login(req.body, meta);
 
-      this.setAuthCookies(res, result.tokens.accessToken, result.tokens.refreshToken);
+      const csrfToken = this.setAuthCookies(res, result.tokens.accessToken, result.tokens.refreshToken);
 
-      const response: ApiResponse<typeof result> = {
+      const response: ApiResponse<typeof result & { csrfToken: string }> = {
         success: true,
         message: 'Authentication successful.',
-        data: result,
+        data: {
+          ...result,
+          csrfToken,
+        },
+        meta: {
+          requestId: req.id || 'unknown',
+          timestamp: new Date().toISOString(),
+        },
+      };
+
+      res.status(200).json(response);
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  /**
+   * POST /api/v1/auth/admin/login
+   */
+  public adminLogin = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const meta = this.extractMeta(req);
+      const result = await adminAuthService.login(req.body.identifier, req.body.password, meta);
+
+      const csrfToken = this.setAuthCookies(res, result.tokens.accessToken, result.tokens.refreshToken);
+
+      const response: ApiResponse<typeof result & { csrfToken: string }> = {
+        success: true,
+        message: 'Administrator authentication successful.',
+        data: {
+          ...result,
+          csrfToken,
+        },
         meta: {
           requestId: req.id || 'unknown',
           timestamp: new Date().toISOString(),
@@ -124,12 +171,12 @@ export class AuthController {
 
       const tokens = await authService.refresh(refreshToken, meta);
 
-      this.setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
+      const csrfToken = this.setAuthCookies(res, tokens.accessToken, tokens.refreshToken);
 
-      const response: ApiResponse<{ tokens: typeof tokens }> = {
+      const response: ApiResponse<{ tokens: typeof tokens; csrfToken: string }> = {
         success: true,
         message: 'Access token rotated successfully.',
-        data: { tokens },
+        data: { tokens, csrfToken },
         meta: {
           requestId: req.id || 'unknown',
           timestamp: new Date().toISOString(),
