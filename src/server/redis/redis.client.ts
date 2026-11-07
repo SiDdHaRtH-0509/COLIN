@@ -14,6 +14,10 @@ import { RedisConnectionState } from './redis.types';
 export const SLIDING_WINDOW_LUA_SCRIPT = `
 local key = KEYS[1]
 local now = tonumber(ARGV[1])
+if not now or now <= 0 then
+    local redisTime = redis.call('TIME')
+    now = tonumber(redisTime[1]) * 1000 + math.floor(tonumber(redisTime[2]) / 1000)
+end
 local windowMs = tonumber(ARGV[2])
 local limit = tonumber(ARGV[3])
 local entryId = ARGV[4]

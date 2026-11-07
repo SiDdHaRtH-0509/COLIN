@@ -25,6 +25,7 @@
     "test:email:integration": "vitest run src/test/email/email-outbox.integration.test.ts src/test/email/email-webhook.integration.test.ts src/test/email/email-auth-integration.test.ts --fileParallelism=false",
     "test:email": "vitest run src/test/email/ --fileParallelism=false",
     "test:redis": "vitest run src/test/redis/ --fileParallelism=false",
+    "test:security": "vitest run src/test/security/ --fileParallelism=false",
     "test:watch": "vitest"
   },
   "dependencies": {

@@ -8,20 +8,25 @@
 
 import crypto from 'crypto';
 
-function getPrimaryEncryptionKey(): Buffer {
-  const secret = process.env.EMAIL_ENCRYPTION_KEY || process.env.JWT_SECRET;
+export function getPrimaryEncryptionKey(): Buffer {
+  const secret = process.env.EMAIL_ENCRYPTION_KEY;
   if (!secret) {
     if (process.env.NODE_ENV === 'production') {
       throw new Error(
-        'SECURITY VIOLATION: EMAIL_ENCRYPTION_KEY or JWT_SECRET must be configured in production for AES-256-GCM outbox encryption.'
+        'SECURITY VIOLATION: EMAIL_ENCRYPTION_KEY must be configured in production for AES-256-GCM outbox encryption. It must not use JWT_SECRET.'
       );
     }
-    return crypto.createHash('sha256').update('colin-super-secure-production-ready-jwt-secret-key-32chars!').digest();
+    return crypto.createHash('sha256').update('colin-email-encryption-dev-key-32b!').digest();
+  }
+  if (process.env.NODE_ENV === 'production' && process.env.JWT_SECRET && secret === process.env.JWT_SECRET) {
+    throw new Error(
+      'CRYPTOGRAPHIC KEY SEPARATION VIOLATION: EMAIL_ENCRYPTION_KEY must not reuse JWT_SECRET. Independent keys are required.'
+    );
   }
   return crypto.createHash('sha256').update(secret).digest();
 }
 
-function getFallbackEncryptionKey(): Buffer | null {
+export function getFallbackEncryptionKey(): Buffer | null {
   const fallbackSecret = process.env.EMAIL_ENCRYPTION_KEY_FALLBACK;
   if (!fallbackSecret) {
     return null;

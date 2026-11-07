@@ -8,12 +8,17 @@
 import http from 'node:http';
 import { createApp } from './app';
 import { getServerConfig } from './config/serverConfig';
+import { assertProductionSecretsValid } from './config/secrets.config';
 import { initializeDatabaseConnections, shutdownDatabaseConnections } from './database/lifecycle';
+import { initializeRedis, shutdownRedis } from './redis';
 
 let serverInstance: http.Server | null = null;
 let isShuttingDown = false;
 
 export async function startServer(): Promise<http.Server> {
+  // 1. Validate production secrets and cryptographic key separation
+  assertProductionSecretsValid();
+
   const config = getServerConfig();
 
   try {
@@ -22,6 +27,9 @@ export async function startServer(): Promise<http.Server> {
     console.log(
       `[SERVER BOOTSTRAP] Database connected successfully. Round-trip latency: ${conn.latencyMs}ms. Dual roles verified.`
     );
+
+    console.log('[SERVER BOOTSTRAP] Initializing Redis client and distributed rate limiter...');
+    await initializeRedis();
 
     const app = createApp();
     const server = http.createServer(app);
@@ -61,12 +69,19 @@ export function setupGracefulShutdown(server: http.Server): void {
     server.close(async () => {
       console.log('[SERVER LIFECYCLE] HTTP connection listener closed.');
 
-      // 2. Disconnect database connections
+      // 2. Disconnect database & redis connections
       try {
         await shutdownDatabaseConnections();
         console.log('[SERVER LIFECYCLE] Database connections cleanly released.');
       } catch (dbErr) {
         console.error('[SERVER LIFECYCLE ERROR] Error closing database connections:', dbErr);
+      }
+
+      try {
+        await shutdownRedis();
+        console.log('[SERVER LIFECYCLE] Redis connections cleanly released.');
+      } catch (redisErr) {
+        console.error('[SERVER LIFECYCLE ERROR] Error closing Redis connection:', redisErr);
       }
 
       console.log('[SERVER LIFECYCLE] Graceful shutdown complete. Exiting.');
