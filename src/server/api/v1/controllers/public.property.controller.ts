@@ -35,6 +35,9 @@ export class PublicPropertyController {
         sortBy: req.query.sortBy as any,
         page: req.query.page ? parseInt(req.query.page as string, 10) : 1,
         limit: req.query.limit ? parseInt(req.query.limit as string, 10) : 12,
+        latitude: req.query.latitude !== undefined && req.query.latitude !== '' ? Number(req.query.latitude) : undefined,
+        longitude: req.query.longitude !== undefined && req.query.longitude !== '' ? Number(req.query.longitude) : undefined,
+        radiusKm: req.query.radiusKm !== undefined && req.query.radiusKm !== '' ? Number(req.query.radiusKm) : undefined,
       };
 
       const result = await propertyService.searchPublic(filter);

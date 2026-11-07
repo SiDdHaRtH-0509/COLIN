@@ -21,6 +21,11 @@ import { RequestValidationError } from './validateRequest';
 import { AuthenticationError, AuthorizationError } from './authContext';
 import { RateLimitError } from './rateLimiter';
 import { StorageValidationError } from '../storage/storage.types';
+import {
+  GeolocationValidationError,
+  GeolocationNotFoundError,
+  GeolocationProviderError,
+} from '../location/location.types';
 import { ApiErrorResponse } from '../types/api';
 
 export function errorHandlerMiddleware(
@@ -49,6 +54,22 @@ export function errorHandlerMiddleware(
   else if (err instanceof StorageValidationError) {
     statusCode = 400;
     errorCode = err.code || 'INVALID_IMAGE_FILE';
+    message = err.message;
+  }
+  // 1.2 Geolocation & Coordinate Validation Errors
+  else if (err instanceof GeolocationValidationError) {
+    statusCode = 400;
+    errorCode = 'GEOLOCATION_VALIDATION_ERROR';
+    message = err.message;
+  }
+  else if (err instanceof GeolocationNotFoundError) {
+    statusCode = 404;
+    errorCode = 'LOCATION_NOT_FOUND';
+    message = err.message;
+  }
+  else if (err instanceof GeolocationProviderError) {
+    statusCode = err.statusCode || 502;
+    errorCode = 'GEOLOCATION_PROVIDER_ERROR';
     message = err.message;
   }
   // 2. Authentication Errors

@@ -17,6 +17,7 @@ import {
 import { RecordNotFoundError, ValidationConstraintError } from '../database/errors';
 import { Property, PropertyVerificationStatus, PropertyPhoto } from '@prisma/client';
 import { processPropertyImage, storageProvider } from '../storage';
+import { validateCoordinates } from '../location';
 
 export class PropertyService {
   private propertyRepo: PropertyRepository;
@@ -78,6 +79,7 @@ export class PropertyService {
         nearestCampus: property.nearestCampus,
         distanceToCampusKm: property.distanceToCampusKm ? Number(property.distanceToCampusKm) : null,
       },
+      distanceKm: property.distanceKm !== undefined ? property.distanceKm : undefined,
       pricing: {
         startingMonthlyRent,
         securityDeposit: minDeposit,
@@ -140,6 +142,10 @@ export class PropertyService {
    * Creates a new property listing for the authenticated owner.
    */
   async createProperty(ownerId: string, data: Omit<CreatePropertyInput, 'ownerId' | 'slug'>): Promise<Property> {
+    if (data.latitude !== undefined || data.longitude !== undefined) {
+      validateCoordinates(data.latitude, data.longitude);
+    }
+
     const slug = this.generateSlug(data.name);
 
     return this.propertyRepo.createProperty({
@@ -174,6 +180,9 @@ export class PropertyService {
    * Updates an owner property.
    */
   async updateOwnerProperty(propertyId: string, ownerId: string, data: UpdatePropertyInput) {
+    if (data.latitude !== undefined || data.longitude !== undefined) {
+      validateCoordinates(data.latitude, data.longitude);
+    }
     await this.getOwnerProperty(propertyId, ownerId);
     return this.propertyRepo.updateOwnerProperty(propertyId, ownerId, data);
   }

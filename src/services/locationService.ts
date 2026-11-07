@@ -137,3 +137,132 @@ export interface MapProviderConfig {
 export const MAP_CONFIG: MapProviderConfig = {
   provider: 'browser-native', // Future Google Maps migration will supply sanitized AGY/env key
 };
+
+// =============================================================================
+// BACKEND LOCATION API CLIENT (Phase 4A.2.5.2)
+// =============================================================================
+
+export interface FrontendPlaceSuggestion {
+  placeId: string;
+  primaryText: string;
+  secondaryText?: string;
+  fullText: string;
+  types?: string[];
+}
+
+export interface FrontendPlaceDetails {
+  placeId: string;
+  name: string;
+  formattedAddress: string;
+  coordinates: Coordinates;
+  addressComponents?: {
+    locality?: string;
+    city?: string;
+    state?: string;
+    pincode?: string;
+    country?: string;
+  };
+}
+
+export interface FrontendGeocodingResult {
+  coordinates: Coordinates;
+  formattedAddress: string;
+  placeId?: string;
+  addressComponents?: {
+    locality?: string;
+    city?: string;
+    state?: string;
+    pincode?: string;
+    country?: string;
+  };
+}
+
+/**
+ * Searches places / campuses via backend proxy with session token support.
+ */
+export async function fetchAutocompleteSuggestions(
+  query: string,
+  sessionToken?: string
+): Promise<FrontendPlaceSuggestion[]> {
+  try {
+    const params = new URLSearchParams({ query: query.trim() });
+    if (sessionToken) params.set('sessionToken', sessionToken);
+
+    const res = await fetch(`/api/v1/location/autocomplete?${params.toString()}`);
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json.data || [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Retrieves details and coordinates for a selected place.
+ */
+export async function fetchPlaceDetails(
+  placeId: string,
+  sessionToken?: string
+): Promise<FrontendPlaceDetails | null> {
+  try {
+    const params = new URLSearchParams();
+    if (sessionToken) params.set('sessionToken', sessionToken);
+
+    const res = await fetch(`/api/v1/location/places/${encodeURIComponent(placeId)}?${params.toString()}`);
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.data || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Geocodes an address string to coordinates via backend service.
+ */
+export async function geocodeAddress(address: string): Promise<FrontendGeocodingResult | null> {
+  try {
+    const res = await fetch('/api/v1/location/geocode', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ address: address.trim() }),
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.data || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Reverse geocodes coordinates to a human-readable address.
+ */
+export async function reverseGeocodeCoords(coords: Coordinates): Promise<FrontendGeocodingResult | null> {
+  try {
+    const res = await fetch('/api/v1/location/reverse-geocode', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ latitude: coords.latitude, longitude: coords.longitude }),
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json.data || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetches curated list of student hubs, colleges, and coaching areas.
+ */
+export async function fetchCampuses(): Promise<any[]> {
+  try {
+    const res = await fetch('/api/v1/location/campuses');
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json.data || [];
+  } catch {
+    return [];
+  }
+}

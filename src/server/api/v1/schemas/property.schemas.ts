@@ -124,10 +124,24 @@ export const publicSearchQuerySchema = z.object({
     .union([z.string(), z.array(z.string())])
     .transform((val) => (Array.isArray(val) ? val : val ? val.split(',').map((s) => s.trim()) : []))
     .optional(),
-  sortBy: z.enum(['recent', 'rent_asc', 'rent_desc', 'featured']).optional(),
+  sortBy: z.enum(['recent', 'rent_asc', 'rent_desc', 'featured', 'distance']).optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(50).default(12),
-});
+  latitude: z.coerce.number().min(-90, 'Latitude must be between -90 and 90').max(90, 'Latitude must be between -90 and 90').optional(),
+  longitude: z.coerce.number().min(-180, 'Longitude must be between -180 and 180').max(180, 'Longitude must be between -180 and 180').optional(),
+  radiusKm: z.coerce.number().positive('Radius must be a positive number').max(100, 'Radius cannot exceed 100 km').optional(),
+}).refine(
+  (data) => {
+    if (data.sortBy === 'distance') {
+      return data.latitude !== undefined && data.longitude !== undefined;
+    }
+    return true;
+  },
+  {
+    message: 'Sorting by distance requires valid latitude and longitude coordinates.',
+    path: ['sortBy'],
+  }
+);
 
 export const propertyIdParamSchema = z.object({
   propertyId: z.string().uuid('Invalid property UUID'),

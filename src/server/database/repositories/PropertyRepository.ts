@@ -18,6 +18,13 @@ import {
 } from '@prisma/client';
 import { BaseRepository } from './BaseRepository';
 import { getAppPrismaClient } from '../prisma';
+import {
+  validateCoordinates,
+  validateRadiusKm,
+  calculateHaversineKm,
+  computeBoundingBox,
+  GeoCoordinates,
+} from '../../location';
 
 export interface PropertyFilter {
   city?: string;
@@ -38,9 +45,12 @@ export interface PublicPropertySearchFilter {
   minRent?: number;
   maxRent?: number;
   amenities?: string[];
-  sortBy?: 'recent' | 'rent_asc' | 'rent_desc' | 'featured';
+  sortBy?: 'recent' | 'rent_asc' | 'rent_desc' | 'featured' | 'distance';
   page?: number;
   limit?: number;
+  latitude?: number;
+  longitude?: number;
+  radiusKm?: number;
 }
 
 export interface CreatePropertyInput {
@@ -815,6 +825,34 @@ export class PropertyRepository extends BaseRepository {
         };
       }
 
+      // Geospatial coordinate & bounding-box prefilter
+      let userCoords: GeoCoordinates | null = null;
+      let radiusKm = 10;
+
+      if (filter.latitude !== undefined && filter.longitude !== undefined) {
+        userCoords = validateCoordinates(filter.latitude, filter.longitude);
+        radiusKm = validateRadiusKm(filter.radiusKm);
+        const bbox = computeBoundingBox(userCoords, radiusKm);
+
+        if (bbox.crossesAntimeridian) {
+          where.AND = [
+            ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+            {
+              latitude: { gte: new Prisma.Decimal(bbox.minLat), lte: new Prisma.Decimal(bbox.maxLat) },
+              OR: [
+                { longitude: { gte: new Prisma.Decimal(bbox.minLng), lte: new Prisma.Decimal(bbox.maxLng) } },
+                { longitude: { gte: new Prisma.Decimal(bbox.minLng2!), lte: new Prisma.Decimal(bbox.maxLng2!) } },
+              ],
+            },
+          ];
+        } else {
+          where.latitude = { gte: new Prisma.Decimal(bbox.minLat), lte: new Prisma.Decimal(bbox.maxLat) };
+          where.longitude = { gte: new Prisma.Decimal(bbox.minLng), lte: new Prisma.Decimal(bbox.maxLng) };
+        }
+      } else if (filter.sortBy === 'distance') {
+        validateCoordinates(null, null); // Will throw GeolocationValidationError
+      }
+
       // Determine sorting
       let orderBy: Prisma.PropertyOrderByWithRelationInput[] = [{ isFeatured: 'desc' }, { createdAt: 'desc' }];
       if (filter.sortBy === 'recent') {
@@ -823,6 +861,72 @@ export class PropertyRepository extends BaseRepository {
         orderBy = [{ isFeatured: 'desc' }, { createdAt: 'desc' }];
       }
 
+      const relationsInclude = {
+        photos: {
+          orderBy: { displayOrder: 'asc' as const },
+        },
+        amenities: true,
+        rules: {
+          orderBy: { displayOrder: 'asc' as const },
+        },
+        rooms: {
+          select: {
+            id: true,
+            roomNumber: true,
+            roomType: true,
+            baseMonthlyRent: true,
+            securityDeposit: true,
+          },
+        },
+        owner: {
+          select: {
+            businessName: true,
+            ownerTier: true,
+            verificationStatus: true,
+          },
+        },
+      };
+
+      // If geospatial search is active, calculate exact distance and apply radius filter
+      if (userCoords) {
+        const candidates = await client.property.findMany({
+          where,
+          orderBy,
+          include: relationsInclude,
+        });
+
+        const withinRadius: Property[] = [];
+        for (const candidate of candidates) {
+          if (candidate.latitude && candidate.longitude) {
+            const distance = calculateHaversineKm(userCoords, {
+              latitude: Number(candidate.latitude),
+              longitude: Number(candidate.longitude),
+            });
+
+            if (distance <= radiusKm) {
+              (candidate as any).distanceKm = Math.round(distance * 100) / 100;
+              withinRadius.push(candidate);
+            }
+          }
+        }
+
+        if (filter.sortBy === 'distance') {
+          withinRadius.sort((a: any, b: any) => (a.distanceKm ?? 0) - (b.distanceKm ?? 0));
+        }
+
+        const total = withinRadius.length;
+        const items = withinRadius.slice(skip, skip + limit);
+
+        return {
+          items,
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit) || 1,
+        };
+      }
+
+      // Standard non-geospatial search
       const [total, items] = await Promise.all([
         client.property.count({ where }),
         client.property.findMany({
@@ -830,31 +934,7 @@ export class PropertyRepository extends BaseRepository {
           skip,
           take: limit,
           orderBy,
-          include: {
-            photos: {
-              orderBy: { displayOrder: 'asc' },
-            },
-            amenities: true,
-            rules: {
-              orderBy: { displayOrder: 'asc' },
-            },
-            rooms: {
-              select: {
-                id: true,
-                roomNumber: true,
-                roomType: true,
-                baseMonthlyRent: true,
-                securityDeposit: true,
-              },
-            },
-            owner: {
-              select: {
-                businessName: true,
-                ownerTier: true,
-                verificationStatus: true,
-              },
-            },
-          },
+          include: relationsInclude,
         }),
       ]);
 

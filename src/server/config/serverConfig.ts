@@ -22,6 +22,9 @@ export interface ServerConfig {
   s3SecretAccessKey?: string;
   storagePublicBaseUrl?: string;
   maxUploadSizeBytes: number;
+  geolocationProvider: 'mock' | 'google';
+  googleMapsServerKey?: string;
+  googleMapsBrowserKey?: string;
 }
 
 export function getServerConfig(): ServerConfig {
@@ -76,6 +79,19 @@ export function getServerConfig(): ServerConfig {
     }
   }
 
+  // Geolocation configuration
+  const geolocationProvider = (process.env.GEOLOCATION_PROVIDER || 'mock').toLowerCase() as 'mock' | 'google';
+  const googleMapsServerKey = process.env.GOOGLE_MAPS_SERVER_KEY;
+  const googleMapsBrowserKey = process.env.GOOGLE_MAPS_BROWSER_KEY || process.env.VITE_GOOGLE_MAPS_BROWSER_KEY;
+
+  if (nodeEnv === 'production' && geolocationProvider === 'google') {
+    if (!googleMapsServerKey) {
+      throw new Error(
+        'SECURITY & INFRASTRUCTURE ERROR: Production with Google geolocation requires GOOGLE_MAPS_SERVER_KEY.'
+      );
+    }
+  }
+
   return {
     port,
     host,
@@ -95,5 +111,8 @@ export function getServerConfig(): ServerConfig {
     s3SecretAccessKey,
     storagePublicBaseUrl,
     maxUploadSizeBytes,
+    geolocationProvider,
+    googleMapsServerKey,
+    googleMapsBrowserKey,
   };
 }
