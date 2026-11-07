@@ -14,6 +14,14 @@ export interface ServerConfig {
   jwtExpiresIn: string;
   refreshTokenExpiresInDays: number;
   bcryptSaltRounds: number;
+  storageProvider: 'local' | 's3';
+  s3Bucket?: string;
+  s3Region?: string;
+  s3Endpoint?: string;
+  s3AccessKeyId?: string;
+  s3SecretAccessKey?: string;
+  storagePublicBaseUrl?: string;
+  maxUploadSizeBytes: number;
 }
 
 export function getServerConfig(): ServerConfig {
@@ -50,6 +58,24 @@ export function getServerConfig(): ServerConfig {
     ? parseInt(process.env.BCRYPT_ROUNDS, 10)
     : (nodeEnv === 'test' ? 10 : 12);
 
+  // Storage configuration
+  const storageProvider = (process.env.STORAGE_PROVIDER || 'local').toLowerCase() as 'local' | 's3';
+  const s3Bucket = process.env.S3_BUCKET;
+  const s3Region = process.env.S3_REGION || 'us-east-1';
+  const s3Endpoint = process.env.S3_ENDPOINT;
+  const s3AccessKeyId = process.env.S3_ACCESS_KEY_ID;
+  const s3SecretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
+  const storagePublicBaseUrl = process.env.STORAGE_PUBLIC_BASE_URL;
+  const maxUploadSizeBytes = parseInt(process.env.MAX_UPLOAD_SIZE_BYTES || '5242880', 10); // 5 MB
+
+  if (nodeEnv === 'production' && storageProvider === 's3') {
+    if (!s3Bucket || !s3AccessKeyId || !s3SecretAccessKey) {
+      throw new Error(
+        'SECURITY & INFRASTRUCTURE ERROR: Production with S3 storage requires S3_BUCKET, S3_ACCESS_KEY_ID, and S3_SECRET_ACCESS_KEY.'
+      );
+    }
+  }
+
   return {
     port,
     host,
@@ -61,5 +87,13 @@ export function getServerConfig(): ServerConfig {
     jwtExpiresIn,
     refreshTokenExpiresInDays,
     bcryptSaltRounds,
+    storageProvider,
+    s3Bucket,
+    s3Region,
+    s3Endpoint,
+    s3AccessKeyId,
+    s3SecretAccessKey,
+    storagePublicBaseUrl,
+    maxUploadSizeBytes,
   };
 }

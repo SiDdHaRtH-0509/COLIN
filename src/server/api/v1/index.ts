@@ -12,6 +12,7 @@ import ownerRoutes from './routes/owner.routes';
 import ownerPropertyRoutes from './routes/owner.property.routes';
 import publicPropertyRoutes from './routes/public.property.routes';
 import adminPropertyRoutes from './routes/admin.property.routes';
+import storageRoutes from './routes/storage.routes';
 
 const v1Router = Router();
 
@@ -23,5 +24,6 @@ v1Router.use('/owners', ownerRoutes);
 v1Router.use('/owner/properties', ownerPropertyRoutes);
 v1Router.use('/properties', publicPropertyRoutes);
 v1Router.use('/admin/properties', adminPropertyRoutes);
+v1Router.use('/storage', storageRoutes);
 
 export default v1Router;

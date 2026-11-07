@@ -15,7 +15,8 @@ import {
   PublicPropertySearchFilter,
 } from '../database/repositories/PropertyRepository';
 import { RecordNotFoundError, ValidationConstraintError } from '../database/errors';
-import { Property, PropertyVerificationStatus } from '@prisma/client';
+import { Property, PropertyVerificationStatus, PropertyPhoto } from '@prisma/client';
+import { processPropertyImage, storageProvider } from '../storage';
 
 export class PropertyService {
   private propertyRepo: PropertyRepository;
@@ -219,11 +220,11 @@ export class PropertyService {
   }
 
   // ===========================================================================
-  // PHOTO MANAGEMENT (MAX 8 RULE ENFORCEMENT)
+  // PHOTO MANAGEMENT (MAX 8 RULE ENFORCEMENT & CLOUD STORAGE PIPELINE)
   // ===========================================================================
 
   /**
-   * Adds an image to an owner property. Strictly enforces maximum 8 images.
+   * Adds an image to an owner property via direct metadata. Strictly enforces maximum 8 images.
    */
   async addPhoto(propertyId: string, ownerId: string, input: AddPhotoInput) {
     await this.getOwnerProperty(propertyId, ownerId);
@@ -237,11 +238,93 @@ export class PropertyService {
   }
 
   /**
-   * Deletes a photo from an owner property.
+   * Uploads and processes an image file for an owner property.
+   * Enforces 8-photo limit, strips EXIF/GPS metadata, bounds dimensions,
+   * creates optimized WebP master and thumbnail, stores to object storage,
+   * and persists metadata to PostgreSQL with compensating rollback on failure.
+   */
+  async uploadPhoto(
+    propertyId: string,
+    ownerId: string,
+    fileBuffer: Buffer,
+    options: { caption?: string; isCover?: boolean } = {}
+  ): Promise<PropertyPhoto> {
+    // 1. Verify property ownership
+    await this.getOwnerProperty(propertyId, ownerId);
+
+    // 2. Pre-check photo limit before heavy image processing
+    const count = await this.propertyRepo.getPhotoCount(propertyId);
+    if (count >= 8) {
+      throw new ValidationConstraintError('A property can have a maximum of 8 photos.');
+    }
+
+    // 3. Process image through secure decoding, dimension check & EXIF-stripping pipeline
+    const processed = await processPropertyImage(fileBuffer);
+
+    // 4. Upload master WebP asset to storage provider
+    const masterUpload = await storageProvider.upload({
+      buffer: processed.masterBuffer,
+      mimeType: processed.mimeType,
+      subDir: `properties/${propertyId}`,
+    });
+
+    // 5. Upload thumbnail WebP asset to storage provider
+    let thumbnailUpload: { publicUrl: string; storageKey: string } | null = null;
+    try {
+      thumbnailUpload = await storageProvider.upload({
+        buffer: processed.thumbnailBuffer,
+        mimeType: processed.mimeType,
+        subDir: `properties/${propertyId}/thumbnails`,
+      });
+    } catch (thumbErr) {
+      console.warn('⚠️ [Storage] Thumbnail upload warning:', thumbErr);
+    }
+
+    // 6. Persist photo metadata in PostgreSQL
+    try {
+      return await this.propertyRepo.addPhoto(propertyId, {
+        photoStorageUrl: masterUpload.publicUrl,
+        thumbnailUrl: thumbnailUpload?.publicUrl,
+        caption: options.caption,
+        isCover: options.isCover,
+        fileSizeBytes: processed.fileSizeBytes,
+        mimeType: processed.mimeType,
+      });
+    } catch (dbErr) {
+      // Compensating transaction: Clean up storage assets if DB persistence fails
+      await storageProvider.delete(masterUpload.storageKey).catch(() => {});
+      if (thumbnailUpload) {
+        await storageProvider.delete(thumbnailUpload.storageKey).catch(() => {});
+      }
+      throw dbErr;
+    }
+  }
+
+  /**
+   * Deletes a photo from an owner property and cleans up object storage assets.
    */
   async deletePhoto(propertyId: string, ownerId: string, photoId: string) {
     await this.getOwnerProperty(propertyId, ownerId);
-    return this.propertyRepo.deletePhoto(propertyId, ownerId, photoId);
+    const photo = await this.propertyRepo.findPhotoById(photoId, propertyId);
+    await this.propertyRepo.deletePhoto(propertyId, ownerId, photoId);
+
+    if (photo) {
+      // Extract storage keys and clean up physical storage assets
+      const extractKey = (url: string): string | null => {
+        const localParts = url.split('/api/v1/storage/images/');
+        if (localParts.length > 1) return localParts[1];
+        const s3Parts = url.split('.amazonaws.com/');
+        if (s3Parts.length > 1) return s3Parts[1];
+        return null;
+      };
+
+      const masterKey = extractKey(photo.photoStorageUrl);
+      if (masterKey) await storageProvider.delete(masterKey).catch(() => {});
+      if (photo.thumbnailUrl) {
+        const thumbKey = extractKey(photo.thumbnailUrl);
+        if (thumbKey) await storageProvider.delete(thumbKey).catch(() => {});
+      }
+    }
   }
 
   /**

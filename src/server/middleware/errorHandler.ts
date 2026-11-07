@@ -20,6 +20,7 @@ import {
 import { RequestValidationError } from './validateRequest';
 import { AuthenticationError, AuthorizationError } from './authContext';
 import { RateLimitError } from './rateLimiter';
+import { StorageValidationError } from '../storage/storage.types';
 import { ApiErrorResponse } from '../types/api';
 
 export function errorHandlerMiddleware(
@@ -43,6 +44,12 @@ export function errorHandlerMiddleware(
     errorCode = 'VALIDATION_ERROR';
     message = err.message;
     details = err.issues;
+  }
+  // 1.1 Storage and Image Validation Errors
+  else if (err instanceof StorageValidationError) {
+    statusCode = 400;
+    errorCode = err.code || 'INVALID_IMAGE_FILE';
+    message = err.message;
   }
   // 2. Authentication Errors
   else if (err instanceof AuthenticationError) {

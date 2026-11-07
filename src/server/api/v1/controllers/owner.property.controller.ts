@@ -7,6 +7,7 @@ import { Request, Response, NextFunction } from 'express';
 import { propertyService } from '../../../services/PropertyService';
 import { ApiResponse } from '../../../types/api';
 import { PropertyVerificationStatus } from '@prisma/client';
+import { StorageValidationError } from '../../../storage';
 
 export class OwnerPropertyController {
   /**
@@ -214,6 +215,42 @@ export class OwnerPropertyController {
       const response: ApiResponse<typeof photo> = {
         success: true,
         message: 'Property photo added successfully.',
+        data: photo,
+        meta: {
+          requestId: req.id || 'unknown',
+          timestamp: new Date().toISOString(),
+        },
+      };
+
+      res.status(201).json(response);
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  /**
+   * POST /api/v1/owner/properties/:propertyId/photos/upload
+   * Multipart binary file upload with image processing pipeline.
+   */
+  public uploadPhoto = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      if (!req.file || !req.file.buffer) {
+        throw new StorageValidationError('No image file provided in upload request.');
+      }
+
+      const isCover = req.body.isCover === true || req.body.isCover === 'true';
+      const caption = req.body.caption ? String(req.body.caption) : undefined;
+
+      const photo = await propertyService.uploadPhoto(
+        req.params.propertyId as string,
+        req.context!.userId,
+        req.file.buffer,
+        { caption, isCover }
+      );
+
+      const response: ApiResponse<typeof photo> = {
+        success: true,
+        message: 'Property photo uploaded and processed successfully.',
         data: photo,
         meta: {
           requestId: req.id || 'unknown',

@@ -521,6 +521,18 @@ export class PropertyRepository extends BaseRepository {
   }
 
   /**
+   * Retrieves single photo by ID.
+   */
+  async findPhotoById(photoId: string, propertyId?: string, tx?: Prisma.TransactionClient): Promise<PropertyPhoto | null> {
+    return this.execute(async () => {
+      const client = this.getClient(tx);
+      return client.propertyPhoto.findFirst({
+        where: { id: photoId, ...(propertyId ? { propertyId } : {}) },
+      });
+    });
+  }
+
+  /**
    * Adds a photo to a property.
    * Compatible with both 2-argument calls (propertyId, input) and 3-argument calls (propertyId, input, tx).
    */

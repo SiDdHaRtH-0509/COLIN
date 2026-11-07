@@ -4,6 +4,7 @@
  */
 
 import { Router } from 'express';
+import multer from 'multer';
 import { UserRoleType } from '@prisma/client';
 import { requireRole } from '../../../middleware/authContext';
 import { validateRequest } from '../../../middleware/validateRequest';
@@ -18,6 +19,15 @@ import {
 } from '../schemas/property.schemas';
 
 const router = Router();
+
+// Configure in-memory upload handler with 5 MB ceiling
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5 MB
+    files: 1,
+  },
+});
 
 // Enforce OWNER role across all property management endpoints
 router.use(requireRole([UserRoleType.OWNER]));
@@ -36,6 +46,12 @@ router.post('/:propertyId/submit', validateRequest({ params: propertyIdParamSche
 router.get('/:propertyId/status', validateRequest({ params: propertyIdParamSchema }), ownerPropertyController.getStatus);
 
 // Photo gallery management
+router.post(
+  '/:propertyId/photos/upload',
+  validateRequest({ params: propertyIdParamSchema }),
+  upload.single('photo'),
+  ownerPropertyController.uploadPhoto
+);
 router.post(
   '/:propertyId/photos',
   validateRequest({ params: propertyIdParamSchema, body: addPhotoSchema }),

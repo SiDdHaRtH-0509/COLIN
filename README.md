@@ -10,7 +10,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-38B2AC?logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 [![Vite](https://img.shields.io/badge/Vite-5.4-646CFF?logo=vite&logoColor=white)](https://vitejs.dev/)
-[![Vitest](https://img.shields.io/badge/Vitest-102%2F102%20Passing-44A833?logo=vitest&logoColor=white)](https://vitest.dev/)
+[![Vitest](https://img.shields.io/badge/Vitest-486%2F486%20Passing-44A833?logo=vitest&logoColor=white)](https://vitest.dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 [Live Demo](#demo-credentials) • [Key Features](#key-features) • [Architecture](#architecture) • [Directory Structure](#repository-structure) • [Documentation](#documentation) • [Getting Started](#getting-started)
@@ -202,12 +202,15 @@ You can use the following pre-configured credentials to evaluate the platform:
 
 ## Testing & Quality Assurance
 
-The platform is continuously verified across **239 unique tests** (100% pass rate) with zero failures and zero skipped tests:
+The platform is continuously verified across **486 unique tests** (100% pass rate) with zero failures and zero skipped tests:
 
+* **Cloud Image Storage Suite** (`pnpm run test:storage:unit` & `test:storage:integration`): **33 tests** covering binary magic-byte detection, Sharp decompression-bomb defense (16 MP limit), EXIF/GPS stripping, WebP master/thumbnail generation, provider abstraction (`LocalStorageProvider` & `S3StorageProvider`), multipart binary uploads, 8-photo limit enforcement via PostgreSQL row locks, and compensating rollback.
+* **Core Marketplace Domain & Business APIs** (`pnpm run test:marketplace:integration` & `test:marketplace:adversarial`): **40 tests** covering student/owner profiles, property inventory lifecycle, room/bed management, admin moderation, public search/filtering, and cross-tenant authorization boundaries.
+* **Authentication & Authorization Suites** (`pnpm run test:auth:integration` & `test:auth:adversarial`): **41 tests** covering Argon2id password hashing, JWT access/refresh rotation with replay detection, family session revocation, and RBAC guards.
+* **Backend Core API Architecture** (`pnpm run test:api:integration`): **34 tests** covering request correlation, structured logging, centralized error translation, and response envelope normalization.
+* **Backend ORM & Connection Integration** (`pnpm run test:orm:integration`): **43 tests** covering dual-client connection pooling (`appPrisma` & `adminPrisma`), schema parity, and model relations.
 * **PostgreSQL 18.4 Engine Integration** (`pnpm run test:db:integration`): **78 tests** covering 10 domains (schema invariants, visit-fee settlement policy, double-entry ledger balancing, volunteer guards, payout safety, bed reservations, 8-photo limit, append-only immutability, role permissions, and multi-client concurrency races).
-* **Unit, Invariant & Regression Suite** (`pnpm run test:unit`): **161 tests** across 11 test suites:
-  - Phase 4A.2.2.1 Database Invariant Schema Suite: 32 tests
-  - Phase 1–3 & 4A Portal/Security Regression Suites: 129 tests (Student Portal, Owner Portal, Admin Control Centre, Account Isolation, Auth, Navigation)
+* **Unit, Invariant & Portal Regression Suite** (`pnpm run test:unit`): **217 tests** across 15 test suites verifying UI workflows, context isolation, client validation, and security invariants.
 * **Type Safety**: Strictly checked with `npx tsc --noEmit` (0 errors).
 * **Production Bundle**: Successfully builds with Vite tree-shaking and asset minification (`pnpm run build`).
 
@@ -216,6 +219,8 @@ The platform is continuously verified across **239 unique tests** (100% pass rat
 ## Documentation
 
 Full architectural documentation and milestone progress reports are available in the [`docs/`](docs/) directory:
+* [Phase 4A.2.5.1 Cloud Image Storage Infrastructure Report](docs/reports/PHASE_4A_2_5_1_CLOUD_IMAGE_STORAGE_REPORT.md)
+* [Phase 4A.2.5.1 Cloud Storage Implementation Plan](docs/reports/PHASE_4A_2_5_1_0_STORAGE_IMPLEMENTATION_PLAN.md)
 * [Final Database Acceptance Report](docs/reports/FINAL_DATABASE_ACCEPTANCE_REPORT.md)
 * [Phase 4A.2.2.1 Live PostgreSQL Verification Report](docs/reports/POSTGRESQL_LIVE_VERIFICATION_REPORT.md)
 * [Database Role Live Privilege Verification](docs/reports/DATABASE_ROLE_LIVE_PRIVILEGE_VERIFICATION.md)
