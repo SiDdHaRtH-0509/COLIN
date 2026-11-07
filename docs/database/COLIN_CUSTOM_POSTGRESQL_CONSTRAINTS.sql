@@ -861,6 +861,15 @@ GRANT SELECT ON
   admin_roles, admin_permissions, admin_role_permissions
 TO colin_admin_runtime;
 
+-- Administrative moderation and approval permissions
+GRANT SELECT, UPDATE ON
+  properties, property_photos, property_amenities, property_rules, rooms, beds, student_profiles, owner_profiles
+TO colin_admin_runtime;
+
+GRANT SELECT ON
+  users, user_profiles
+TO colin_admin_runtime;
+
 -- Append-Only Audit Logging (Both roles have only SELECT, INSERT)
 GRANT SELECT, INSERT ON admin_audit_logs, property_verification_audits TO colin_admin_runtime;
 GRANT SELECT, INSERT ON booking_status_histories, visit_assignment_histories TO colin_app_runtime, colin_admin_runtime;
