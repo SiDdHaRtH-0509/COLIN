@@ -7,17 +7,25 @@
  * and geospatial search continuity without expired Google content.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
+import React from 'react';
+import request from 'supertest';
+import { render, screen } from '@testing-library/react';
+import { Express } from 'express';
 import {
   LocationService,
   MockGeolocationProvider,
   GoogleGeolocationProvider,
+  locationAuditService,
 } from '../../server/location';
 import { PropertyRepository } from '../../server/database/repositories/PropertyRepository';
 import { PropertyService } from '../../server/services/PropertyService';
 import { createAutocompleteSessionToken } from '../../services/locationService';
 import { PropertyType, PropertyGenderPolicy, PropertyVerificationStatus, Prisma } from '@prisma/client';
 import { getAppPrismaClient } from '../../server/database';
+import { createApp } from '../../server/app';
+import { initializeDatabaseConnections } from '../../server/database/lifecycle';
+import { GoogleAttribution } from '../../components/common/GoogleAttribution';
 
 describe('COLIN Google Maps Data Retention & Policy Compliance Suite', () => {
   let locationService: LocationService;
@@ -26,6 +34,54 @@ describe('COLIN Google Maps Data Retention & Policy Compliance Suite', () => {
   let propertyService: PropertyService;
   let testOwnerId: string;
   const createdPropertyIds: string[] = [];
+
+  let app: Express;
+  let ownerToken: string;
+  let ownerUserId: string;
+  let studentToken: string;
+  let otherOwnerToken: string;
+
+  beforeAll(async () => {
+    await initializeDatabaseConnections();
+    app = createApp();
+
+    const timestamp = Date.now();
+    const ownerRes = await request(app)
+      .post('/api/v1/auth/register')
+      .send({
+        email: `loc_owner_${timestamp}@compliance.test`,
+        password: 'LocationSecure2026!',
+        firstName: 'Devendra',
+        lastName: 'Sharma',
+        role: 'OWNER',
+        businessName: 'Sharma Living Spaces',
+      });
+    ownerToken = ownerRes.body.data.tokens.accessToken;
+    ownerUserId = ownerRes.body.data.user.id;
+
+    const studentRes = await request(app)
+      .post('/api/v1/auth/register')
+      .send({
+        email: `loc_student_${timestamp}@student.test`,
+        password: 'LocationSecure2026!',
+        firstName: 'Rahul',
+        lastName: 'Verma',
+        role: 'STUDENT',
+      });
+    studentToken = studentRes.body.data.tokens.accessToken;
+
+    const otherOwnerRes = await request(app)
+      .post('/api/v1/auth/register')
+      .send({
+        email: `loc_other_${timestamp}@other.test`,
+        password: 'LocationSecure2026!',
+        firstName: 'Pooja',
+        lastName: 'Patel',
+        role: 'OWNER',
+        businessName: 'Patel Accommodations',
+      });
+    otherOwnerToken = otherOwnerRes.body.data.tokens.accessToken;
+  });
 
   beforeEach(async () => {
     mockProvider = new MockGeolocationProvider();
@@ -437,6 +493,409 @@ describe('COLIN Google Maps Data Retention & Policy Compliance Suite', () => {
 
       expect(foundActive).toBe(true);
       expect(foundExpired).toBe(false); // Expired Google listing MUST be excluded!
+    });
+  });
+
+  // ===========================================================================
+  // 7. GATES G26 - G40: FINAL COMPLIANCE CLOSURE & ACCEPTANCE VERIFICATION
+  // ===========================================================================
+  describe('7. Gates G26 - G40: Final Compliance Closure & Acceptance Verification', () => {
+    // Gate G26: Verify that properties with expired Google coordinates return null for distanceToCampusKm and undefined for distanceKm in public DTOs
+    it('[Gate G26] suppresses distanceToCampusKm and distanceKm in public DTOs when Google coordinates are expired', async () => {
+      const slug = `g26-expired-${Date.now()}`;
+      const prop = await propertyRepo.createProperty({
+        ownerId: testOwnerId,
+        name: 'G26 Expired Listing',
+        slug,
+        propertyType: PropertyType.PG,
+        genderPolicy: PropertyGenderPolicy.COED,
+        addressLine1: '12 Hudson Lane',
+        city: 'Delhi',
+        state: 'Delhi',
+        pincode: '110009',
+        latitude: 28.6942,
+        longitude: 77.2085,
+        nearestCampus: 'Delhi University North Campus',
+        distanceToCampusKm: 1.5,
+        coordinateSource: 'GOOGLE_GEOCODING',
+        googleContentExpiresAt: new Date(Date.now() - 60000), // Expired 1 min ago
+      });
+      createdPropertyIds.push(prop.id);
+
+      // Cast to include dynamic distanceKm
+      const withDynamicDist = { ...prop, distanceKm: 0.8 };
+      const dto = propertyService.formatPublicPropertyDto(withDynamicDist as any);
+
+      expect(dto.address.isLocationExpired).toBe(true);
+      expect(dto.address.latitude).toBeNull();
+      expect(dto.address.longitude).toBeNull();
+      expect(dto.address.distanceToCampusKm).toBeNull();
+      expect(dto.distanceKm).toBeUndefined();
+    });
+
+    // Gate G27: Verify that properties with OWNER_PROVIDED coordinates retain distanceToCampusKm when googleContentExpiresAt is null or in the past
+    it('[Gate G27] retains distanceToCampusKm indefinitely for OWNER_PROVIDED coordinates', async () => {
+      const slug = `g27-owner-${Date.now()}`;
+      const prop = await propertyRepo.createProperty({
+        ownerId: testOwnerId,
+        name: 'G27 Owner Provided Listing',
+        slug,
+        propertyType: PropertyType.PG,
+        genderPolicy: PropertyGenderPolicy.COED,
+        addressLine1: '45 Hauz Khas Village',
+        city: 'Delhi',
+        state: 'Delhi',
+        pincode: '110016',
+        latitude: 28.5450,
+        longitude: 77.1926,
+        nearestCampus: 'IIT Delhi',
+        distanceToCampusKm: 0.6,
+        coordinateSource: 'OWNER_PROVIDED',
+        googleContentExpiresAt: null,
+      });
+      createdPropertyIds.push(prop.id);
+
+      const dto = propertyService.formatPublicPropertyDto(prop as any);
+
+      expect(dto.address.isLocationExpired).toBe(false);
+      expect(dto.address.latitude).toBe(28.545);
+      expect(dto.address.longitude).toBe(77.1926);
+      expect(dto.address.distanceToCampusKm).toBe(0.6);
+      expect(dto.address.coordinateSource).toBe('OWNER_PROVIDED');
+    });
+
+    // Gate G28: Verify that properties with OWNER_CONFIRMED coordinates retain distanceToCampusKm indefinitely
+    it('[Gate G28] retains distanceToCampusKm indefinitely for OWNER_CONFIRMED coordinates', async () => {
+      const slug = `g28-confirmed-${Date.now()}`;
+      const prop = await propertyRepo.createProperty({
+        ownerId: testOwnerId,
+        name: 'G28 Owner Confirmed Listing',
+        slug,
+        propertyType: PropertyType.PG,
+        genderPolicy: PropertyGenderPolicy.COED,
+        addressLine1: '88 SG Palya',
+        city: 'Bengaluru',
+        state: 'Karnataka',
+        pincode: '560029',
+        latitude: 12.9352,
+        longitude: 77.6085,
+        nearestCampus: 'Christ University',
+        distanceToCampusKm: 0.3,
+        coordinateSource: 'OWNER_CONFIRMED',
+        googleContentExpiresAt: null,
+      });
+      createdPropertyIds.push(prop.id);
+
+      const dto = propertyService.formatPublicPropertyDto(prop as any);
+
+      expect(dto.address.isLocationExpired).toBe(false);
+      expect(dto.address.distanceToCampusKm).toBe(0.3);
+      expect(dto.address.coordinateSource).toBe('OWNER_CONFIRMED');
+    });
+
+    // Gate G29: Verify that refreshPropertyLocation recalculates distanceToCampusKm when coordinates are refreshed and campus info is available
+    it('[Gate G29] recalculates distanceToCampusKm when coordinates are refreshed via refreshPropertyLocation', async () => {
+      const slug = `g29-refresh-${Date.now()}`;
+      const prop = await propertyRepo.createProperty({
+        ownerId: testOwnerId,
+        name: 'G29 Refresh Listing',
+        slug,
+        propertyType: PropertyType.PG,
+        genderPolicy: PropertyGenderPolicy.COED,
+        addressLine1: 'Hudson Lane, GTB Nagar',
+        city: 'Delhi',
+        state: 'Delhi',
+        pincode: '110009',
+        latitude: 28.6942,
+        longitude: 77.2085,
+        nearestCampus: 'Delhi University North Campus',
+        distanceToCampusKm: 99.0, // Stale distance
+        coordinateSource: 'GOOGLE_GEOCODING',
+        googleContentExpiresAt: new Date(Date.now() - 1000), // Expired
+      });
+      createdPropertyIds.push(prop.id);
+
+      // Refresh location
+      const refreshed = await propertyService.refreshPropertyLocation(prop.id, testOwnerId);
+
+      expect(refreshed.googleContentExpiresAt).toBeDefined();
+      expect(refreshed.googleContentExpiresAt!.getTime()).toBeGreaterThan(Date.now());
+      expect(refreshed.distanceToCampusKm).not.toBeNull();
+      // Near North Campus, Haversine distance should be very small (< 1 km)
+      expect(Number(refreshed.distanceToCampusKm)).toBeLessThan(5);
+    });
+
+    // Gate G30: Verify that LocationService in-memory cache stores only permitted fields
+    it('[Gate G30] stores only permitted fields in LocationService in-memory geocoding cache', async () => {
+      const res = await locationService.geocode('Hudson Lane, Delhi');
+      expect(res).toBeDefined();
+      expect(res.coordinates).toHaveProperty('latitude');
+      expect(res.coordinates).toHaveProperty('longitude');
+      expect(res.formattedAddress).toBeDefined();
+      expect(res.addressComponents).toBeDefined();
+
+      // Permitted field whitelist check
+      const permittedKeys = ['coordinates', 'formattedAddress', 'placeId', 'addressComponents', 'source', 'cachedAt', 'expiresAt'];
+      const actualKeys = Object.keys(res);
+      for (const key of actualKeys) {
+        expect(permittedKeys).toContain(key);
+      }
+    });
+
+    // Gate G31: Verify that pruneExpiredCache() physically evicts expired entries
+    it('[Gate G31] physically evicts expired entries from cache when pruneExpiredCache() is called', () => {
+      locationService.clearCache();
+      const expiredTimestamp = Date.now() - 5000;
+      const validResult = {
+        coordinates: { latitude: 28.6942, longitude: 77.2085 },
+        formattedAddress: 'Hudson Lane, Delhi',
+        addressComponents: { city: 'Delhi', state: 'Delhi' },
+        source: 'MOCK_GEOCODING' as const,
+      };
+
+      locationService.setCacheEntryForTesting('geocode', 'test-expired-address', validResult, expiredTimestamp);
+      expect(locationService.getCacheStats().geocodeCacheSize).toBe(1);
+
+      const evicted = locationService.pruneExpiredCache();
+      expect(evicted).toBe(1);
+      expect(locationService.getCacheStats().geocodeCacheSize).toBe(0);
+    });
+
+    // Gate G32: Verify that autocomplete() does NOT add entries to geocodeCache or reverseGeocodeCache
+    it('[Gate G32] guarantees zero caching for Places Autocomplete predictions', async () => {
+      locationService.clearCache();
+      expect(locationService.getCacheStats().geocodeCacheSize).toBe(0);
+      expect(locationService.getCacheStats().reverseGeocodeCacheSize).toBe(0);
+
+      const token = createAutocompleteSessionToken();
+      const suggestions = await locationService.autocomplete('North Campus', token);
+
+      expect(suggestions.length).toBeGreaterThan(0);
+      expect(locationService.getCacheStats().geocodeCacheSize).toBe(0);
+      expect(locationService.getCacheStats().reverseGeocodeCacheSize).toBe(0);
+    });
+
+    // Gate G33: Verify that autocomplete predictions are ephemeral across calls
+    it('[Gate G33] delivers fresh results without persisting predictions across calls', async () => {
+      const token1 = createAutocompleteSessionToken();
+      const token2 = createAutocompleteSessionToken();
+
+      const res1 = await locationService.autocomplete('North', token1);
+      const res2 = await locationService.autocomplete('South', token2);
+
+      expect(res1).toBeDefined();
+      expect(res2).toBeDefined();
+      expect(locationService.getCacheStats().geocodeCacheSize).toBe(0);
+    });
+
+    // Gate G34: Verify that GoogleAttribution component renders 'Powered by Google'
+    it('[Gate G34] renders visible and accessible "Powered by Google" attribution', () => {
+      const { unmount } = render(React.createElement(GoogleAttribution, { provider: 'google' }));
+      const badge = screen.getByTestId('google-maps-attribution');
+      expect(badge).toBeDefined();
+      expect(badge.getAttribute('role')).toBe('img');
+      expect(badge.getAttribute('aria-label')).toBe('Powered by Google');
+      expect(screen.getByText('powered by')).toBeDefined();
+      unmount();
+
+      const { unmount: unmount2 } = render(React.createElement(GoogleAttribution, { source: 'GOOGLE_GEOCODING' }));
+      expect(screen.getByTestId('google-maps-attribution')).toBeDefined();
+      unmount2();
+    });
+
+    // Gate G35: Verify that GoogleAttribution does not render for mock provider unless explicit flag is enabled
+    it('[Gate G35] does not render Google attribution when provider is mock', () => {
+      const { container, unmount } = render(React.createElement(GoogleAttribution, { provider: 'mock' }));
+      expect(container.querySelector('[data-testid="google-maps-attribution"]')).toBeNull();
+      unmount();
+
+      const { unmount: unmount2 } = render(React.createElement(GoogleAttribution, { provider: 'mock', showMockInDev: true }));
+      expect(screen.getByTestId('mock-location-attribution')).toBeDefined();
+      unmount2();
+    });
+
+    // Gate G36: Verify that confirm-location requires authenticated owner and blocks unauthorized callers
+    it('[Gate G36] requires authenticated owner and enforces 401/403/404 authorization checks on confirm-location', async () => {
+      const pRes = await request(app)
+        .post('/api/v1/owner/properties')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({
+          name: 'Gate G36 Auth Stay',
+          propertyType: 'PG',
+          genderPolicy: 'COED',
+          addressLine1: '32 Chhatra Marg',
+          city: 'Delhi',
+          state: 'Delhi',
+          pincode: '110007',
+          latitude: 28.6942,
+          longitude: 77.2085,
+        });
+      expect(pRes.status).toBe(201);
+      const propId = pRes.body.data.id;
+      createdPropertyIds.push(propId);
+
+      // 1. Unauthenticated -> 401
+      const unauthRes = await request(app)
+        .post(`/api/v1/owner/properties/${propId}/confirm-location`)
+        .send({ confirmedLatitude: 28.6942, confirmedLongitude: 77.2085, isAccuracyConfirmed: true });
+      expect(unauthRes.status).toBe(401);
+
+      // 2. Student caller -> 403 Forbidden
+      const studentRes = await request(app)
+        .post(`/api/v1/owner/properties/${propId}/confirm-location`)
+        .set('Authorization', `Bearer ${studentToken}`)
+        .send({ confirmedLatitude: 28.6942, confirmedLongitude: 77.2085, isAccuracyConfirmed: true });
+      expect(studentRes.status).toBe(403);
+
+      // 3. Different owner caller -> 404 Not Found (ownership check)
+      const otherRes = await request(app)
+        .post(`/api/v1/owner/properties/${propId}/confirm-location`)
+        .set('Authorization', `Bearer ${otherOwnerToken}`)
+        .send({ confirmedLatitude: 28.6942, confirmedLongitude: 77.2085, isAccuracyConfirmed: true });
+      expect(otherRes.status).toBe(404);
+    });
+
+    // Gate G37: Verify that confirm-location rejects requests without isAccuracyConfirmed: true
+    it('[Gate G37] rejects confirm-location requests when isAccuracyConfirmed is false or missing', async () => {
+      const pRes = await request(app)
+        .post('/api/v1/owner/properties')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({
+          name: 'Gate G37 Validation Stay',
+          propertyType: 'PG',
+          genderPolicy: 'COED',
+          addressLine1: '55 Chhatra Marg',
+          city: 'Delhi',
+          state: 'Delhi',
+          pincode: '110007',
+          latitude: 28.6942,
+          longitude: 77.2085,
+        });
+      const propId = pRes.body.data.id;
+      createdPropertyIds.push(propId);
+
+      // isAccuracyConfirmed is false -> 400
+      const falseRes = await request(app)
+        .post(`/api/v1/owner/properties/${propId}/confirm-location`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({ confirmedLatitude: 28.6942, confirmedLongitude: 77.2085, isAccuracyConfirmed: false });
+      expect(falseRes.status).toBe(400);
+
+      // isAccuracyConfirmed is missing -> 400
+      const missingRes = await request(app)
+        .post(`/api/v1/owner/properties/${propId}/confirm-location`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({ confirmedLatitude: 28.6942, confirmedLongitude: 77.2085 });
+      expect(missingRes.status).toBe(400);
+    });
+
+    // Gate G38: Verify that confirm-location rejects coordinates outside India geographic bounding box
+    it('[Gate G38] rejects confirm-location coordinates outside India geographic bounding box', async () => {
+      const pRes = await request(app)
+        .post('/api/v1/owner/properties')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({
+          name: 'Gate G38 Bounds Stay',
+          propertyType: 'PG',
+          genderPolicy: 'COED',
+          addressLine1: '77 Mall Road',
+          city: 'Delhi',
+          state: 'Delhi',
+          pincode: '110007',
+          latitude: 28.6942,
+          longitude: 77.2085,
+        });
+      const propId = pRes.body.data.id;
+      createdPropertyIds.push(propId);
+
+      // London coordinates (lat: 51.5074, lng: -0.1278) -> 400
+      const londonRes = await request(app)
+        .post(`/api/v1/owner/properties/${propId}/confirm-location`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({ confirmedLatitude: 51.5074, confirmedLongitude: -0.1278, isAccuracyConfirmed: true });
+      expect(londonRes.status).toBe(400);
+
+      // Latitude too low (< 6.0) -> 400
+      const lowLatRes = await request(app)
+        .post(`/api/v1/owner/properties/${propId}/confirm-location`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({ confirmedLatitude: 2.0, confirmedLongitude: 77.0, isAccuracyConfirmed: true });
+      expect(lowLatRes.status).toBe(400);
+    });
+
+    // Gate G39: Verify that generic property update rejects or ignores coordinateSource: 'OWNER_CONFIRMED'
+    it('[Gate G39] rejects client attempts to supply coordinateSource in generic property updates', async () => {
+      const pRes = await request(app)
+        .post('/api/v1/owner/properties')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({
+          name: 'Gate G39 Provenance Spoof Stay',
+          propertyType: 'PG',
+          genderPolicy: 'COED',
+          addressLine1: '109 Mall Road',
+          city: 'Delhi',
+          state: 'Delhi',
+          pincode: '110007',
+          latitude: 28.6942,
+          longitude: 77.2085,
+        });
+      const propId = pRes.body.data.id;
+      createdPropertyIds.push(propId);
+
+      // Attempt to spoof OWNER_CONFIRMED via generic PATCH -> 400
+      const spoofRes = await request(app)
+        .patch(`/api/v1/owner/properties/${propId}`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({ coordinateSource: 'OWNER_CONFIRMED' });
+      expect(spoofRes.status).toBe(400);
+
+      // Verify coordinateSource was NOT updated
+      const getRes = await request(app)
+        .get(`/api/v1/owner/properties/${propId}`)
+        .set('Authorization', `Bearer ${ownerToken}`);
+      expect(getRes.body.data.coordinateSource).not.toBe('OWNER_CONFIRMED');
+    });
+
+    // Gate G40: Verify that successful confirm-location records an audit trail event
+    it('[Gate G40] records structured audit trail event upon successful location confirmation', async () => {
+      locationAuditService.clearAuditEvents();
+
+      const pRes = await request(app)
+        .post('/api/v1/owner/properties')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({
+          name: 'Gate G40 Audit Trail Stay',
+          propertyType: 'PG',
+          genderPolicy: 'COED',
+          addressLine1: '125 Mall Road',
+          city: 'Delhi',
+          state: 'Delhi',
+          pincode: '110007',
+          latitude: 28.6942,
+          longitude: 77.2085,
+        });
+      const propId = pRes.body.data.id;
+      createdPropertyIds.push(propId);
+
+      const confirmRes = await request(app)
+        .post(`/api/v1/owner/properties/${propId}/confirm-location`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({ confirmedLatitude: 28.6945, confirmedLongitude: 77.2090, isAccuracyConfirmed: true });
+      expect(confirmRes.status).toBe(200);
+      expect(confirmRes.body.data.coordinateSource).toBe('OWNER_CONFIRMED');
+      expect(confirmRes.body.data.googleContentExpiresAt).toBeNull();
+
+      // Verify audit trail entry
+      const events = locationAuditService.getAuditEvents(propId);
+      expect(events.length).toBeGreaterThanOrEqual(1);
+      const audit = events[0];
+      expect(audit.propertyId).toBe(propId);
+      expect(audit.ownerId).toBe(ownerUserId);
+      expect(audit.newSource).toBe('OWNER_CONFIRMED');
+      expect(audit.confirmedCoordinates.latitude).toBe(28.6945);
+      expect(audit.confirmedCoordinates.longitude).toBe(77.2090);
+      expect(audit.confirmedAt).toBeDefined();
+      expect(audit.requestId).toBeDefined();
     });
   });
 });

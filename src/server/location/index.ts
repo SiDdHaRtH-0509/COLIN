@@ -8,3 +8,4 @@ export * from './validation';
 export * from './providers/MockGeolocationProvider';
 export * from './providers/GoogleGeolocationProvider';
 export * from './location.service';
+export * from './locationAudit.service';

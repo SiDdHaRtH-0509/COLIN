@@ -7,6 +7,25 @@ import { GeoCoordinates, GeolocationValidationError } from './location.types';
 
 export const EARTH_RADIUS_KM = 6371;
 
+export const INDIA_BOUNDS = {
+  minLat: 6.0,
+  maxLat: 38.0,
+  minLng: 68.0,
+  maxLng: 98.0,
+};
+
+/**
+ * Checks whether coordinates fall within India's geographic bounding box.
+ */
+export function isWithinIndiaBoundingBox(lat: number, lng: number): boolean {
+  return (
+    lat >= INDIA_BOUNDS.minLat &&
+    lat <= INDIA_BOUNDS.maxLat &&
+    lng >= INDIA_BOUNDS.minLng &&
+    lng <= INDIA_BOUNDS.maxLng
+  );
+}
+
 /**
  * Validates latitude and longitude values according to WGS84 standards.
  * -90 <= latitude <= 90

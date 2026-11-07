@@ -1057,14 +1057,24 @@ export class PropertyRepository extends BaseRepository {
    * Confirms property location, transitioning it into authoritative Owner Content
    * and clearing the Google content expiration deadline.
    */
-  async confirmLocation(propertyId: string, ownerId: string, tx?: Prisma.TransactionClient): Promise<Property> {
+  async confirmLocation(
+    propertyId: string,
+    ownerId: string,
+    coords?: { latitude: number; longitude: number },
+    tx?: Prisma.TransactionClient
+  ): Promise<Property> {
     return this.execute(async () => {
+      const data: Prisma.PropertyUpdateInput = {
+        coordinateSource: 'OWNER_CONFIRMED',
+        googleContentExpiresAt: null,
+      };
+      if (coords) {
+        data.latitude = new Prisma.Decimal(coords.latitude);
+        data.longitude = new Prisma.Decimal(coords.longitude);
+      }
       return this.getClient(tx).property.update({
         where: { id: propertyId, ownerId },
-        data: {
-          coordinateSource: 'OWNER_CONFIRMED',
-          googleContentExpiresAt: null,
-        },
+        data,
       });
     });
   }
@@ -1080,6 +1090,7 @@ export class PropertyRepository extends BaseRepository {
       placeId?: string;
       coordinateSource: string;
       googleContentExpiresAt?: Date | null;
+      distanceToCampusKm?: number | null;
     },
     tx?: Prisma.TransactionClient
   ): Promise<Property> {
@@ -1091,6 +1102,9 @@ export class PropertyRepository extends BaseRepository {
       if (data.latitude !== undefined) updateData.latitude = new Prisma.Decimal(data.latitude);
       if (data.longitude !== undefined) updateData.longitude = new Prisma.Decimal(data.longitude);
       if (data.placeId !== undefined) updateData.placeId = data.placeId;
+      if (data.distanceToCampusKm !== undefined) {
+        updateData.distanceToCampusKm = data.distanceToCampusKm !== null ? new Prisma.Decimal(data.distanceToCampusKm) : null;
+      }
 
       return this.getClient(tx).property.update({
         where: { id: propertyId },

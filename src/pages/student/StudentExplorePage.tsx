@@ -7,8 +7,12 @@ import { useProperties } from '../../context/PropertyContext';
 import {
   getCurrentUserLocation,
   calculateHaversineDistance,
+  fetchAutocompleteSuggestions,
+  createAutocompleteSessionToken,
+  FrontendPlaceSuggestion,
   Coordinates,
 } from '../../services/locationService';
+import { GoogleAttribution } from '../../components/common/GoogleAttribution';
 import {
   Search,
   SlidersHorizontal,
@@ -118,6 +122,44 @@ export const StudentExplorePage: React.FC = () => {
 
   // Check if Google Maps API key exists
   const hasGoogleMapsApiKey = Boolean((import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY);
+
+  // Autocomplete place search state
+  const [autocompleteSuggestions, setAutocompleteSuggestions] = useState<FrontendPlaceSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
+  const [sessionToken, setSessionToken] = useState<string>('');
+
+  useEffect(() => {
+    if (!searchQuery || searchQuery.trim().length < 2) {
+      setAutocompleteSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    let active = true;
+    const token = sessionToken || createAutocompleteSessionToken();
+    if (!sessionToken) setSessionToken(token);
+
+    const timer = setTimeout(async () => {
+      setIsSearchingPlaces(true);
+      try {
+        const results = await fetchAutocompleteSuggestions(searchQuery, token);
+        if (active) {
+          setAutocompleteSuggestions(results);
+          setShowSuggestions(results.length > 0);
+        }
+      } catch {
+        if (active) setAutocompleteSuggestions([]);
+      } finally {
+        if (active) setIsSearchingPlaces(false);
+      }
+    }, 250);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [searchQuery, sessionToken]);
 
   // Track window scroll for Back to Top button
   useEffect(() => {
@@ -492,24 +534,66 @@ export const StudentExplorePage: React.FC = () => {
         className="space-y-2.5"
       >
         <div className="bg-white rounded-2xl p-2 sm:p-2.5 border border-slate-200/90 shadow-sm hover:border-slate-300 focus-within:border-colin-teal focus-within:ring-2 focus-within:ring-colin-teal/20 transition-all flex flex-col md:flex-row items-stretch md:items-center gap-2">
-          {/* Main Locality/Landmark Input */}
-          <div className="flex-1 flex items-center gap-2.5 px-3 py-1.5 min-w-0">
+          {/* Main Locality/Landmark Input with Autocomplete & Attribution */}
+          <div className="flex-1 relative flex items-center gap-2.5 px-3 py-1.5 min-w-0">
             <Search size={18} className="text-slate-400 shrink-0" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => {
+                if (autocompleteSuggestions.length > 0) setShowSuggestions(true);
+              }}
               placeholder="Search by city, campus, locality, or landmark (e.g. North Campus, Kamla Nagar)..."
               className="w-full text-xs font-semibold text-colin-navy placeholder:text-slate-400 bg-transparent focus:outline-none"
             />
-            {searchQuery && (
+            {isSearchingPlaces && <Loader2 size={14} className="animate-spin text-slate-400 shrink-0" />}
+            {searchQuery && !isSearchingPlaces && (
               <button
                 type="button"
-                onClick={() => setSearchQuery('')}
+                onClick={() => {
+                  setSearchQuery('');
+                  setAutocompleteSuggestions([]);
+                  setShowSuggestions(false);
+                  setSessionToken('');
+                }}
                 className="text-slate-400 hover:text-slate-600 shrink-0 p-0.5"
               >
                 <X size={14} />
               </button>
+            )}
+
+            {/* Suggestions Dropdown with Google Attribution */}
+            {showSuggestions && autocompleteSuggestions.length > 0 && (
+              <div
+                data-testid="location-autocomplete-dropdown"
+                className="absolute left-0 right-0 top-full mt-2 bg-white rounded-xl shadow-xl border border-slate-200 py-1.5 z-50 max-h-60 overflow-y-auto"
+              >
+                {autocompleteSuggestions.map((item) => (
+                  <button
+                    key={item.placeId}
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery(item.fullText || item.primaryText);
+                      setShowSuggestions(false);
+                      setSessionToken('');
+                    }}
+                    className="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-2 text-xs transition-colors"
+                  >
+                    <MapPin size={14} className="text-colin-teal shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-colin-navy truncate">{item.primaryText}</p>
+                      {item.secondaryText && (
+                        <p className="text-[10px] text-slate-400 truncate">{item.secondaryText}</p>
+                      )}
+                    </div>
+                  </button>
+                ))}
+                {/* Official Google Maps Platform Attribution Footer */}
+                <div className="border-t border-slate-100 mt-1 pt-1 bg-slate-50/50">
+                  <GoogleAttribution provider="google" />
+                </div>
+              </div>
             )}
           </div>
 

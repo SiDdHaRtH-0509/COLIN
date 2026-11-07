@@ -4,6 +4,22 @@
  * 
  * Manages provider orchestration, in-memory TTL caching, API cost mitigation,
  * and high-precision spatial math utilities.
+ * 
+ * GOOGLE MAPS PLATFORM DATA RETENTION & FIELD-LEVEL CACHING POLICY:
+ * In strict compliance with Google Maps Platform Terms of Service:
+ * 1. Coordinates (latitude, longitude):
+ *    - Permitted for temporary caching (up to 30 calendar days) under §3.2.3(a) solely
+ *      to improve application latency and user experience.
+ *    - COLIN enforces a default in-memory TTL of 24 hours (86,400,000 ms), well below the 30-day ceiling.
+ * 2. Place ID (placeId):
+ *    - Explicitly exempt from caching limits under §3.2.4(a); may be stored indefinitely.
+ *    - Stored in PostgreSQL on property records for automated coordinate refresh.
+ * 3. Formatted Address & Address Components:
+ *    - Cached temporarily in-memory with the same 24-hour TTL (§3.2.3(a)) to reduce repeated calls.
+ *    - Physically evicted upon expiration via pruneExpiredCache().
+ * 4. Places Autocomplete Predictions:
+ *    - Ephemeral ONLY. In strict accordance with §3.2.3(a), autocomplete results are NEVER cached
+ *      in memory, database, or disk. Every search keystroke/query passes directly to the active provider.
  */
 
 import { getServerConfig } from '../config/serverConfig';
@@ -82,7 +98,29 @@ export class LocationService {
   }
 
   /**
+   * Returns current in-memory cache statistics for monitoring and automated verification.
+   */
+  public getCacheStats(): { geocodeCacheSize: number; reverseGeocodeCacheSize: number } {
+    return {
+      geocodeCacheSize: this.geocodeCache.size,
+      reverseGeocodeCacheSize: this.reverseGeocodeCache.size,
+    };
+  }
+
+  /**
+   * Directly sets a cache entry with a custom expiration timestamp for deterministic testing.
+   */
+  public setCacheEntryForTesting(type: 'geocode' | 'reverse', key: string, result: GeocodingResult, expiresAt: number): void {
+    if (type === 'geocode') {
+      this.geocodeCache.set(key.trim().toLowerCase(), { value: result, expiresAt });
+    } else {
+      this.reverseGeocodeCache.set(key, { value: result, expiresAt });
+    }
+  }
+
+  /**
    * Actively evicts expired cache entries from in-memory stores.
+   * Physically removes keys from Map to prevent memory leaks and ensure data compliance.
    * Returns the total count of evicted entries.
    */
   public pruneExpiredCache(): number {
@@ -168,11 +206,13 @@ export class LocationService {
 
   /**
    * Autocomplete place search.
-   * In compliance with Google Maps Platform Terms of Service (Section 3.2.3(a)),
-   * autocomplete predictions are ephemeral and NOT cached across user sessions.
-   * Keystrokes are grouped under the caller's session token.
+   * In compliance with Google Maps Platform Terms of Service (§3.2.3(a)),
+   * autocomplete predictions are ephemeral and NEVER cached in-memory, database, or disk.
+   * Every query passes directly to the active provider.
+   * Keystrokes within a session are grouped under the client's session token for billing efficiency.
    */
   public async autocomplete(query: string, sessionToken?: string): Promise<PlaceSuggestion[]> {
+    // Zero-cache policy: autocomplete results must not be stored in geocodeCache or reverseGeocodeCache
     return this.provider.searchPlaces(query, sessionToken);
   }
 

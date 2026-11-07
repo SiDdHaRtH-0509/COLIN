@@ -25,7 +25,7 @@ export const createPropertySchema = z.object({
   longitude: z.number().min(-180).max(180).optional(),
   placeId: z.string().max(255).optional(),
   coordinateSource: z
-    .enum(['OWNER_PROVIDED', 'OWNER_CONFIRMED', 'GOOGLE_GEOCODING', 'GOOGLE_PLACES', 'MOCK_GEOCODING'])
+    .enum(['OWNER_PROVIDED', 'GOOGLE_GEOCODING', 'GOOGLE_PLACES', 'MOCK_GEOCODING'])
     .optional(),
   nearestCampus: z.string().max(255).optional(),
   distanceToCampusKm: z.number().min(0).max(100).optional(),
@@ -73,7 +73,10 @@ export const updatePropertySchema = z.object({
   longitude: z.number().min(-180).max(180).optional(),
   placeId: z.string().max(255).optional(),
   coordinateSource: z
-    .enum(['OWNER_PROVIDED', 'OWNER_CONFIRMED', 'GOOGLE_GEOCODING', 'GOOGLE_PLACES', 'MOCK_GEOCODING'])
+    .never({
+      message:
+        'coordinateSource cannot be modified via generic property update. Use dedicated location confirmation endpoint.',
+    })
     .optional(),
   nearestCampus: z.string().max(255).optional(),
   distanceToCampusKm: z.number().min(0).max(100).optional(),
@@ -160,8 +163,23 @@ export const propertyPhotoParamsSchema = z.object({
   photoId: z.string().uuid('Invalid photo UUID'),
 });
 
+export const confirmLocationSchema = z.object({
+  confirmedLatitude: z
+    .number()
+    .min(6.0, 'confirmedLatitude must be between 6.0 and 38.0 (India bounds)')
+    .max(38.0, 'confirmedLatitude must be between 6.0 and 38.0 (India bounds)'),
+  confirmedLongitude: z
+    .number()
+    .min(68.0, 'confirmedLongitude must be between 68.0 and 98.0 (India bounds)')
+    .max(98.0, 'confirmedLongitude must be between 68.0 and 98.0 (India bounds)'),
+  isAccuracyConfirmed: z.literal(true, {
+    message: 'isAccuracyConfirmed must be explicitly set to true',
+  }),
+});
+
 export type CreatePropertyDto = z.infer<typeof createPropertySchema>;
 export type UpdatePropertyDto = z.infer<typeof updatePropertySchema>;
 export type AddPhotoDto = z.infer<typeof addPhotoSchema>;
 export type ReorderPhotosDto = z.infer<typeof reorderPhotosSchema>;
+export type ConfirmLocationDto = z.infer<typeof confirmLocationSchema>;
 export type PublicSearchQueryDto = z.infer<typeof publicSearchQuerySchema>;

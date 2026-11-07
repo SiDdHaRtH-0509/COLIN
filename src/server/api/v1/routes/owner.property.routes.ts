@@ -16,6 +16,7 @@ import {
   reorderPhotosSchema,
   propertyIdParamSchema,
   propertyPhotoParamsSchema,
+  confirmLocationSchema,
 } from '../schemas/property.schemas';
 
 const router = Router();
@@ -46,7 +47,7 @@ router.post('/:propertyId/submit', validateRequest({ params: propertyIdParamSche
 router.get('/:propertyId/status', validateRequest({ params: propertyIdParamSchema }), ownerPropertyController.getStatus);
 router.post(
   '/:propertyId/confirm-location',
-  validateRequest({ params: propertyIdParamSchema }),
+  validateRequest({ params: propertyIdParamSchema, body: confirmLocationSchema }),
   ownerPropertyController.confirmLocation
 );
 router.post(

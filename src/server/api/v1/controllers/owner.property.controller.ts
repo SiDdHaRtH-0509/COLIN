@@ -203,9 +203,17 @@ export class OwnerPropertyController {
    */
   public confirmLocation = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
+      const { confirmedLatitude, confirmedLongitude, isAccuracyConfirmed } = req.body || {};
+
       const property = await propertyService.confirmPropertyLocation(
         req.params.propertyId as string,
-        req.context!.userId
+        req.context!.userId,
+        {
+          confirmedLatitude: Number(confirmedLatitude),
+          confirmedLongitude: Number(confirmedLongitude),
+          isAccuracyConfirmed: Boolean(isAccuracyConfirmed),
+          requestId: req.id || 'unknown',
+        }
       );
 
       const response: ApiResponse<typeof property> = {

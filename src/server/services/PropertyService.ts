@@ -17,7 +17,14 @@ import {
 import { RecordNotFoundError, ValidationConstraintError } from '../database/errors';
 import { Property, PropertyVerificationStatus, PropertyPhoto } from '@prisma/client';
 import { processPropertyImage, storageProvider } from '../storage';
-import { validateCoordinates, locationService } from '../location';
+import {
+  validateCoordinates,
+  locationService,
+  calculateHaversineKm,
+  MOCK_STUDENT_HUBS,
+  isWithinIndiaBoundingBox,
+  locationAuditService,
+} from '../location';
 
 export class PropertyService {
   private propertyRepo: PropertyRepository;
@@ -81,11 +88,11 @@ export class PropertyService {
         latitude: isLocationExpired ? null : (property.latitude ? Number(property.latitude) : null),
         longitude: isLocationExpired ? null : (property.longitude ? Number(property.longitude) : null),
         nearestCampus: property.nearestCampus,
-        distanceToCampusKm: property.distanceToCampusKm ? Number(property.distanceToCampusKm) : null,
+        distanceToCampusKm: isLocationExpired ? null : (property.distanceToCampusKm ? Number(property.distanceToCampusKm) : null),
         coordinateSource: property.coordinateSource || 'OWNER_PROVIDED',
         isLocationExpired,
       },
-      distanceKm: property.distanceKm !== undefined ? property.distanceKm : undefined,
+      distanceKm: isLocationExpired ? undefined : (property.distanceKm !== undefined ? property.distanceKm : undefined),
       pricing: {
         startingMonthlyRent,
         securityDeposit: minDeposit,
@@ -237,15 +244,66 @@ export class PropertyService {
   /**
    * Confirms the property location on the owner's behalf, transitioning the coordinates
    * into Authoritative Owner Content ('OWNER_CONFIRMED') and clearing the 30-day Google expiration.
+   * Enforces ownership, coordinate bounds within India, explicit accuracy confirmation,
+   * and creates an immutable audit trail entry.
    */
-  async confirmPropertyLocation(propertyId: string, ownerId: string) {
-    await this.getOwnerProperty(propertyId, ownerId);
-    return this.propertyRepo.confirmLocation(propertyId, ownerId);
+  async confirmPropertyLocation(
+    propertyId: string,
+    ownerId: string,
+    data?: {
+      confirmedLatitude: number;
+      confirmedLongitude: number;
+      isAccuracyConfirmed: boolean;
+      requestId?: string;
+    }
+  ) {
+    const property = await this.getOwnerProperty(propertyId, ownerId);
+    if (!property) {
+      throw new RecordNotFoundError('Property not found.');
+    }
+
+    let coords: { latitude: number; longitude: number };
+
+    if (data) {
+      if (!data.isAccuracyConfirmed) {
+        throw new ValidationConstraintError('isAccuracyConfirmed must be true to confirm property location.');
+      }
+      if (!isWithinIndiaBoundingBox(data.confirmedLatitude, data.confirmedLongitude)) {
+        throw new ValidationConstraintError(
+          `Coordinates [${data.confirmedLatitude}, ${data.confirmedLongitude}] are outside India geographic bounds.`
+        );
+      }
+      coords = { latitude: data.confirmedLatitude, longitude: data.confirmedLongitude };
+    } else {
+      if (!property.latitude || !property.longitude) {
+        throw new ValidationConstraintError('Property does not have valid coordinates to confirm.');
+      }
+      coords = { latitude: Number(property.latitude), longitude: Number(property.longitude) };
+    }
+
+    const previousSource = property.coordinateSource || 'OWNER_PROVIDED';
+
+    // Atomically transition coordinate source to OWNER_CONFIRMED and clear expiration
+    const updated = await this.propertyRepo.confirmLocation(propertyId, ownerId, coords);
+
+    // Record immutable audit event
+    await locationAuditService.recordConfirmationAudit({
+      propertyId,
+      ownerId,
+      previousSource,
+      newSource: 'OWNER_CONFIRMED',
+      confirmedCoordinates: coords,
+      confirmedAt: new Date().toISOString(),
+      requestId: data?.requestId || 'system',
+    });
+
+    return updated;
   }
 
   /**
    * Refreshes expired or near-expired Google-derived coordinates for a property
    * using its stored Place ID or physical address string.
+   * Recalculates distanceToCampusKm if campus coordinates/name are available.
    */
   async refreshPropertyLocation(propertyId: string, ownerId?: string) {
     const property = ownerId
@@ -262,12 +320,26 @@ export class PropertyService {
       address: fullAddress,
     });
 
+    let recalculatedDistanceKm = property.distanceToCampusKm ? Number(property.distanceToCampusKm) : undefined;
+    if (property.nearestCampus && refreshed.coordinates) {
+      const campusQuery = property.nearestCampus.toLowerCase().trim();
+      const matchedHub = MOCK_STUDENT_HUBS.find((hub) =>
+        campusQuery.includes(hub.name.toLowerCase()) ||
+        hub.name.toLowerCase().includes(campusQuery) ||
+        hub.keywords.some((k) => campusQuery.includes(k) || k.includes(campusQuery))
+      );
+      if (matchedHub) {
+        recalculatedDistanceKm = Math.round(calculateHaversineKm(refreshed.coordinates, matchedHub.coordinates) * 10) / 10;
+      }
+    }
+
     return this.propertyRepo.updateLocationProvenance(propertyId, {
       latitude: refreshed.coordinates.latitude,
       longitude: refreshed.coordinates.longitude,
       placeId: refreshed.placeId,
       coordinateSource: refreshed.coordinateSource,
       googleContentExpiresAt: refreshed.googleContentExpiresAt,
+      distanceToCampusKm: recalculatedDistanceKm,
     });
   }
 
