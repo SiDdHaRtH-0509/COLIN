@@ -7,7 +7,7 @@
  * and geospatial search continuity without expired Google content.
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 import React from 'react';
 import request from 'supertest';
 import { render, screen } from '@testing-library/react';
@@ -23,6 +23,7 @@ import { PropertyService } from '../../server/services/PropertyService';
 import { createAutocompleteSessionToken } from '../../services/locationService';
 import { PropertyType, PropertyGenderPolicy, PropertyVerificationStatus, Prisma } from '@prisma/client';
 import { getAppPrismaClient } from '../../server/database';
+import { getAdminPrismaClient } from '../../server/database/prisma';
 import { createApp } from '../../server/app';
 import { initializeDatabaseConnections } from '../../server/database/lifecycle';
 import { GoogleAttribution } from '../../components/common/GoogleAttribution';
@@ -896,6 +897,164 @@ describe('COLIN Google Maps Data Retention & Policy Compliance Suite', () => {
       expect(audit.confirmedCoordinates.longitude).toBe(77.2090);
       expect(audit.confirmedAt).toBeDefined();
       expect(audit.requestId).toBeDefined();
+    });
+
+    // Gate G41 (Finding A): Suppresses Google-derived distance calculations in public DTO until owner confirmation
+    it('[Gate G41] suppresses Google-derived distance calculations in public DTO until owner confirmation', async () => {
+      const slug = `g41-dist-suppress-${Date.now()}`;
+      const prop = await getAppPrismaClient().property.create({
+        data: {
+          ownerId: ownerUserId,
+          name: 'Gate G41 Google Derived Stay',
+          slug,
+          propertyType: PropertyType.PG,
+          genderPolicy: PropertyGenderPolicy.COED,
+          addressLine1: 'Hudson Lane, GTB Nagar',
+          city: 'Delhi',
+          state: 'Delhi',
+          pincode: '110009',
+          latitude: 28.6942,
+          longitude: 77.2085,
+          nearestCampus: 'Delhi University North Campus',
+          distanceToCampusKm: 0.8,
+          coordinateSource: 'GOOGLE_GEOCODING',
+          googleContentExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          verificationStatus: PropertyVerificationStatus.VERIFIED,
+        },
+      });
+      createdPropertyIds.push(prop.id);
+
+      // 1. Unconfirmed Google-derived property in formatPublicPropertyDto
+      const unconfirmedDto = propertyService.formatPublicPropertyDto(prop);
+      expect(unconfirmedDto.address.distanceToCampusKm).toBeNull();
+      expect(unconfirmedDto.distanceKm).toBeUndefined();
+      expect(unconfirmedDto.address.coordinateSource).toBe('GOOGLE_GEOCODING');
+
+      // 2. Unconfirmed Google-derived property via public marketplace API
+      const pubRes = await request(app).get(`/api/v1/properties/${prop.id}`);
+      expect(pubRes.status).toBe(200);
+      expect(pubRes.body.data.address.distanceToCampusKm).toBeNull();
+
+      // 3. Confirm location via owner confirmation endpoint
+      const confirmRes = await request(app)
+        .post(`/api/v1/owner/properties/${prop.id}/confirm-location`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({ confirmedLatitude: 28.6942, confirmedLongitude: 77.2085, isAccuracyConfirmed: true });
+      expect(confirmRes.status).toBe(200);
+      expect(confirmRes.body.data.coordinateSource).toBe('OWNER_CONFIRMED');
+
+      // 4. Confirmed property now surfaces valid distanceToCampusKm in public DTO
+      const confirmedDbProp = await propertyRepo.findById(prop.id);
+      expect(confirmedDbProp).toBeDefined();
+      const confirmedDto = propertyService.formatPublicPropertyDto(confirmedDbProp!);
+      expect(confirmedDto.address.distanceToCampusKm).not.toBeNull();
+      expect(Number(confirmedDto.address.distanceToCampusKm)).toBeLessThan(5);
+      expect(confirmedDto.address.coordinateSource).toBe('OWNER_CONFIRMED');
+
+      // 5. Expired Google-derived coordinates suppress coordinates and distance completely
+      const expiredProp = await getAppPrismaClient().property.create({
+        data: {
+          ownerId: testOwnerId,
+          name: 'Gate G41 Expired Stay',
+          slug: `g41-expired-${Date.now()}`,
+          propertyType: PropertyType.PG,
+          genderPolicy: PropertyGenderPolicy.COED,
+          addressLine1: 'Kamla Nagar',
+          city: 'Delhi',
+          state: 'Delhi',
+          pincode: '110007',
+          latitude: 28.6942,
+          longitude: 77.2085,
+          nearestCampus: 'Delhi University North Campus',
+          distanceToCampusKm: 1.1,
+          coordinateSource: 'GOOGLE_GEOCODING',
+          googleContentExpiresAt: new Date(Date.now() - 5000), // Expired
+          verificationStatus: PropertyVerificationStatus.VERIFIED,
+        },
+      });
+      createdPropertyIds.push(expiredProp.id);
+
+      const expiredDto = propertyService.formatPublicPropertyDto(expiredProp);
+      expect(expiredDto.address.isLocationExpired).toBe(true);
+      expect(expiredDto.address.latitude).toBeNull();
+      expect(expiredDto.address.longitude).toBeNull();
+      expect(expiredDto.address.distanceToCampusKm).toBeNull();
+      expect(expiredDto.distanceKm).toBeUndefined();
+    });
+
+    // Gate G42 (Finding D): Transactional atomicity of property update and immutable admin_audit_logs record
+    it('[Gate G42] executes property location confirmation and admin_audit_logs insertion in a single atomic transaction', async () => {
+      const pRes = await request(app)
+        .post('/api/v1/owner/properties')
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({
+          name: 'Gate G42 Atomic Transaction Stay',
+          propertyType: 'PG',
+          genderPolicy: 'COED',
+          addressLine1: '32 Chhatra Marg',
+          city: 'Delhi',
+          state: 'Delhi',
+          pincode: '110007',
+          latitude: 28.6942,
+          longitude: 77.2085,
+        });
+      const propId = pRes.body.data.id;
+      createdPropertyIds.push(propId);
+
+      const confirmRes = await request(app)
+        .post(`/api/v1/owner/properties/${propId}/confirm-location`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({ confirmedLatitude: 28.6950, confirmedLongitude: 77.2095, isAccuracyConfirmed: true });
+      expect(confirmRes.status).toBe(200);
+
+      // Verify the record exists in the admin_audit_logs table via getAdminPrismaClient()
+      const adminClient = getAdminPrismaClient();
+      const auditLogRecord = await adminClient.adminAuditLog.findFirst({
+        where: {
+          targetEntity: 'Property',
+          targetEntityId: propId,
+          action: 'LOCATION_CONFIRMED_BY_OWNER',
+        },
+        orderBy: { recordedAt: 'desc' },
+      });
+
+      expect(auditLogRecord).toBeDefined();
+      expect(auditLogRecord!.id).toBeDefined();
+      expect(auditLogRecord!.actionCategory).toBe('PROPERTY_VERIFICATION');
+      expect(auditLogRecord!.targetEntityId).toBe(propId);
+      expect((auditLogRecord!.detailsJson as any)?.newSource).toBe('OWNER_CONFIRMED');
+      expect((auditLogRecord!.detailsJson as any)?.confirmedCoordinates?.latitude).toBe(28.695);
+      expect((auditLogRecord!.detailsJson as any)?.confirmedCoordinates?.longitude).toBe(77.2095);
+    });
+
+    // Gate G43 (Finding D): PostgreSQL trigger trg_prevent_mutation_admin_audit_logs enforces append-only immutability
+    it('[Gate G43] enforces database-level immutability preventing UPDATE and DELETE on admin_audit_logs', async () => {
+      const adminClient = getAdminPrismaClient();
+
+      // Fetch existing audit record
+      const existingAudit = await adminClient.adminAuditLog.findFirst({
+        where: { action: 'LOCATION_CONFIRMED_BY_OWNER' },
+        orderBy: { recordedAt: 'desc' },
+      });
+      expect(existingAudit).toBeDefined();
+      const logId = existingAudit!.id;
+
+      // 1. Attempt to mutate audit log row -> Must fail with database-level immutability error (role restriction or trigger)
+      await expect(
+        adminClient.$executeRawUnsafe(`UPDATE admin_audit_logs SET action = 'TAMPERED_ACTION' WHERE id = '${logId}'::uuid;`)
+      ).rejects.toThrow(/(?:permission denied for table admin_audit_logs|Audit Log Immutability Violation)/);
+
+      // 2. Attempt to delete audit log row -> Must fail with database-level immutability error (role restriction or trigger)
+      await expect(
+        adminClient.$executeRawUnsafe(`DELETE FROM admin_audit_logs WHERE id = '${logId}'::uuid;`)
+      ).rejects.toThrow(/(?:permission denied for table admin_audit_logs|Audit Log Immutability Violation)/);
+
+      // 3. Verify record was unaffected and remains unchanged
+      const intactRecord = await adminClient.adminAuditLog.findUnique({
+        where: { id: logId },
+      });
+      expect(intactRecord).toBeDefined();
+      expect(intactRecord!.action).toBe('LOCATION_CONFIRMED_BY_OWNER');
     });
   });
 });

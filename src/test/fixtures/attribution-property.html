@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>COLIN — Property Detail Location Presentation</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    body { background-color: #f8fafc; color: #0f172a; padding: 32px; display: flex; justify-content: center; }
+    .card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 20px; padding: 24px; width: 100%; max-width: 650px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+    .card-title { font-size: 18px; font-weight: 800; color: #0f2942; margin-bottom: 4px; }
+    .card-sub { font-size: 13px; color: #64748b; margin-bottom: 20px; }
+    .map-preview { height: 180px; background: #e2e8f0; border-radius: 14px; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 1px solid #cbd5e1; }
+    .map-grid { position: absolute; inset: 0; opacity: 0.15; background-image: radial-gradient(#00a896 1px, transparent 1px); background-size: 16px 16px; }
+    .pin-badge { z-index: 10; background: #ffffff; padding: 8px 14px; border-radius: 30px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 800; color: #0f2942; }
+    .pin-badge svg { color: #f26419; width: 18px; height: 18px; }
+    .loc-info { margin-top: 18px; display: flex; justify-content: space-between; align-items: center; padding-top: 14px; border-top: 1px solid #f1f5f9; }
+    .loc-details { font-size: 12px; color: #334155; line-height: 1.5; }
+    .loc-details strong { color: #0f2942; font-size: 13px; }
+    .verified-chip { display: inline-flex; align-items: center; gap: 4px; background: #ecfdf5; color: #059669; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 6px; text-transform: uppercase; margin-bottom: 4px; }
+    .attribution-badge { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #64748b; background: #f8fafc; padding: 6px 10px; border-radius: 8px; border: 1px solid #e2e8f0; }
+    .google-lockup { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; color: #334155; }
+    .google-lockup svg { width: 14px; height: 14px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="card-title">Location & Neighborhood</div>
+    <div class="card-sub">Hudson Lane, GTB Nagar — 0.4 km from DU North Campus Gate 4</div>
+    <div class="map-preview">
+      <div class="map-grid"></div>
+      <div class="pin-badge">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+        <span>Bansal Residency North Campus</span>
+      </div>
+    </div>
+    <div class="loc-info">
+      <div class="loc-details">
+        <div class="verified-chip">✓ Verified Location</div>
+        <div><strong>42 Hudson Lane, GTB Nagar</strong></div>
+        <div>Delhi University North Campus, Delhi - 110009</div>
+      </div>
+      <!-- Google Maps Platform Attribution -->
+      <div class="attribution-badge" data-testid="google-maps-attribution" role="img" aria-label="Google Maps">
+        <span>powered by</span>
+        <div class="google-lockup">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/>
+            <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.35 24 12 24z"/>
+            <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 10.04 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/>
+            <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.35 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+          </svg>
+          <span>Google <span style="font-weight: 400; color: #64748b;">Maps</span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

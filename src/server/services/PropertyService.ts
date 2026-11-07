@@ -68,9 +68,18 @@ export class PropertyService {
       minDeposit = Math.min(...deposits);
     }
 
+    const isGoogleDerived =
+      property.coordinateSource === 'GOOGLE_GEOCODING' ||
+      property.coordinateSource === 'GOOGLE_PLACES';
+
     const isLocationExpired = Boolean(
       property.googleContentExpiresAt && new Date(property.googleContentExpiresAt) <= new Date()
     );
+
+    // Google Maps Platform compliance: Google-derived coordinates cannot be used
+    // for proprietary derived distance calculations or derivative geographic content.
+    // Suppress derived distance when coordinates are Google-derived or expired.
+    const isDistanceSuppressed = isLocationExpired || isGoogleDerived;
 
     return {
       id: property.id,
@@ -88,11 +97,11 @@ export class PropertyService {
         latitude: isLocationExpired ? null : (property.latitude ? Number(property.latitude) : null),
         longitude: isLocationExpired ? null : (property.longitude ? Number(property.longitude) : null),
         nearestCampus: property.nearestCampus,
-        distanceToCampusKm: isLocationExpired ? null : (property.distanceToCampusKm ? Number(property.distanceToCampusKm) : null),
+        distanceToCampusKm: isDistanceSuppressed ? null : (property.distanceToCampusKm ? Number(property.distanceToCampusKm) : null),
         coordinateSource: property.coordinateSource || 'OWNER_PROVIDED',
         isLocationExpired,
       },
-      distanceKm: isLocationExpired ? undefined : (property.distanceKm !== undefined ? property.distanceKm : undefined),
+      distanceKm: isDistanceSuppressed ? undefined : (property.distanceKm !== undefined ? property.distanceKm : undefined),
       pricing: {
         startingMonthlyRent,
         securityDeposit: minDeposit,
@@ -283,10 +292,32 @@ export class PropertyService {
 
     const previousSource = property.coordinateSource || 'OWNER_PROVIDED';
 
-    // Atomically transition coordinate source to OWNER_CONFIRMED and clear expiration
-    const updated = await this.propertyRepo.confirmLocation(propertyId, ownerId, coords);
+    // Recalculate distance to campus upon genuine owner confirmation (now verified Customer Content)
+    let recalculatedDistanceKm: number | null = null;
+    if (property.nearestCampus && coords) {
+      const campusQuery = property.nearestCampus.toLowerCase().trim();
+      const matchedHub = MOCK_STUDENT_HUBS.find(
+        (hub) =>
+          campusQuery.includes(hub.name.toLowerCase()) ||
+          hub.name.toLowerCase().includes(campusQuery) ||
+          hub.keywords.some((k) => campusQuery.includes(k) || k.includes(campusQuery))
+      );
+      if (matchedHub) {
+        recalculatedDistanceKm = Math.round(calculateHaversineKm(coords, matchedHub.coordinates) * 10) / 10;
+      }
+    }
 
-    // Record immutable audit event
+    // Atomically transition coordinate source to OWNER_CONFIRMED, update distance to campus,
+    // clear expiration, and persist immutable audit record in a single transaction
+    const updated = await this.propertyRepo.confirmLocationWithAudit(propertyId, ownerId, {
+      latitude: coords.latitude,
+      longitude: coords.longitude,
+      distanceToCampusKm: recalculatedDistanceKm,
+      previousSource,
+      requestId: data?.requestId || 'system',
+    });
+
+    // Record immutable audit event in memory ledger for immediate test inspection
     await locationAuditService.recordConfirmationAudit({
       propertyId,
       ownerId,
@@ -303,7 +334,8 @@ export class PropertyService {
   /**
    * Refreshes expired or near-expired Google-derived coordinates for a property
    * using its stored Place ID or physical address string.
-   * Recalculates distanceToCampusKm if campus coordinates/name are available.
+   * Under Google Maps Platform terms, unconfirmed Google-derived coordinates cannot
+   * be used to calculate or persist proprietary derived distance metrics.
    */
   async refreshPropertyLocation(propertyId: string, ownerId?: string) {
     const property = ownerId

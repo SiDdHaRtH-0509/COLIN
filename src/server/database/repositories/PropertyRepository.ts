@@ -15,9 +15,11 @@ import {
   PropertyOccupancyStatus,
   RoomType,
   Prisma,
+  AuditActionCategory,
+  AuditSeverity,
 } from '@prisma/client';
 import { BaseRepository } from './BaseRepository';
-import { getAppPrismaClient } from '../prisma';
+import { getAppPrismaClient, getAdminPrismaClient } from '../prisma';
 import {
   validateCoordinates,
   validateRadiusKm,
@@ -934,9 +936,12 @@ export class PropertyRepository extends BaseRepository {
         const withinRadius: Property[] = [];
         for (const candidate of candidates) {
           if (candidate.latitude && candidate.longitude) {
+            // Exclude expired Google content (Google Maps Platform Terms §3.2.4(a))
             if (candidate.googleContentExpiresAt && new Date(candidate.googleContentExpiresAt) <= new Date()) {
               continue;
             }
+
+            // Real-time ephemeral distance calculation for active search session sorting/filtering
             const distance = calculateHaversineKm(userCoords, {
               latitude: Number(candidate.latitude),
               longitude: Number(candidate.longitude),
@@ -1076,6 +1081,72 @@ export class PropertyRepository extends BaseRepository {
         where: { id: propertyId, ownerId },
         data,
       });
+    });
+  }
+
+  /**
+   * Transactionally confirms property location and persists an immutable audit log entry.
+   * Atomic consistency: property update and audit insertion succeed together or roll back.
+   */
+  async confirmLocationWithAudit(
+    propertyId: string,
+    ownerId: string,
+    data: {
+      latitude: number;
+      longitude: number;
+      distanceToCampusKm?: number | null;
+      previousSource: string;
+      requestId: string;
+      ipAddress?: string;
+      userAgent?: string;
+    }
+  ): Promise<Property> {
+    const adminClient = getAdminPrismaClient();
+    return adminClient.$transaction(async (tx) => {
+      // 1. Update property coordinates, provenance, and clear expiration
+      const updateData: Prisma.PropertyUpdateInput = {
+        latitude: new Prisma.Decimal(data.latitude),
+        longitude: new Prisma.Decimal(data.longitude),
+        coordinateSource: 'OWNER_CONFIRMED',
+        googleContentExpiresAt: null,
+      };
+      if (data.distanceToCampusKm !== undefined) {
+        updateData.distanceToCampusKm =
+          data.distanceToCampusKm !== null ? new Prisma.Decimal(data.distanceToCampusKm) : null;
+      }
+
+      const updatedProperty = await tx.property.update({
+        where: { id: propertyId, ownerId },
+        data: updateData,
+      });
+
+      // 2. Insert immutable audit event into admin_audit_logs in the exact same transaction
+      await tx.adminAuditLog.create({
+        data: {
+          actionCategory: AuditActionCategory.PROPERTY_VERIFICATION,
+          action: 'LOCATION_CONFIRMED_BY_OWNER',
+          targetEntity: 'Property',
+          targetEntityId: propertyId,
+          ipAddress: data.ipAddress || '127.0.0.1',
+          userAgent: data.userAgent || 'COLIN-OwnerApp/1.0',
+          severity: AuditSeverity.LOW,
+          detailsJson: {
+            propertyId,
+            ownerId,
+            previousSource: data.previousSource,
+            newSource: 'OWNER_CONFIRMED',
+            confirmedCoordinates: {
+              latitude: data.latitude,
+              longitude: data.longitude,
+            },
+            distanceToCampusKm: data.distanceToCampusKm ?? null,
+            confirmedAt: new Date().toISOString(),
+            requestId: data.requestId,
+          },
+        },
+      });
+
+      return updatedProperty;
     });
   }
 

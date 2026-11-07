@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>COLIN — Desktop Autocomplete Attribution</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    body { background-color: #f8fafc; color: #0f172a; padding: 40px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; min-height: 100vh; }
+    .header { width: 100%; max-width: 900px; margin-bottom: 24px; text-align: left; }
+    .header h1 { font-size: 24px; font-weight: 900; color: #0f2942; }
+    .header p { font-size: 14px; color: #64748b; margin-top: 4px; }
+    .search-container { width: 100%; max-width: 900px; position: relative; }
+    .search-bar { background: #ffffff; border: 1.5px solid #00a896; border-radius: 16px; padding: 10px 16px; display: flex; align-items: center; gap: 12px; box-shadow: 0 4px 20px -2px rgba(0, 168, 150, 0.15); }
+    .search-icon { width: 20px; height: 20px; color: #00a896; }
+    .search-input { flex: 1; border: none; outline: none; font-size: 14px; font-weight: 600; color: #0f2942; }
+    .filter-pill { background: #f1f5f9; padding: 6px 12px; border-radius: 10px; font-size: 12px; font-weight: 700; color: #0f2942; display: flex; align-items: center; gap: 6px; }
+    .dropdown { position: absolute; left: 0; right: 0; top: 100%; margin-top: 8px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; box-shadow: 0 10px 25px -5px rgba(15, 41, 66, 0.12); overflow: hidden; z-index: 50; }
+    .suggestion-item { padding: 12px 18px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #f8fafc; cursor: pointer; }
+    .suggestion-item:hover, .suggestion-item.active { background: #f0fdf4; }
+    .pin-icon { width: 18px; height: 18px; color: #00a896; flex-shrink: 0; }
+    .suggestion-title { font-size: 13px; font-weight: 700; color: #0f2942; }
+    .suggestion-sub { font-size: 11px; color: #64748b; margin-top: 2px; }
+    .attribution-footer { padding: 8px 18px; background: #f8fafc; border-top: 1px solid #f1f5f9; display: flex; align-items: center; justify-content: flex-end; gap: 6px; font-size: 11px; color: #64748b; }
+    .google-lockup { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #334155; }
+    .google-lockup svg { width: 16px; height: 16px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>COLIN Accommodation Discovery</h1>
+    <p>Search student accommodations near campus, coaching centers, or key transit hubs</p>
+  </div>
+  <div class="search-container">
+    <div class="search-bar">
+      <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <input class="search-input" type="text" value="Delhi University North Campus" readonly />
+      <div class="filter-pill">Delhi NCR</div>
+    </div>
+    <div class="dropdown">
+      <div class="suggestion-item active">
+        <svg class="pin-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+        <div>
+          <div class="suggestion-title">Delhi University North Campus (GTB Nagar / Hudson Lane)</div>
+          <div class="suggestion-sub">Hudson Lane, GTB Nagar, Delhi, Delhi - 110009</div>
+        </div>
+      </div>
+      <div class="suggestion-item">
+        <svg class="pin-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+        <div>
+          <div class="suggestion-title">Kamla Nagar Market (DU North Campus Hub)</div>
+          <div class="suggestion-sub">Kamla Nagar, North Delhi, Delhi - 110007</div>
+        </div>
+      </div>
+      <div class="suggestion-item">
+        <svg class="pin-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+        <div>
+          <div class="suggestion-title">Vijay Nagar Student Colony</div>
+          <div class="suggestion-sub">Vijay Nagar Double Storey, Delhi - 110009</div>
+        </div>
+      </div>
+      <!-- Official Google Maps Platform Attribution Footer -->
+      <div class="attribution-footer" data-testid="google-maps-attribution" role="img" aria-label="Google Maps">
+        <span>powered by</span>
+        <div class="google-lockup">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/>
+            <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.35 24 12 24z"/>
+            <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 10.04 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/>
+            <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.35 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+          </svg>
+          <span>Google <span style="font-weight: 400; color: #64748b;">Maps</span></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

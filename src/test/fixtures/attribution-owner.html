@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>COLIN — Owner Location Confirmation Modal</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    body { background-color: rgba(15, 23, 42, 0.6); color: #0f172a; padding: 40px 16px; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+    .modal { background: #ffffff; border-radius: 24px; padding: 28px; width: 100%; max-width: 600px; box-shadow: 0 20px 40px rgba(0,0,0,0.25); }
+    .modal-title { font-size: 18px; font-weight: 900; color: #0f2942; }
+    .modal-sub { font-size: 12px; color: #64748b; margin-top: 4px; margin-bottom: 18px; }
+    .map-container { height: 200px; background: #e2e8f0; border-radius: 16px; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 1.5px solid #cbd5e1; }
+    .pin-target { z-index: 10; display: flex; flex-direction: column; align-items: center; }
+    .pin-target svg { color: #f26419; width: 32px; height: 32px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3)); }
+    .pin-label { background: #0f2942; color: #ffffff; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 4px; margin-top: 4px; }
+    .coords-bar { margin-top: 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #334155; }
+    .coords-bar strong { color: #0f2942; }
+    .confirm-box { margin-top: 14px; display: flex; align-items: flex-start; gap: 8px; font-size: 12px; color: #334155; }
+    .confirm-box input { margin-top: 2px; }
+    .actions { margin-top: 20px; display: flex; justify-content: space-between; align-items: center; }
+    .btn-confirm { background: #00a896; color: #ffffff; border: none; border-radius: 12px; padding: 10px 20px; font-size: 13px; font-weight: 800; cursor: pointer; }
+    .attribution-badge { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #64748b; }
+    .google-lockup { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; color: #334155; }
+    .google-lockup svg { width: 14px; height: 14px; }
+  </style>
+</head>
+<body>
+  <div class="modal">
+    <div class="modal-title">Confirm Accommodation Location</div>
+    <div class="modal-sub">Drag pin to confirm the exact physical property location on the map</div>
+    <div class="map-container">
+      <div class="pin-target">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+        <span class="pin-label">Drag Pin to Entry Gate</span>
+      </div>
+    </div>
+    <div class="coords-bar">
+      <div>Latitude: <strong>28.694200° N</strong></div>
+      <div>Longitude: <strong>77.208500° E</strong></div>
+      <div>Provenance: <strong>Authoritative Pin</strong></div>
+    </div>
+    <div class="confirm-box">
+      <input type="checkbox" checked disabled />
+      <label>I certify under penalty of account suspension that this location accurately represents the physical accommodation building.</label>
+    </div>
+    <div class="actions">
+      <!-- Google Maps Platform Attribution -->
+      <div class="attribution-badge" data-testid="google-maps-attribution" role="img" aria-label="Google Maps">
+        <span>powered by</span>
+        <div class="google-lockup">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/>
+            <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.35 24 12 24z"/>
+            <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 10.04 0 12s.45 3.82 1.25 5.42l4.03-3.15z"/>
+            <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.35 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+          </svg>
+          <span>Google <span style="font-weight: 400; color: #64748b;">Maps</span></span>
+        </div>
+      </div>
+      <button class="btn-confirm" type="button">Confirm Location</button>
+    </div>
+  </div>
+</body>
+</html>
