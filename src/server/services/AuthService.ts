@@ -7,9 +7,15 @@
  */
 
 import { UserRoleType, UserStatus } from '@prisma/client';
-import { UserRepository, UserSessionRepository, PasswordResetRepository } from '../database/repositories';
+import {
+  UserRepository,
+  UserSessionRepository,
+  PasswordResetRepository,
+  EmailVerificationRepository,
+} from '../database/repositories';
 import { PasswordService } from '../auth/password.service';
 import { TokenService } from '../auth/token.service';
+import { emailService } from '../email';
 import { AuthenticationError, AuthorizationError } from '../middleware/authContext';
 import {
   RecordNotFoundError,
@@ -71,11 +77,13 @@ export class AuthService {
   private userRepo: UserRepository;
   private sessionRepo: UserSessionRepository;
   private resetRepo: PasswordResetRepository;
+  private verificationRepo: EmailVerificationRepository;
 
   constructor() {
     this.userRepo = new UserRepository();
     this.sessionRepo = new UserSessionRepository();
     this.resetRepo = new PasswordResetRepository();
+    this.verificationRepo = new EmailVerificationRepository();
   }
 
   /**
@@ -138,6 +146,21 @@ export class AuthService {
       sessionId: session.id,
       email: user.email,
     });
+
+    // 8. Generate email verification token & enqueue transactional email (Gate E08, E15)
+    try {
+      const rawVerificationToken = TokenService.generateOpaqueToken();
+      const verificationTokenHash = TokenService.hashToken(rawVerificationToken);
+      const verificationExpiresAt = TokenService.getEmailVerificationExpiresAt();
+
+      await this.verificationRepo.createToken(user.id, verificationTokenHash, verificationExpiresAt);
+      await emailService.sendVerificationEmail(
+        { id: user.id, email: user.email, firstName: dto.firstName },
+        rawVerificationToken
+      );
+    } catch {
+      // Transactional email failure does not abort registration flow
+    }
 
     return {
       user: this.sanitizeUser(user),
@@ -327,6 +350,16 @@ export class AuthService {
 
     // Invalidate all active sessions to force re-authentication
     await this.sessionRepo.revokeAllUserSessions(userId);
+
+    // Dispatch password changed notification (Gate E17)
+    try {
+      await emailService.sendPasswordChangedEmail(
+        { id: user.id, email: user.email, firstName: (user as any).profile?.firstName || 'User' },
+        { changedAt: new Date() }
+      );
+    } catch {
+      // Non-blocking notification dispatch
+    }
   }
 
   /**
@@ -345,6 +378,16 @@ export class AuthService {
       const expiresAt = TokenService.getPasswordResetExpiresAt();
 
       await this.resetRepo.createToken(user.id, tokenHash, expiresAt);
+
+      // Enqueue transactional password reset email (Gate E08, E16)
+      try {
+        await emailService.sendPasswordResetEmail(
+          { id: user.id, email: user.email, firstName: (user as any).profile?.firstName || 'User' },
+          rawToken
+        );
+      } catch {
+        // Non-blocking outbox enqueue error
+      }
 
       // In non-production environments, expose token for testing convenience
       if (process.env.NODE_ENV !== 'production') {
@@ -380,22 +423,43 @@ export class AuthService {
 
     // Invalidate all sessions to ensure clean state
     await this.sessionRepo.revokeAllUserSessions(resetRecord.userId);
+
+    // Dispatch password changed notification (Gate E17)
+    try {
+      await emailService.sendPasswordChangedEmail(
+        {
+          id: resetRecord.user.id,
+          email: resetRecord.user.email,
+          firstName: (resetRecord.user as any).profile?.firstName || 'User',
+        },
+        { changedAt: new Date() }
+      );
+    } catch {
+      // Non-blocking notification dispatch
+    }
   }
 
   /**
    * Verifies user email address.
    */
-  public async verifyEmail(token: string, userId?: string): Promise<void> {
-    if (!token && !userId) {
-      throw new ValidationConstraintError('Verification token or authenticated user session is required.');
+  public async verifyEmail(token?: string, userId?: string): Promise<void> {
+    if (token) {
+      const tokenHash = TokenService.hashToken(token);
+      const verificationRecord = await this.verificationRepo.findValidToken(tokenHash);
+      if (!verificationRecord) {
+        throw new AuthenticationError('Email verification token is invalid, expired, or has already been used.');
+      }
+      await this.verificationRepo.markUsed(verificationRecord.id);
+      await this.userRepo.updateEmailVerified(verificationRecord.userId, true);
+      return;
     }
 
-    const targetUserId = userId;
-    if (!targetUserId) {
-      throw new AuthenticationError('Valid verification token required.');
+    if (userId) {
+      await this.userRepo.updateEmailVerified(userId, true);
+      return;
     }
 
-    await this.userRepo.updateEmailVerified(targetUserId, true);
+    throw new ValidationConstraintError('Verification token or authenticated user session is required.');
   }
 
   /**
@@ -410,6 +474,17 @@ export class AuthService {
     if (user.isEmailVerified) {
       return { message: 'Email address is already verified.' };
     }
+
+    // Generate new verification token and dispatch email (Gate E15)
+    const rawVerificationToken = TokenService.generateOpaqueToken();
+    const verificationTokenHash = TokenService.hashToken(rawVerificationToken);
+    const verificationExpiresAt = TokenService.getEmailVerificationExpiresAt();
+
+    await this.verificationRepo.createToken(user.id, verificationTokenHash, verificationExpiresAt);
+    await emailService.sendVerificationEmail(
+      { id: user.id, email: user.email, firstName: (user as any).profile?.firstName || 'Student' },
+      rawVerificationToken
+    );
 
     return { message: 'Verification link dispatched to your registered email address.' };
   }

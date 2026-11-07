@@ -2,6 +2,7 @@ export * from './BaseRepository';
 export * from './UserRepository';
 export * from './UserSessionRepository';
 export * from './PasswordResetRepository';
+export * from './EmailVerificationRepository';
 export * from './PropertyRepository';
 export * from './StudentRepository';
 export * from './OwnerRepository';

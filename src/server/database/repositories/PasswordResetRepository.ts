@@ -43,7 +43,10 @@ export class PasswordResetRepository extends BaseRepository {
   /**
    * Finds an active, unexpired, and unused password reset token by its SHA-256 hash.
    */
-  async findValidToken(tokenHash: string, tx?: Prisma.TransactionClient): Promise<PasswordResetToken | null> {
+  async findValidToken(
+    tokenHash: string,
+    tx?: Prisma.TransactionClient
+  ): Promise<(PasswordResetToken & { user: import('@prisma/client').User & { profile?: import('@prisma/client').UserProfile | null } }) | null> {
     return this.execute(async () => {
       const client = this.getClient(tx);
       return client.passwordResetToken.findFirst({
@@ -53,7 +56,11 @@ export class PasswordResetRepository extends BaseRepository {
           expiresAt: { gt: new Date() },
         },
         include: {
-          user: true,
+          user: {
+            include: {
+              profile: true,
+            },
+          },
         },
       });
     });

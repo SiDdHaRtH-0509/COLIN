@@ -97,4 +97,13 @@ export class TokenService {
     expiresAt.setHours(expiresAt.getHours() + 1);
     return expiresAt;
   }
+
+  /**
+   * Computes email verification token expiration (24 hours from generation).
+   */
+  public static getEmailVerificationExpiresAt(): Date {
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 24);
+    return expiresAt;
+  }
 }

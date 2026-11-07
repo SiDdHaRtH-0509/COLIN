@@ -14,6 +14,7 @@ import publicPropertyRoutes from './routes/public.property.routes';
 import adminPropertyRoutes from './routes/admin.property.routes';
 import storageRoutes from './routes/storage.routes';
 import locationRoutes from './routes/location.routes';
+import webhookRoutes from './routes/webhook.routes';
 
 const v1Router = Router();
 
@@ -27,5 +28,6 @@ v1Router.use('/properties', publicPropertyRoutes);
 v1Router.use('/admin/properties', adminPropertyRoutes);
 v1Router.use('/storage', storageRoutes);
 v1Router.use('/location', locationRoutes);
+v1Router.use('/webhooks', webhookRoutes);
 
 export default v1Router;

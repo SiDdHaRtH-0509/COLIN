@@ -25,6 +25,7 @@ export interface ServerConfig {
   geolocationProvider: 'mock' | 'google';
   googleMapsServerKey?: string;
   googleMapsBrowserKey?: string;
+  emailProvider: 'mock' | 'sendgrid' | 'postmark';
 }
 
 export function getServerConfig(): ServerConfig {
@@ -114,5 +115,6 @@ export function getServerConfig(): ServerConfig {
     geolocationProvider,
     googleMapsServerKey,
     googleMapsBrowserKey,
+    emailProvider: (process.env.EMAIL_PROVIDER || 'mock').toLowerCase() as 'mock' | 'sendgrid' | 'postmark',
   };
 }
