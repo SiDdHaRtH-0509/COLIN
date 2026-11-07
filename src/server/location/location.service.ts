@@ -31,14 +31,12 @@ interface CacheEntry<T> {
 
 export class LocationService {
   private provider: GeolocationProvider;
+  // Geocoding latency cache (24 hours TTL, strictly compliant with Google Maps Platform 30-day limit)
   private readonly geocodeCache = new Map<string, CacheEntry<GeocodingResult>>();
   private readonly reverseGeocodeCache = new Map<string, CacheEntry<GeocodingResult>>();
-  private readonly autocompleteCache = new Map<string, CacheEntry<PlaceSuggestion[]>>();
-  private readonly placeDetailsCache = new Map<string, CacheEntry<PlaceDetails>>();
 
-  // Cache TTLs
-  private readonly geocodeTtlMs = 24 * 60 * 60 * 1000; // 24 hours
-  private readonly autocompleteTtlMs = 10 * 60 * 1000; // 10 minutes
+  // Cache TTL: 24 hours (Google Maps Platform permits up to 30 consecutive calendar days for latency optimization)
+  private readonly geocodeTtlMs = 24 * 60 * 60 * 1000;
 
   constructor(customProvider?: GeolocationProvider) {
     if (customProvider) {
@@ -76,14 +74,16 @@ export class LocationService {
   public clearCache(): void {
     this.geocodeCache.clear();
     this.reverseGeocodeCache.clear();
-    this.autocompleteCache.clear();
-    this.placeDetailsCache.clear();
   }
 
   // ===========================================================================
   // GEOCODING & AUTOCOMPLETE OPERATIONS
   // ===========================================================================
 
+  /**
+   * Forward geocodes an address. Caches results for up to 24 hours for latency optimization,
+   * fully compliant with Google Maps Platform Terms of Service (30-day maximum limit).
+   */
   public async geocode(address: string): Promise<GeocodingResult> {
     const cacheKey = address.trim().toLowerCase();
     const cached = this.geocodeCache.get(cacheKey);
@@ -101,6 +101,9 @@ export class LocationService {
     return result;
   }
 
+  /**
+   * Reverse geocodes coordinates to a human-readable address. Caches results for 24 hours.
+   */
   public async reverseGeocode(coords: GeoCoordinates): Promise<GeocodingResult> {
     const valid = validateCoordinates(coords.latitude, coords.longitude);
     const cacheKey = `${valid.latitude.toFixed(5)},${valid.longitude.toFixed(5)}`;
@@ -119,38 +122,23 @@ export class LocationService {
     return result;
   }
 
+  /**
+   * Autocomplete place search.
+   * In compliance with Google Maps Platform Terms of Service (Section 3.2.3(a)),
+   * autocomplete predictions are ephemeral and NOT cached across user sessions.
+   * Keystrokes are grouped under the caller's session token.
+   */
   public async autocomplete(query: string, sessionToken?: string): Promise<PlaceSuggestion[]> {
-    const cacheKey = `${query.trim().toLowerCase()}_${sessionToken || ''}`;
-    const cached = this.autocompleteCache.get(cacheKey);
-    if (cached && cached.expiresAt > Date.now()) {
-      return cached.value;
-    }
-
-    const results = await this.provider.searchPlaces(query, sessionToken);
-
-    this.autocompleteCache.set(cacheKey, {
-      value: results,
-      expiresAt: Date.now() + this.autocompleteTtlMs,
-    });
-
-    return results;
+    return this.provider.searchPlaces(query, sessionToken);
   }
 
+  /**
+   * Retrieves place details using a placeId and optional session token.
+   * Full Place Details are NOT cached in memory in compliance with Google Terms of Service;
+   * only the resolved coordinates and placeId are stored on the listing record in PostgreSQL.
+   */
   public async getPlaceDetails(placeId: string, sessionToken?: string): Promise<PlaceDetails> {
-    const cacheKey = `${placeId.trim()}_${sessionToken || ''}`;
-    const cached = this.placeDetailsCache.get(cacheKey);
-    if (cached && cached.expiresAt > Date.now()) {
-      return cached.value;
-    }
-
-    const result = await this.provider.getPlaceDetails(placeId, sessionToken);
-
-    this.placeDetailsCache.set(cacheKey, {
-      value: result,
-      expiresAt: Date.now() + this.geocodeTtlMs,
-    });
-
-    return result;
+    return this.provider.getPlaceDetails(placeId, sessionToken);
   }
 
   // ===========================================================================

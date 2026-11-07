@@ -221,6 +221,8 @@ The platform is continuously verified across **504 unique tests** (100% pass rat
 
 Full architectural documentation and milestone progress reports are available in the [`docs/`](docs/) directory:
 * [Phase 4A.2.5.2 Google Maps & Geolocation Report](docs/reports/PHASE_4A_2_5_2_GOOGLE_MAPS_GEOLOCATION_REPORT.md)
+* [Phase 4A.2.5.2 Google Maps Policy & Caching Compliance](docs/reports/PHASE_4A_2_5_2_GOOGLE_MAPS_POLICY_COMPLIANCE.md)
+* [Phase 4A.2.5.2 PostgreSQL Geospatial Performance & Index Selectivity](docs/reports/PHASE_4A_2_5_2_POSTGRESQL_GEOSPATIAL_PERFORMANCE.md)
 * [Phase 4A.2.5.2.0 Geolocation Architecture Audit](docs/reports/PHASE_4A_2_5_2_0_GEOLOCATION_ARCHITECTURE_AUDIT.md)
 * [Phase 4A.2.5.1 Cloud Image Storage Infrastructure Report](docs/reports/PHASE_4A_2_5_1_CLOUD_IMAGE_STORAGE_REPORT.md)
 * [Phase 4A.2.5.1 Cloud Storage Implementation Plan](docs/reports/PHASE_4A_2_5_1_0_STORAGE_IMPLEMENTATION_PLAN.md)

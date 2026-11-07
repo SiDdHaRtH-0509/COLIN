@@ -91,6 +91,14 @@ Where $R = 6371\text{ km}$.
 - Verified distance $d$ (rounded to two decimal places) is attached to each property record as `distanceKm`.
 - When `sortBy=distance`, listings are sorted ascending by proximity.
 
+### 4.3 Benchmark & Performance Invariants
+Comprehensive `EXPLAIN (ANALYZE, BUFFERS)` benchmarks on live PostgreSQL 18.4 demonstrate outstanding sub-millisecond to low-millisecond query performance across synthetic datasets scaled up to 50,000 properties:
+- **1,000 properties**: Execution time **0.291 ms** (19 shared hit buffer blocks, 98.5% index selectivity)
+- **10,000 properties**: Execution time **1.093 ms** (147 shared hit buffer blocks, 98.28% index selectivity)
+- **50,000 properties**: Execution time **4.369 ms** (697 shared hit buffer blocks, 98.30% index selectivity)
+
+PostgreSQL's cost optimizer automatically performs a `Bitmap Index Scan` on `properties_latitude_longitude_idx`, pruning ~98.3% of non-matching listings before evaluating the circular Haversine distance, with zero disk reads. Detailed execution plans and buffer statistics are documented in [`docs/reports/PHASE_4A_2_5_2_POSTGRESQL_GEOSPATIAL_PERFORMANCE.md`](file:///c:/Users/clsid/COLIN/docs/reports/PHASE_4A_2_5_2_POSTGRESQL_GEOSPATIAL_PERFORMANCE.md).
+
 ---
 
 ## 5. Location Endpoints & Public Discovery Contract
@@ -145,25 +153,36 @@ Where $R = 6371\text{ km}$.
 
 ## 6. Automated Testing & Verification Results
 
-All 12 test suites comprising **504 platform automated tests** executed with zero failures and zero skipped tests:
+### 6.1 Platform Test Execution & Reconciliation Matrix
 
-| Test Suite | Command | Tests | Status |
-| :--- | :--- | :---: | :---: |
-| **Location Unit Suite** | `pnpm run test:location:unit` | 32 | **PASS** |
-| **Geospatial Search Integration** | `pnpm run test:location:integration` | 12 | **PASS** |
-| **Storage Unit Pipeline** | `pnpm run test:storage:unit` | 26 | **PASS** |
-| **Storage Integration** | `pnpm run test:storage:integration` | 7 | **PASS** |
-| **Marketplace Business Integration** | `pnpm run test:marketplace:integration` | 25 | **PASS** |
-| **Marketplace Adversarial Suite** | `pnpm run test:marketplace:adversarial` | 15 | **PASS** |
-| **Auth Integration Suite** | `pnpm run test:auth:integration` | 24 | **PASS** |
-| **Auth Adversarial Suite** | `pnpm run test:auth:adversarial` | 17 | **PASS** |
-| **Backend Core API Integration** | `pnpm run test:api:integration` | 34 | **PASS** |
-| **Backend ORM Integration** | `pnpm run test:orm:integration` | 43 | **PASS** |
-| **PostgreSQL 18.4 Engine Invariants** | `pnpm run test:db:integration` | 78 | **PASS** |
-| **Platform Unit & Regression Suite** | `pnpm run test:unit` | 249 | **PASS** |
-| **Total Platform Tests** | **All 12 Suites** | **504** | **PASS (100%)** |
+The COLIN test harness includes **26 unique test files** containing exactly **504 unique automated tests**.
+When executed through the 12 specialized npm lifecycle domain scripts, a total of **562 test executions** occur. The difference of 58 executions is fully accounted for by unit-level domain tests (`test:storage:unit` and `test:location:unit`) being intentionally executed in both their dedicated sub-phase targets and the general `test:unit` umbrella suite.
 
-### Build & Type Verification
+Executing all 26 test files simultaneously in Vitest confirms **504 / 504 Passing (100%)**:
+
+| Test Suite / Command | Command Executed | Test Files Included | Executions | Unique Tests | Status |
+| :--- | :--- | :--- | :---: | :---: | :---: |
+| **Location Unit Suite** | `pnpm run test:location:unit` | `geospatial-math.test.ts`, `location-provider.test.ts` | 32 | *(in test:unit)* | **PASS** |
+| **Geospatial Search Integration** | `pnpm run test:location:integration` | `geospatial-search.integration.test.ts` | 12 | 12 | **PASS** |
+| **Storage Unit Pipeline** | `pnpm run test:storage:unit` | `image-pipeline.test.ts`, `storage-provider.test.ts` | 26 | *(in test:unit)* | **PASS** |
+| **Storage Integration** | `pnpm run test:storage:integration` | `property-photos.integration.test.ts` | 7 | 7 | **PASS** |
+| **Marketplace Business Integration** | `pnpm run test:marketplace:integration` | `marketplace.integration.test.ts` | 25 | 25 | **PASS** |
+| **Marketplace Adversarial Suite** | `pnpm run test:marketplace:adversarial` | `marketplace.adversarial.test.ts` | 15 | 15 | **PASS** |
+| **Auth Integration Suite** | `pnpm run test:auth:integration` | `auth.integration.test.ts` | 24 | 24 | **PASS** |
+| **Auth Adversarial Suite** | `pnpm run test:auth:adversarial` | `auth.adversarial.test.ts` | 17 | 17 | **PASS** |
+| **Backend Core API Integration** | `pnpm run test:api:integration` | `api.integration.test.ts` | 34 | 34 | **PASS** |
+| **Backend ORM Integration** | `pnpm run test:orm:integration` | `orm.integration.test.ts` | 43 | 43 | **PASS** |
+| **PostgreSQL 18.4 Engine Invariants** | `pnpm run test:db:integration` | `db.integration.test.ts` | 78 | 78 | **PASS** |
+| **Platform Unit & Regression Suite** | `pnpm run test:unit` | 17 unit files (including storage & location unit) | 249 | 249 | **PASS** |
+| **Total Test Executions Across Commands** | **Sum of 12 Command Invocations** | — | **562** | — | **PASS** |
+| **Total Unique Platform Tests** | `npx vitest run` (All 26 files) | **26 unique test files** | — | **504** | **PASS (100%)** |
+
+### 6.2 Test Accounting Reconciliation Proof
+$$\text{Total Command Executions} = 32 + 12 + 26 + 7 + 25 + 15 + 24 + 17 + 34 + 43 + 78 + 249 = 562$$
+$$\text{Overlapping Unit Tests} = 26 \text{ (storage unit)} + 32 \text{ (location unit)} = 58$$
+$$\text{Unique Platform Tests} = 562 - 58 = 504$$
+
+### 6.3 Build & Type Verification
 - Strict Type-Check: `npx tsc --noEmit` exited **0** (zero TypeScript errors).
 - Production Bundle: `pnpm run build` (`tsc && vite build`) built cleanly in **9.78s** (2,002 modules transformed).
 

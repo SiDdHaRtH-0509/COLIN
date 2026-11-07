@@ -103,13 +103,13 @@ describe('COLIN Geolocation Provider Unit Suite', () => {
       expect(result2).toEqual(result1);
     });
 
-    it('caches autocomplete results and avoids re-querying provider for duplicate inputs', async () => {
-      const query = 'Christ';
-      const res1 = await locationService.autocomplete(query, 'session-123');
+    it('caches reverse geocoding results and returns cached entry on subsequent calls', async () => {
+      const coords = { latitude: 28.6942, longitude: 77.2085 };
+      const res1 = await locationService.reverseGeocode(coords);
 
       mockProvider.setSimulatedError(new Error('Provider was called unexpectedly!'));
 
-      const res2 = await locationService.autocomplete(query, 'session-123');
+      const res2 = await locationService.reverseGeocode(coords);
       expect(res2).toEqual(res1);
     });
   });
