@@ -32,7 +32,7 @@ describe('COLIN Transactional Email - Webhooks & Delivery Events Suite', () => {
   });
 
   beforeEach(async () => {
-    await prisma.emailDeliveryEvent.deleteMany({});
+    // emailDeliveryEvent is append-only audit infrastructure
     await prisma.emailOutbox.deleteMany({});
     await prisma.emailSuppression.deleteMany({});
   });
@@ -211,5 +211,39 @@ describe('COLIN Transactional Email - Webhooks & Delivery Events Suite', () => {
     // Recipient must be in suppression list
     const isSuppressed = await emailOutboxService.isRecipientSuppressed(bounceEmail);
     expect(isSuppressed).toBe(true);
+  });
+
+  // Immutability & Append-Only Verification
+  it('[Immutability Enforcement] strictly enforces append-only immutability on email_delivery_events prohibiting UPDATE and DELETE', async () => {
+    const evtId = `immutability_test_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const event = await prisma.emailDeliveryEvent.create({
+      data: {
+        provider: 'sendgrid',
+        providerEventId: evtId,
+        eventType: EmailDeliveryEventType.DELIVERED,
+        eventTimestamp: new Date(),
+        recipient: 'audit@colin.test',
+      },
+    });
+    expect(event.id).toBeDefined();
+
+    // 1. UPDATE must fail at database level
+    await expect(
+      prisma.$executeRawUnsafe(
+        `UPDATE email_delivery_events SET recipient = 'tampered@evil.test' WHERE id = '${event.id}'::uuid;`
+      )
+    ).rejects.toThrow(/(?:permission denied for table email_delivery_events|Audit Log Immutability Violation)/);
+
+    // 2. DELETE must fail at database level
+    await expect(
+      prisma.$executeRawUnsafe(
+        `DELETE FROM email_delivery_events WHERE id = '${event.id}'::uuid;`
+      )
+    ).rejects.toThrow(/(?:permission denied for table email_delivery_events|Audit Log Immutability Violation)/);
+
+    // 3. Record remains unmodified
+    const persisted = await prisma.emailDeliveryEvent.findUnique({ where: { id: event.id } });
+    expect(persisted).toBeDefined();
+    expect(persisted!.recipient).toBe('audit@colin.test');
   });
 });

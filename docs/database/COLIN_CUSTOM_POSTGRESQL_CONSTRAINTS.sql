@@ -873,10 +873,13 @@ TO colin_admin_runtime;
 -- Append-Only Audit Logging (Both roles have only SELECT, INSERT)
 GRANT SELECT, INSERT ON admin_audit_logs, property_verification_audits TO colin_admin_runtime;
 GRANT SELECT, INSERT ON booking_status_histories, visit_assignment_histories TO colin_app_runtime, colin_admin_runtime;
+GRANT SELECT, INSERT ON email_delivery_events TO colin_app_runtime, colin_admin_runtime;
+GRANT UPDATE (email_outbox_id) ON email_delivery_events TO colin_app_runtime, colin_admin_runtime;
 
 REVOKE UPDATE, DELETE, TRUNCATE ON 
   admin_audit_logs, property_verification_audits, booking_status_histories, visit_assignment_histories 
 FROM colin_app_runtime, colin_admin_runtime;
+REVOKE DELETE, TRUNCATE ON email_delivery_events FROM colin_app_runtime, colin_admin_runtime;
 
 -- Financial Ledger Restrictions (Both roles have only SELECT, INSERT on entries; no DELETE or TRUNCATE)
 GRANT SELECT, INSERT ON ledger_entries, ledger_transactions TO colin_app_runtime, colin_admin_runtime;
@@ -927,6 +930,11 @@ CREATE TRIGGER trg_prevent_truncate_ledger_transactions
 BEFORE TRUNCATE ON ledger_transactions
 FOR EACH STATEMENT EXECUTE FUNCTION prevent_table_truncate();
 
+DROP TRIGGER IF EXISTS trg_prevent_truncate_email_delivery_events ON email_delivery_events;
+CREATE TRIGGER trg_prevent_truncate_email_delivery_events
+BEFORE TRUNCATE ON email_delivery_events
+FOR EACH STATEMENT EXECUTE FUNCTION prevent_table_truncate();
+
 -- Row-Level Immutability Triggers for Append-Only Audit & History Tables
 CREATE OR REPLACE FUNCTION prevent_audit_log_mutation()
 RETURNS TRIGGER AS $$
@@ -955,3 +963,30 @@ DROP TRIGGER IF EXISTS trg_prevent_mutation_visit_assignment_histories ON visit_
 CREATE TRIGGER trg_prevent_mutation_visit_assignment_histories
 BEFORE UPDATE OR DELETE ON visit_assignment_histories
 FOR EACH ROW EXECUTE FUNCTION prevent_audit_log_mutation();
+
+CREATE OR REPLACE FUNCTION prevent_delivery_event_mutation()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    RAISE EXCEPTION 'Audit Log Immutability Violation: Records in table email_delivery_events are append-only audit infrastructure and cannot be deleted.';
+  END IF;
+
+  IF TG_OP = 'UPDATE' THEN
+    IF OLD.provider != NEW.provider 
+       OR OLD.provider_event_id != NEW.provider_event_id
+       OR OLD.provider_message_id IS DISTINCT FROM NEW.provider_message_id
+       OR OLD.event_type != NEW.event_type
+       OR OLD.recipient IS DISTINCT FROM NEW.recipient
+       OR OLD.metadata_json::text IS DISTINCT FROM NEW.metadata_json::text THEN
+      RAISE EXCEPTION 'Audit Log Immutability Violation: Records in table email_delivery_events are append-only audit infrastructure and cannot be updated.';
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_prevent_mutation_email_delivery_events ON email_delivery_events;
+CREATE TRIGGER trg_prevent_mutation_email_delivery_events
+BEFORE UPDATE OR DELETE ON email_delivery_events
+FOR EACH ROW EXECUTE FUNCTION prevent_delivery_event_mutation();

@@ -8,12 +8,25 @@
 
 import crypto from 'crypto';
 
-function getEncryptionKey(): Buffer {
-  const secret =
-    process.env.EMAIL_ENCRYPTION_KEY ||
-    process.env.JWT_SECRET ||
-    'colin-super-secure-production-ready-jwt-secret-key-32chars!';
+function getPrimaryEncryptionKey(): Buffer {
+  const secret = process.env.EMAIL_ENCRYPTION_KEY || process.env.JWT_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        'SECURITY VIOLATION: EMAIL_ENCRYPTION_KEY or JWT_SECRET must be configured in production for AES-256-GCM outbox encryption.'
+      );
+    }
+    return crypto.createHash('sha256').update('colin-super-secure-production-ready-jwt-secret-key-32chars!').digest();
+  }
   return crypto.createHash('sha256').update(secret).digest();
+}
+
+function getFallbackEncryptionKey(): Buffer | null {
+  const fallbackSecret = process.env.EMAIL_ENCRYPTION_KEY_FALLBACK;
+  if (!fallbackSecret) {
+    return null;
+  }
+  return crypto.createHash('sha256').update(fallbackSecret).digest();
 }
 
 /**
@@ -25,7 +38,7 @@ export function encryptActionToken(rawToken: string): string {
     throw new Error('Raw token is required for encryption.');
   }
   const iv = crypto.randomBytes(16);
-  const cipher = crypto.createCipheriv('aes-256-gcm', getEncryptionKey(), iv);
+  const cipher = crypto.createCipheriv('aes-256-gcm', getPrimaryEncryptionKey(), iv);
   let encrypted = cipher.update(rawToken, 'utf8', 'hex');
   encrypted += cipher.final('hex');
   const tag = cipher.getAuthTag();
@@ -34,6 +47,7 @@ export function encryptActionToken(rawToken: string): string {
 
 /**
  * Decrypts an encrypted token inside the email worker immediately prior to sending.
+ * Supports dual-key fallback for zero-downtime key rotation.
  */
 export function decryptActionToken(encryptedStr: string): string {
   if (!encryptedStr || typeof encryptedStr !== 'string') {
@@ -47,11 +61,29 @@ export function decryptActionToken(encryptedStr: string): string {
   const iv = Buffer.from(ivHex, 'hex');
   const tag = Buffer.from(tagHex, 'hex');
 
-  const decipher = crypto.createDecipheriv('aes-256-gcm', getEncryptionKey(), iv);
-  decipher.setAuthTag(tag);
-  let decrypted = decipher.update(encryptedHex, 'hex', 'utf8');
-  decrypted += decipher.final('utf8');
-  return decrypted;
+  // 1. Attempt decryption with active primary key
+  try {
+    const decipher = crypto.createDecipheriv('aes-256-gcm', getPrimaryEncryptionKey(), iv);
+    decipher.setAuthTag(tag);
+    let decrypted = decipher.update(encryptedHex, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+  } catch (primaryErr) {
+    // 2. Attempt fallback decryption during active key rotation
+    const fallbackKey = getFallbackEncryptionKey();
+    if (fallbackKey) {
+      try {
+        const fallbackDecipher = crypto.createDecipheriv('aes-256-gcm', fallbackKey, iv);
+        fallbackDecipher.setAuthTag(tag);
+        let decrypted = fallbackDecipher.update(encryptedHex, 'hex', 'utf8');
+        decrypted += fallbackDecipher.final('utf8');
+        return decrypted;
+      } catch {
+        // Fall through to throw original error
+      }
+    }
+    throw primaryErr;
+  }
 }
 
 /**

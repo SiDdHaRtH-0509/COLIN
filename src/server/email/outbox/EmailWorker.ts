@@ -47,15 +47,9 @@ export class EmailWorker {
   public async claimBatch(batchSize = 20): Promise<EmailOutbox[]> {
     const prisma = getAppPrismaClient();
 
-    // Raw query guarantees atomic row-level locking with SKIP LOCKED across concurrent worker instances
+    // CTE guarantees exact batch materialization and atomic row-level locking with SKIP LOCKED
     const claimedRows = await prisma.$queryRaw<{ id: string }[]>`
-      UPDATE email_outbox
-      SET 
-        status = 'PROCESSING'::"EmailOutboxStatus",
-        last_attempt_at = NOW(),
-        attempts = attempts + 1,
-        updated_at = NOW()
-      WHERE id IN (
+      WITH batch AS (
         SELECT id FROM email_outbox
         WHERE (status IN ('PENDING'::"EmailOutboxStatus", 'DEFERRED'::"EmailOutboxStatus") AND next_attempt_at <= NOW())
            OR (status = 'PROCESSING'::"EmailOutboxStatus" AND last_attempt_at < NOW() - (${this.staleTimeoutMinutes} * INTERVAL '1 minute'))
@@ -63,7 +57,15 @@ export class EmailWorker {
         LIMIT ${batchSize}
         FOR UPDATE SKIP LOCKED
       )
-      RETURNING id;
+      UPDATE email_outbox o
+      SET 
+        status = 'PROCESSING'::"EmailOutboxStatus",
+        last_attempt_at = NOW(),
+        attempts = attempts + 1,
+        updated_at = NOW()
+      FROM batch
+      WHERE o.id = batch.id
+      RETURNING o.id;
     `;
 
     if (!claimedRows || claimedRows.length === 0) {

@@ -15,6 +15,7 @@ import {
   EmailRetryPolicy,
   MockEmailProvider,
   encryptActionToken,
+  decryptActionToken,
   sanitizeForLogging,
   EmailEventType,
   EmailOutboxStatus,
@@ -31,8 +32,7 @@ describe('COLIN Email Outbox & Worker Integration Suite', () => {
   beforeEach(async () => {
     mockProvider = new MockEmailProvider();
     mockProvider.clear();
-    // Clean up test email outbox records
-    await prisma.emailDeliveryEvent.deleteMany({});
+    // Clean up test email outbox records (emailDeliveryEvent is immutable append-only)
     await prisma.emailOutbox.deleteMany({});
     await prisma.emailSuppression.deleteMany({});
   });
@@ -322,6 +322,34 @@ describe('COLIN Email Outbox & Worker Integration Suite', () => {
     expect(sent!.htmlBody).toContain(rawResetToken);
   });
 
+  // Zero-Downtime Key Rotation Verification
+  it('[Key Management & Rotation] supports dual-key fallback for zero-downtime key rotation', () => {
+    const oldKey = 'colin-old-master-secret-key-32chars!';
+    const newKey = 'colin-new-master-secret-key-32chars!';
+
+    // Encrypt token with old key
+    process.env.EMAIL_ENCRYPTION_KEY = oldKey;
+    delete process.env.EMAIL_ENCRYPTION_KEY_FALLBACK;
+    const token = 'rotation_test_token_12345';
+    const encryptedWithOld = encryptActionToken(token);
+
+    // Simulate key rotation: newKey is primary, oldKey is fallback
+    process.env.EMAIL_ENCRYPTION_KEY = newKey;
+    process.env.EMAIL_ENCRYPTION_KEY_FALLBACK = oldKey;
+
+    // Decryption of old token succeeds via fallback key
+    const decryptedOld = decryptActionToken(encryptedWithOld);
+    expect(decryptedOld).toBe(token);
+
+    // New token encrypted with newKey also decrypts successfully with primary
+    const encryptedWithNew = encryptActionToken('new_token_abc');
+    const decryptedNew = decryptActionToken(encryptedWithNew);
+    expect(decryptedNew).toBe('new_token_abc');
+
+    // Clean up env
+    delete process.env.EMAIL_ENCRYPTION_KEY_FALLBACK;
+  });
+
   // Gate E19: Raw tokens never appear in logs
   it('[Gate E19] redacts sensitive tokens, passwords, and authorization credentials from logs', () => {
     const sensitiveLogObject = {
@@ -379,5 +407,54 @@ describe('COLIN Email Outbox & Worker Integration Suite', () => {
     const worker = new EmailWorker({ provider: mockProvider });
     const claimed = await worker.claimBatch(10);
     expect(claimed.some((c) => c.id === record.id)).toBe(false);
+  });
+
+  // Worker Crash & Recovery Resiliency Verification
+  it('[Worker Crash & Recovery] safely recovers records when a worker crashes mid-flight without completing delivery', async () => {
+    // 1. Enqueue outbox item
+    const record = await emailOutboxService.enqueueEmail({
+      eventType: EmailEventType.VERIFICATION_EMAIL,
+      recipient: 'crash_recovery@colin.test',
+      subject: 'Crash Resilience Verification',
+      templateAlias: 'verification',
+      templateData: { firstName: 'Resilient' },
+    });
+
+    // 2. Worker 1 claims the record
+    const worker1 = new EmailWorker({ provider: mockProvider, staleTimeoutMinutes: 5 });
+    const claimed1 = await worker1.claimBatch(10);
+    const myClaimed1 = claimed1.find((c) => c.id === record.id);
+    expect(myClaimed1).toBeDefined();
+    expect(myClaimed1!.status).toBe(EmailOutboxStatus.PROCESSING);
+    expect(myClaimed1!.attempts).toBe(1);
+
+    // 3. Worker 1 crashes (simulated by leaving record in PROCESSING without completing processRecord)
+    const midFlight = await prisma.emailOutbox.findUnique({ where: { id: record.id } });
+    expect(midFlight!.status).toBe(EmailOutboxStatus.PROCESSING);
+
+    // Immediate attempt to claim by Worker 2 before stale timeout should NOT pick it up
+    const worker2 = new EmailWorker({ provider: mockProvider, staleTimeoutMinutes: 5 });
+    const prematureClaim = await worker2.claimBatch(10);
+    expect(prematureClaim.some((c) => c.id === record.id)).toBe(false);
+
+    // 4. Time advances past stale timeout (simulated by updating last_attempt_at to 6 minutes ago)
+    await prisma.$executeRawUnsafe(
+      `UPDATE email_outbox SET last_attempt_at = NOW() - INTERVAL '6 minutes' WHERE id = '${record.id}'::uuid;`
+    );
+
+    // 5. Worker 2 claims stale record, processes it, and successfully delivers it
+    const recoveredBatch = await worker2.claimBatch(10);
+    const recoveredRecord = recoveredBatch.find((c) => c.id === record.id);
+    expect(recoveredRecord).toBeDefined();
+    expect(recoveredRecord!.status).toBe(EmailOutboxStatus.PROCESSING);
+    expect(recoveredRecord!.attempts).toBe(2);
+
+    const ok = await worker2.processRecord(recoveredRecord!);
+    expect(ok).toBe(true);
+
+    // 6. Record successfully transitions to ACCEPTED
+    const finalRecord = await prisma.emailOutbox.findUnique({ where: { id: record.id } });
+    expect(finalRecord!.status).toBe(EmailOutboxStatus.ACCEPTED);
+    expect(mockProvider.getSentMessages().some((m) => m.to === 'crash_recovery@colin.test')).toBe(true);
   });
 });
