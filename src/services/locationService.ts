@@ -254,6 +254,22 @@ export async function reverseGeocodeCoords(coords: Coordinates): Promise<Fronten
 }
 
 /**
+ * Creates a unique session token (UUID v4) for Google Places Autocomplete grouping.
+ * Follows Google Maps Platform Terms of Service: session begins on first keystroke
+ * and concludes upon Place Details selection. Abandoned sessions are discarded.
+ */
+export function createAutocompleteSessionToken(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+/**
  * Fetches curated list of student hubs, colleges, and coaching areas.
  */
 export async function fetchCampuses(): Promise<any[]> {

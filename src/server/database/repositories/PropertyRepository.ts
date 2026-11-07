@@ -73,6 +73,9 @@ export interface CreatePropertyInput {
   totalRooms?: number;
   totalBeds?: number;
   availableBeds?: number;
+  placeId?: string;
+  coordinateSource?: string;
+  googleContentExpiresAt?: Date | null;
   amenities?: Array<{ amenityCode: string; name: string }>;
   rules?: Array<{ ruleText: string; displayOrder?: number }>;
   initialRoom?: {
@@ -102,6 +105,9 @@ export interface UpdatePropertyInput {
   totalRooms?: number;
   totalBeds?: number;
   availableBeds?: number;
+  placeId?: string;
+  coordinateSource?: string;
+  googleContentExpiresAt?: Date | null;
   amenities?: Array<{ amenityCode: string; name: string }>;
   rules?: Array<{ ruleText: string; displayOrder?: number }>;
 }
@@ -324,6 +330,13 @@ export class PropertyRepository extends BaseRepository {
             longitude: data.longitude !== undefined ? new Prisma.Decimal(data.longitude) : null,
             nearestCampus: data.nearestCampus,
             distanceToCampusKm: data.distanceToCampusKm !== undefined ? new Prisma.Decimal(data.distanceToCampusKm) : null,
+            placeId: data.placeId || null,
+            coordinateSource: data.coordinateSource || 'OWNER_PROVIDED',
+            googleContentExpiresAt: data.googleContentExpiresAt !== undefined ? data.googleContentExpiresAt : (
+              (data.coordinateSource === 'GOOGLE_GEOCODING' || data.coordinateSource === 'GOOGLE_PLACES')
+                ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+                : null
+            ),
             description: data.description,
             totalRooms: data.totalRooms || 0,
             totalBeds: data.totalBeds || 0,
@@ -416,6 +429,17 @@ export class PropertyRepository extends BaseRepository {
         if (data.longitude !== undefined) updateData.longitude = new Prisma.Decimal(data.longitude);
         if (data.nearestCampus !== undefined) updateData.nearestCampus = data.nearestCampus;
         if (data.distanceToCampusKm !== undefined) updateData.distanceToCampusKm = new Prisma.Decimal(data.distanceToCampusKm);
+        if (data.placeId !== undefined) updateData.placeId = data.placeId;
+        if (data.coordinateSource !== undefined) {
+          updateData.coordinateSource = data.coordinateSource;
+          if (data.coordinateSource === 'OWNER_CONFIRMED' || data.coordinateSource === 'OWNER_PROVIDED') {
+            updateData.googleContentExpiresAt = null;
+          } else if (data.coordinateSource === 'GOOGLE_GEOCODING' || data.coordinateSource === 'GOOGLE_PLACES') {
+            updateData.googleContentExpiresAt = data.googleContentExpiresAt ?? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+          }
+        } else if (data.googleContentExpiresAt !== undefined) {
+          updateData.googleContentExpiresAt = data.googleContentExpiresAt;
+        }
         if (data.description !== undefined) updateData.description = data.description;
         if (data.occupancyStatus !== undefined) updateData.occupancyStatus = data.occupancyStatus;
         if (data.totalRooms !== undefined) updateData.totalRooms = data.totalRooms;
@@ -834,6 +858,13 @@ export class PropertyRepository extends BaseRepository {
         radiusKm = validateRadiusKm(filter.radiusKm);
         const bbox = computeBoundingBox(userCoords, radiusKm);
 
+        const expiryFilter = {
+          OR: [
+            { googleContentExpiresAt: null },
+            { googleContentExpiresAt: { gt: new Date() } },
+          ],
+        };
+
         if (bbox.crossesAntimeridian) {
           where.AND = [
             ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
@@ -844,10 +875,15 @@ export class PropertyRepository extends BaseRepository {
                 { longitude: { gte: new Prisma.Decimal(bbox.minLng2!), lte: new Prisma.Decimal(bbox.maxLng2!) } },
               ],
             },
+            expiryFilter,
           ];
         } else {
           where.latitude = { gte: new Prisma.Decimal(bbox.minLat), lte: new Prisma.Decimal(bbox.maxLat) };
           where.longitude = { gte: new Prisma.Decimal(bbox.minLng), lte: new Prisma.Decimal(bbox.maxLng) };
+          where.AND = [
+            ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+            expiryFilter,
+          ];
         }
       } else if (filter.sortBy === 'distance') {
         validateCoordinates(null, null); // Will throw GeolocationValidationError
@@ -898,6 +934,9 @@ export class PropertyRepository extends BaseRepository {
         const withinRadius: Property[] = [];
         for (const candidate of candidates) {
           if (candidate.latitude && candidate.longitude) {
+            if (candidate.googleContentExpiresAt && new Date(candidate.googleContentExpiresAt) <= new Date()) {
+              continue;
+            }
             const distance = calculateHaversineKm(userCoords, {
               latitude: Number(candidate.latitude),
               longitude: Number(candidate.longitude),
@@ -1011,6 +1050,67 @@ export class PropertyRepository extends BaseRepository {
         genderPolicies: Object.values(PropertyGenderPolicy),
         amenities: amenities.map((a) => ({ code: a.amenityCode, name: a.name })),
       };
+    });
+  }
+
+  /**
+   * Confirms property location, transitioning it into authoritative Owner Content
+   * and clearing the Google content expiration deadline.
+   */
+  async confirmLocation(propertyId: string, ownerId: string, tx?: Prisma.TransactionClient): Promise<Property> {
+    return this.execute(async () => {
+      return this.getClient(tx).property.update({
+        where: { id: propertyId, ownerId },
+        data: {
+          coordinateSource: 'OWNER_CONFIRMED',
+          googleContentExpiresAt: null,
+        },
+      });
+    });
+  }
+
+  /**
+   * Updates location provenance and refreshed coordinates for a property.
+   */
+  async updateLocationProvenance(
+    propertyId: string,
+    data: {
+      latitude?: number;
+      longitude?: number;
+      placeId?: string;
+      coordinateSource: string;
+      googleContentExpiresAt?: Date | null;
+    },
+    tx?: Prisma.TransactionClient
+  ): Promise<Property> {
+    return this.execute(async () => {
+      const updateData: Prisma.PropertyUpdateInput = {
+        coordinateSource: data.coordinateSource,
+        googleContentExpiresAt: data.googleContentExpiresAt,
+      };
+      if (data.latitude !== undefined) updateData.latitude = new Prisma.Decimal(data.latitude);
+      if (data.longitude !== undefined) updateData.longitude = new Prisma.Decimal(data.longitude);
+      if (data.placeId !== undefined) updateData.placeId = data.placeId;
+
+      return this.getClient(tx).property.update({
+        where: { id: propertyId },
+        data: updateData,
+      });
+    });
+  }
+
+  /**
+   * Queries properties with expired Google-derived content eligible for automated refresh.
+   */
+  async findExpiredGoogleLocations(limit = 50, tx?: Prisma.TransactionClient): Promise<Property[]> {
+    return this.execute(async () => {
+      return this.getClient(tx).property.findMany({
+        where: {
+          coordinateSource: { in: ['GOOGLE_GEOCODING', 'GOOGLE_PLACES'] },
+          googleContentExpiresAt: { lte: new Date() },
+        },
+        take: limit,
+      });
     });
   }
 }

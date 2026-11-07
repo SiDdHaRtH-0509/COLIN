@@ -10,7 +10,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-38B2AC?logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 [![Vite](https://img.shields.io/badge/Vite-5.4-646CFF?logo=vite&logoColor=white)](https://vitejs.dev/)
-[![Vitest](https://img.shields.io/badge/Vitest-504%2F504%20Passing-44A833?logo=vitest&logoColor=white)](https://vitest.dev/)
+[![Vitest](https://img.shields.io/badge/Vitest-520%2F520%20Passing-44A833?logo=vitest&logoColor=white)](https://vitest.dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 [Live Demo](#demo-credentials) • [Key Features](#key-features) • [Architecture](#architecture) • [Directory Structure](#repository-structure) • [Documentation](#documentation) • [Getting Started](#getting-started)
@@ -202,9 +202,9 @@ You can use the following pre-configured credentials to evaluate the platform:
 
 ## Testing & Quality Assurance
 
-The platform is continuously verified across **504 unique tests** (100% pass rate) with zero failures and zero skipped tests:
+The platform is continuously verified across **520 unique tests** (100% pass rate) with zero failures and zero skipped tests:
 
-* **Google Maps & Geolocation Infrastructure** (`pnpm run test:location:unit` & `test:location:integration`): **44 tests** covering forward and reverse geocoding, address autocomplete with session tokens, mathematical coordinate bounds (-90..90, -180..180), independent Haversine distance calculation, antimeridian and polar bounding boxes, in-memory TTL caching, API key secret redaction, and live PostgreSQL 18.4 geospatial radius discovery with distance sorting.
+* **Google Maps & Geolocation Infrastructure** (`pnpm run test:location:unit`, `test:location:integration`, `test:location:compliance`): **60 tests** covering forward and reverse geocoding, address autocomplete with session tokens, mathematical coordinate bounds (-90..90, -180..180), independent Haversine distance calculation, antimeridian and polar bounding boxes, in-memory TTL caching, API key secret redaction, live PostgreSQL 18.4 geospatial radius discovery with distance sorting, and **16 data retention & compliance tests** verifying 30-day Google coordinate expiration, indefinite Place ID retention, owner-confirmed immunity, and public DTO coordinate suppression.
 * **Cloud Image Storage Suite** (`pnpm run test:storage:unit` & `test:storage:integration`): **33 tests** covering binary magic-byte detection, Sharp decompression-bomb defense (16 MP limit), EXIF/GPS stripping, WebP master/thumbnail generation, provider abstraction (`LocalStorageProvider` & `S3StorageProvider`), multipart binary uploads, 8-photo limit enforcement via PostgreSQL row locks, and compensating rollback.
 * **Core Marketplace Domain & Business APIs** (`pnpm run test:marketplace:integration` & `test:marketplace:adversarial`): **40 tests** covering student/owner profiles, property inventory lifecycle, room/bed management, admin moderation, public search/filtering, and cross-tenant authorization boundaries.
 * **Authentication & Authorization Suites** (`pnpm run test:auth:integration` & `test:auth:adversarial`): **41 tests** covering Argon2id password hashing, JWT access/refresh rotation with replay detection, family session revocation, and RBAC guards.
@@ -221,6 +221,7 @@ The platform is continuously verified across **504 unique tests** (100% pass rat
 
 Full architectural documentation and milestone progress reports are available in the [`docs/`](docs/) directory:
 * [Phase 4A.2.5.2 Google Maps & Geolocation Report](docs/reports/PHASE_4A_2_5_2_GOOGLE_MAPS_GEOLOCATION_REPORT.md)
+* [Phase 4A.2.5.2 Final Google Maps Data Retention Audit](docs/reports/PHASE_4A_2_5_2_FINAL_GOOGLE_DATA_RETENTION_AUDIT.md)
 * [Phase 4A.2.5.2 Google Maps Policy & Caching Compliance](docs/reports/PHASE_4A_2_5_2_GOOGLE_MAPS_POLICY_COMPLIANCE.md)
 * [Phase 4A.2.5.2 PostgreSQL Geospatial Performance & Index Selectivity](docs/reports/PHASE_4A_2_5_2_POSTGRESQL_GEOSPATIAL_PERFORMANCE.md)
 * [Phase 4A.2.5.2.0 Geolocation Architecture Audit](docs/reports/PHASE_4A_2_5_2_0_GEOLOCATION_ARCHITECTURE_AUDIT.md)

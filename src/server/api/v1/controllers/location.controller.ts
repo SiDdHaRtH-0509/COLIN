@@ -31,6 +31,7 @@ export class LocationController {
         meta: {
           requestId: req.id || 'unknown',
           timestamp: new Date().toISOString(),
+          attribution: locationService.getAttribution(),
         },
       };
 
@@ -61,6 +62,7 @@ export class LocationController {
         meta: {
           requestId: req.id || 'unknown',
           timestamp: new Date().toISOString(),
+          attribution: locationService.getAttribution(),
         },
       };
 
@@ -91,6 +93,7 @@ export class LocationController {
         meta: {
           requestId: req.id || 'unknown',
           timestamp: new Date().toISOString(),
+          attribution: locationService.getAttribution(),
         },
       };
 
@@ -118,6 +121,7 @@ export class LocationController {
         meta: {
           requestId: req.id || 'unknown',
           timestamp: new Date().toISOString(),
+          attribution: locationService.getAttribution(),
         },
       };
 
@@ -150,6 +154,7 @@ export class LocationController {
         meta: {
           requestId: req.id || 'unknown',
           timestamp: new Date().toISOString(),
+          attribution: locationService.getAttribution(),
         },
       };
 

@@ -197,6 +197,60 @@ export class OwnerPropertyController {
     }
   };
 
+  /**
+   * POST /api/v1/owner/properties/:propertyId/confirm-location
+   * Confirms location as Authoritative Owner Content ('OWNER_CONFIRMED'), exempting it from 30-day Google expiration.
+   */
+  public confirmLocation = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const property = await propertyService.confirmPropertyLocation(
+        req.params.propertyId as string,
+        req.context!.userId
+      );
+
+      const response: ApiResponse<typeof property> = {
+        success: true,
+        message: 'Property location confirmed successfully by owner.',
+        data: property,
+        meta: {
+          requestId: req.id || 'unknown',
+          timestamp: new Date().toISOString(),
+        },
+      };
+
+      res.status(200).json(response);
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  /**
+   * POST /api/v1/owner/properties/:propertyId/refresh-location
+   * Refreshes expired or expiring Google-derived location data using stored Place ID or address.
+   */
+  public refreshLocation = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const property = await propertyService.refreshPropertyLocation(
+        req.params.propertyId as string,
+        req.context!.userId
+      );
+
+      const response: ApiResponse<typeof property> = {
+        success: true,
+        message: 'Property location refreshed successfully.',
+        data: property,
+        meta: {
+          requestId: req.id || 'unknown',
+          timestamp: new Date().toISOString(),
+        },
+      };
+
+      res.status(200).json(response);
+    } catch (err) {
+      next(err);
+    }
+  };
+
   // ===========================================================================
   // PHOTO LIFECYCLE
   // ===========================================================================

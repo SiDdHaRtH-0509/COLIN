@@ -27,6 +27,7 @@ export interface GoogleGeolocationConfig {
 
 export class GoogleGeolocationProvider implements GeolocationProvider {
   public readonly providerName = 'google';
+  public readonly attribution = 'Powered by Google';
   private readonly apiKey: string;
   private readonly timeoutMs: number;
   private readonly region: string;
@@ -115,6 +116,8 @@ export class GoogleGeolocationProvider implements GeolocationProvider {
       formattedAddress: firstResult.formatted_address || address,
       placeId: firstResult.place_id,
       addressComponents: components,
+      source: 'GOOGLE_GEOCODING',
+      expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
     };
   }
 
@@ -145,6 +148,8 @@ export class GoogleGeolocationProvider implements GeolocationProvider {
       formattedAddress: firstResult.formatted_address,
       placeId: firstResult.place_id,
       addressComponents: components,
+      source: 'GOOGLE_GEOCODING',
+      expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
     };
   }
 
@@ -225,6 +230,8 @@ export class GoogleGeolocationProvider implements GeolocationProvider {
       formattedAddress: result.formatted_address || '',
       coordinates: validCoords,
       addressComponents: components,
+      source: 'GOOGLE_PLACES',
+      expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
     };
   }
 

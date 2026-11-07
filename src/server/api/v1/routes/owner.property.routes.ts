@@ -44,6 +44,16 @@ router.patch(
 router.delete('/:propertyId', validateRequest({ params: propertyIdParamSchema }), ownerPropertyController.archive);
 router.post('/:propertyId/submit', validateRequest({ params: propertyIdParamSchema }), ownerPropertyController.submit);
 router.get('/:propertyId/status', validateRequest({ params: propertyIdParamSchema }), ownerPropertyController.getStatus);
+router.post(
+  '/:propertyId/confirm-location',
+  validateRequest({ params: propertyIdParamSchema }),
+  ownerPropertyController.confirmLocation
+);
+router.post(
+  '/:propertyId/refresh-location',
+  validateRequest({ params: propertyIdParamSchema }),
+  ownerPropertyController.refreshLocation
+);
 
 // Photo gallery management
 router.post(

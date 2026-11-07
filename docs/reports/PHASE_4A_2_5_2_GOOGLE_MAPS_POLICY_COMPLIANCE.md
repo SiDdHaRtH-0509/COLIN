@@ -28,17 +28,19 @@ Under Section 3.2.3(a) of the Google Maps Platform Terms of Service:
   2. The storage is secure and does not allow unauthorized access or distribution.
   3. The storage is not used to create a substitute product or avoid billable requests.
 
-### 2.2 Category-by-Category Data Retention Rules
+### 2.2 Category-by-Category Data Retention & Provenance Rules
 
 | Content Category | Permitted Retention | Policy Reference | COLIN Implementation |
 | :--- | :--- | :--- | :--- |
-| **Place IDs** | **Indefinite (Permanent)** | Section 3.2.4(a) (Place ID Exemption) | Stored permanently on property listing records in PostgreSQL to reference places. |
-| **Coordinates (Lat/Lng)** | **Permanent on Listings** | Section 3.2.3(a) & 3.2.4(a) | Stored as `Decimal(10, 7)` in `properties` table to locate accommodations. |
-| **Formatted Addresses** | **Permanent on Listings** | Section 3.2.3(a) | Stored as `address_line1`, `city`, `state`, `pincode` in `properties` table. |
-| **Geocoding API Responses** | **Up to 30 Calendar Days** | Section 3.2.3(a) (Latency Exception) | Cached in-memory with a strict **24-hour TTL** (1 day $\ll$ 30 days). |
-| **Reverse Geocoding** | **Up to 30 Calendar Days** | Section 3.2.3(a) (Latency Exception) | Cached in-memory with a strict **24-hour TTL**. |
-| **Autocomplete Predictions** | **Ephemeral (No Cross-Session Caching)** | Places API Terms & Section 3.2.3(a) | **Zero caching**. Passed directly within active user session. |
-| **Full Place Details** | **Ephemeral** | Places API Terms & Section 3.2.3(a) | Not cached in-memory. Only resolved lat/lng and placeId are persisted to the listing. |
+| **Place IDs** | **Indefinite (Permanent)** | Section 3.2.4(a) (Place ID Exemption) | Stored permanently on listing records (`place_id` column) in PostgreSQL to reference places and refresh expired coordinates. |
+| **Owner-Provided Coordinates** | **Indefinite** | Customer Content Exception | Stored with `coordinate_source = 'OWNER_PROVIDED'`. Explicitly entered by owner via manual pin; exempt from Google terms. |
+| **Owner-Confirmed Coordinates** | **Indefinite** | Customer Content Exception | Stored with `coordinate_source = 'OWNER_CONFIRMED'`. Verified and confirmed by property owner; exempt from Google 30-day limit. |
+| **Google-Derived Coordinates** | **Maximum 30 Calendar Days** | Section 3.2.3(a) (Caching Limitation) | Stored with `google_content_expires_at = NOW() + 30 days`. Must be refreshed via Place ID or confirmed by owner. Expired coordinates are excluded from search. |
+| **Owner-Entered Address** | **Indefinite** | Customer Content Exception | Owner-entered `address_line1`, `city`, `state`, `pincode` stored permanently as primary listing data. |
+| **Google Formatted Address** | **Maximum 30 Calendar Days** | Section 3.2.3(a) | Suppressed upon 30-day expiration if not refreshed; owner-entered address components remain authoritative. |
+| **Geocoding Latency Cache** | **Up to 30 Calendar Days** | Section 3.2.3(a) (Latency Exception) | In-memory cache in `LocationService` with strict **24-hour TTL** (1 day $\ll$ 30 days) and active eviction upon read/pruning. |
+| **Autocomplete Predictions** | **Ephemeral (0 Seconds)** | Section 3.2.3(a) & Places Terms | **Zero caching**. Passed directly in real-time under caller's unique UUID v4 session token. |
+| **Full Place Details** | **Ephemeral** | Places API Terms & Section 3.2.3(a) | Not cached in memory. Only permitted `place_id` and 30-day capped coordinates are ingested. |
 
 ---
 
@@ -120,4 +122,13 @@ Google Maps Platform requires that any display of Google Places or Geocoding dat
 | **Attribution** | "Powered by Google" displayed | **PASS** (Documented & integrated) |
 | **Secret Protection** | Key never in responses or logs | **PASS** (Redaction filters active) |
 
-**Conclusion:** COLIN's geolocation and caching architecture is fully compliant with the Google Maps Platform Terms of Service and API-specific usage policies.
+---
+
+## 7. Data Retention & Provenance Audit Cross-Reference
+
+For the detailed field-by-field provenance audit, automated refresh pipeline, and owner-confirmation immunity architecture, refer to:
+* [`docs/reports/PHASE_4A_2_5_2_FINAL_GOOGLE_DATA_RETENTION_AUDIT.md`](file:///c:/Users/clsid/COLIN/docs/reports/PHASE_4A_2_5_2_FINAL_GOOGLE_DATA_RETENTION_AUDIT.md)
+
+Verified across 16 automated tests in [`src/test/location/location-compliance.integration.test.ts`](file:///c:/Users/clsid/COLIN/src/test/location/location-compliance.integration.test.ts).
+
+**Conclusion:** COLIN's geolocation, caching, and data retention architecture is fully compliant with the Google Maps Platform Terms of Service and API-specific usage policies.

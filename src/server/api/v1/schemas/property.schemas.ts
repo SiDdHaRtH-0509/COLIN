@@ -23,6 +23,10 @@ export const createPropertySchema = z.object({
   pincode: z.string().regex(/^[1-9][0-9]{2,9}$/, 'Invalid postal code format'),
   latitude: z.number().min(-90).max(90).optional(),
   longitude: z.number().min(-180).max(180).optional(),
+  placeId: z.string().max(255).optional(),
+  coordinateSource: z
+    .enum(['OWNER_PROVIDED', 'OWNER_CONFIRMED', 'GOOGLE_GEOCODING', 'GOOGLE_PLACES', 'MOCK_GEOCODING'])
+    .optional(),
   nearestCampus: z.string().max(255).optional(),
   distanceToCampusKm: z.number().min(0).max(100).optional(),
   description: z.string().max(2000).optional(),
@@ -67,6 +71,10 @@ export const updatePropertySchema = z.object({
   pincode: z.string().regex(/^[1-9][0-9]{2,9}$/).optional(),
   latitude: z.number().min(-90).max(90).optional(),
   longitude: z.number().min(-180).max(180).optional(),
+  placeId: z.string().max(255).optional(),
+  coordinateSource: z
+    .enum(['OWNER_PROVIDED', 'OWNER_CONFIRMED', 'GOOGLE_GEOCODING', 'GOOGLE_PLACES', 'MOCK_GEOCODING'])
+    .optional(),
   nearestCampus: z.string().max(255).optional(),
   distanceToCampusKm: z.number().min(0).max(100).optional(),
   description: z.string().max(2000).optional(),

@@ -17,7 +17,7 @@ import {
 import { RecordNotFoundError, ValidationConstraintError } from '../database/errors';
 import { Property, PropertyVerificationStatus, PropertyPhoto } from '@prisma/client';
 import { processPropertyImage, storageProvider } from '../storage';
-import { validateCoordinates } from '../location';
+import { validateCoordinates, locationService } from '../location';
 
 export class PropertyService {
   private propertyRepo: PropertyRepository;
@@ -61,6 +61,10 @@ export class PropertyService {
       minDeposit = Math.min(...deposits);
     }
 
+    const isLocationExpired = Boolean(
+      property.googleContentExpiresAt && new Date(property.googleContentExpiresAt) <= new Date()
+    );
+
     return {
       id: property.id,
       name: property.name,
@@ -74,10 +78,12 @@ export class PropertyService {
         city: property.city,
         state: property.state,
         pincode: property.pincode,
-        latitude: property.latitude ? Number(property.latitude) : null,
-        longitude: property.longitude ? Number(property.longitude) : null,
+        latitude: isLocationExpired ? null : (property.latitude ? Number(property.latitude) : null),
+        longitude: isLocationExpired ? null : (property.longitude ? Number(property.longitude) : null),
         nearestCampus: property.nearestCampus,
         distanceToCampusKm: property.distanceToCampusKm ? Number(property.distanceToCampusKm) : null,
+        coordinateSource: property.coordinateSource || 'OWNER_PROVIDED',
+        isLocationExpired,
       },
       distanceKm: property.distanceKm !== undefined ? property.distanceKm : undefined,
       pricing: {
@@ -226,6 +232,43 @@ export class PropertyService {
       recentAudit: (property as any).verificationAudits?.[0] || null,
       updatedAt: property.updatedAt,
     };
+  }
+
+  /**
+   * Confirms the property location on the owner's behalf, transitioning the coordinates
+   * into Authoritative Owner Content ('OWNER_CONFIRMED') and clearing the 30-day Google expiration.
+   */
+  async confirmPropertyLocation(propertyId: string, ownerId: string) {
+    await this.getOwnerProperty(propertyId, ownerId);
+    return this.propertyRepo.confirmLocation(propertyId, ownerId);
+  }
+
+  /**
+   * Refreshes expired or near-expired Google-derived coordinates for a property
+   * using its stored Place ID or physical address string.
+   */
+  async refreshPropertyLocation(propertyId: string, ownerId?: string) {
+    const property = ownerId
+      ? await this.getOwnerProperty(propertyId, ownerId)
+      : await this.propertyRepo.findById(propertyId);
+
+    if (!property) {
+      throw new RecordNotFoundError('Property not found.');
+    }
+
+    const fullAddress = `${property.addressLine1}, ${property.city}, ${property.state} ${property.pincode}`;
+    const refreshed = await locationService.refreshLocationData({
+      placeId: property.placeId,
+      address: fullAddress,
+    });
+
+    return this.propertyRepo.updateLocationProvenance(propertyId, {
+      latitude: refreshed.coordinates.latitude,
+      longitude: refreshed.coordinates.longitude,
+      placeId: refreshed.placeId,
+      coordinateSource: refreshed.coordinateSource,
+      googleContentExpiresAt: refreshed.googleContentExpiresAt,
+    });
   }
 
   // ===========================================================================

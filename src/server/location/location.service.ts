@@ -13,6 +13,7 @@ import {
   GeocodingResult,
   PlaceSuggestion,
   PlaceDetails,
+  GeolocationValidationError,
 } from './location.types';
 import {
   validateCoordinates,
@@ -67,6 +68,10 @@ export class LocationService {
     return this.provider;
   }
 
+  public getAttribution(): string | undefined {
+    return this.provider.attribution;
+  }
+
   public setProvider(provider: GeolocationProvider): void {
     this.provider = provider;
   }
@@ -74,6 +79,31 @@ export class LocationService {
   public clearCache(): void {
     this.geocodeCache.clear();
     this.reverseGeocodeCache.clear();
+  }
+
+  /**
+   * Actively evicts expired cache entries from in-memory stores.
+   * Returns the total count of evicted entries.
+   */
+  public pruneExpiredCache(): number {
+    const now = Date.now();
+    let count = 0;
+
+    for (const [key, entry] of this.geocodeCache.entries()) {
+      if (entry.expiresAt <= now) {
+        this.geocodeCache.delete(key);
+        count++;
+      }
+    }
+
+    for (const [key, entry] of this.reverseGeocodeCache.entries()) {
+      if (entry.expiresAt <= now) {
+        this.reverseGeocodeCache.delete(key);
+        count++;
+      }
+    }
+
+    return count;
   }
 
   // ===========================================================================
@@ -87,15 +117,22 @@ export class LocationService {
   public async geocode(address: string): Promise<GeocodingResult> {
     const cacheKey = address.trim().toLowerCase();
     const cached = this.geocodeCache.get(cacheKey);
-    if (cached && cached.expiresAt > Date.now()) {
-      return cached.value;
+    if (cached) {
+      if (cached.expiresAt > Date.now()) {
+        return cached.value;
+      }
+      this.geocodeCache.delete(cacheKey);
     }
 
     const result = await this.provider.geocodeAddress(address);
 
+    const ttl = result.expiresAt
+      ? Math.min(Date.now() + this.geocodeTtlMs, result.expiresAt)
+      : Date.now() + this.geocodeTtlMs;
+
     this.geocodeCache.set(cacheKey, {
       value: result,
-      expiresAt: Date.now() + this.geocodeTtlMs,
+      expiresAt: ttl,
     });
 
     return result;
@@ -108,15 +145,22 @@ export class LocationService {
     const valid = validateCoordinates(coords.latitude, coords.longitude);
     const cacheKey = `${valid.latitude.toFixed(5)},${valid.longitude.toFixed(5)}`;
     const cached = this.reverseGeocodeCache.get(cacheKey);
-    if (cached && cached.expiresAt > Date.now()) {
-      return cached.value;
+    if (cached) {
+      if (cached.expiresAt > Date.now()) {
+        return cached.value;
+      }
+      this.reverseGeocodeCache.delete(cacheKey);
     }
 
     const result = await this.provider.reverseGeocode(valid);
 
+    const ttl = result.expiresAt
+      ? Math.min(Date.now() + this.geocodeTtlMs, result.expiresAt)
+      : Date.now() + this.geocodeTtlMs;
+
     this.reverseGeocodeCache.set(cacheKey, {
       value: result,
-      expiresAt: Date.now() + this.geocodeTtlMs,
+      expiresAt: ttl,
     });
 
     return result;
@@ -139,6 +183,44 @@ export class LocationService {
    */
   public async getPlaceDetails(placeId: string, sessionToken?: string): Promise<PlaceDetails> {
     return this.provider.getPlaceDetails(placeId, sessionToken);
+  }
+
+  /**
+   * Refreshes location data using a stored Place ID or physical address string.
+   * Enables automated refresh for listings with Google-derived coordinates reaching 30-day expiration.
+   */
+  public async refreshLocationData(params: {
+    placeId?: string | null;
+    address?: string | null;
+  }): Promise<{
+    coordinates: GeoCoordinates;
+    placeId?: string;
+    coordinateSource: import('./location.types').LocationSource;
+    googleContentExpiresAt: Date;
+  }> {
+    if (params.placeId) {
+      const details = await this.getPlaceDetails(params.placeId);
+      const isGoogle = details.source === 'GOOGLE_PLACES' || this.provider.providerName === 'google';
+      return {
+        coordinates: details.coordinates,
+        placeId: details.placeId,
+        coordinateSource: isGoogle ? 'GOOGLE_PLACES' : (details.source || 'MOCK_GEOCODING'),
+        googleContentExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      };
+    }
+
+    if (params.address) {
+      const result = await this.geocode(params.address);
+      const isGoogle = result.source === 'GOOGLE_GEOCODING' || this.provider.providerName === 'google';
+      return {
+        coordinates: result.coordinates,
+        placeId: result.placeId,
+        coordinateSource: isGoogle ? 'GOOGLE_GEOCODING' : (result.source || 'MOCK_GEOCODING'),
+        googleContentExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      };
+    }
+
+    throw new GeolocationValidationError('Either placeId or address is required to refresh location data.');
   }
 
   // ===========================================================================

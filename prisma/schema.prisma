@@ -844,6 +844,9 @@ model Property {
   totalBeds          Int                        @default(0) @map("total_beds")
   availableBeds      Int                        @default(0) @map("available_beds")
   isFeatured         Boolean                    @default(false) @map("is_featured")
+  placeId            String?                    @map("place_id") @db.VarChar(255)
+  coordinateSource   String                     @default("OWNER_PROVIDED") @map("coordinate_source") @db.VarChar(50)
+  googleContentExpiresAt DateTime?              @map("google_content_expires_at") @db.Timestamptz(6)
   createdAt          DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt          DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(6)
 

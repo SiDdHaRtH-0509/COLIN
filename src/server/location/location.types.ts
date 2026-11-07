@@ -18,11 +18,22 @@ export interface AddressComponents {
   country?: string;
 }
 
+export type LocationSource =
+  | 'OWNER_PROVIDED'
+  | 'OWNER_CONFIRMED'
+  | 'GOOGLE_GEOCODING'
+  | 'GOOGLE_PLACES'
+  | 'MOCK_GEOCODING'
+  | 'COLIN_DERIVED';
+
 export interface GeocodingResult {
   coordinates: GeoCoordinates;
   formattedAddress: string;
   placeId?: string;
   addressComponents: AddressComponents;
+  source?: LocationSource;
+  cachedAt?: number;
+  expiresAt?: number;
 }
 
 export interface PlaceSuggestion {
@@ -39,10 +50,13 @@ export interface PlaceDetails {
   formattedAddress: string;
   coordinates: GeoCoordinates;
   addressComponents?: AddressComponents;
+  source?: LocationSource;
+  expiresAt?: number;
 }
 
 export interface GeolocationProvider {
   readonly providerName: string;
+  readonly attribution?: string;
   geocodeAddress(address: string): Promise<GeocodingResult>;
   reverseGeocode(coordinates: GeoCoordinates): Promise<GeocodingResult>;
   searchPlaces(query: string, sessionToken?: string): Promise<PlaceSuggestion[]>;

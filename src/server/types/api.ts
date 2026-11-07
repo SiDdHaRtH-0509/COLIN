@@ -6,6 +6,7 @@
 export interface ApiResponseMeta {
   requestId: string;
   timestamp: string;
+  attribution?: string;
   pagination?: {
     page: number;
     limit: number;

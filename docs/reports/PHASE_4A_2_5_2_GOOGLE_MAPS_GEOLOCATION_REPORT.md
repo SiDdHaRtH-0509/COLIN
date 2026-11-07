@@ -174,13 +174,14 @@ Executing all 26 test files simultaneously in Vitest confirms **504 / 504 Passin
 | **Backend ORM Integration** | `pnpm run test:orm:integration` | `orm.integration.test.ts` | 43 | 43 | **PASS** |
 | **PostgreSQL 18.4 Engine Invariants** | `pnpm run test:db:integration` | `db.integration.test.ts` | 78 | 78 | **PASS** |
 | **Platform Unit & Regression Suite** | `pnpm run test:unit` | 17 unit files (including storage & location unit) | 249 | 249 | **PASS** |
-| **Total Test Executions Across Commands** | **Sum of 12 Command Invocations** | — | **562** | — | **PASS** |
-| **Total Unique Platform Tests** | `npx vitest run` (All 26 files) | **26 unique test files** | — | **504** | **PASS (100%)** |
+| **Location Compliance Integration** | `pnpm run test:location:compliance` | `location-compliance.integration.test.ts` | 16 | 16 | **PASS** |
+| **Total Test Executions Across Commands** | **Sum of 13 Command Invocations** | — | **578** | — | **PASS** |
+| **Total Unique Platform Tests** | `npx vitest run` (All 27 files) | **27 unique test files** | — | **520** | **PASS (100%)** |
 
 ### 6.2 Test Accounting Reconciliation Proof
-$$\text{Total Command Executions} = 32 + 12 + 26 + 7 + 25 + 15 + 24 + 17 + 34 + 43 + 78 + 249 = 562$$
-$$\text{Overlapping Unit Tests} = 26 \text{ (storage unit)} + 32 \text{ (location unit)} = 58$$
-$$\text{Unique Platform Tests} = 562 - 58 = 504$$
+$\text{Total Command Executions} = 32 + 12 + 26 + 7 + 25 + 15 + 24 + 17 + 34 + 43 + 78 + 249 + 16 = 578$
+$\text{Overlapping Unit Tests} = 26 \text{ (storage unit)} + 32 \text{ (location unit)} = 58$
+$\text{Unique Platform Tests} = 578 - 58 = 520$
 
 ### 6.3 Build & Type Verification
 - Strict Type-Check: `npx tsc --noEmit` exited **0** (zero TypeScript errors).
@@ -225,6 +226,7 @@ $$\text{Unique Platform Tests} = 562 - 58 = 504$$
 | **G22** | Production Build | **PASS** | Vite production build clean in 9.78s |
 | **G23** | Documentation Complete | **PASS** | Audit and final reports delivered |
 | **G24** | No Committed Credentials | **PASS** | Verified in Git status and git diff |
+| **G25** | Field-Level Data Retention & Compliance | **PASS** | Provenance tracked; 30-day Google content expiration; documented in `PHASE_4A_2_5_2_FINAL_GOOGLE_DATA_RETENTION_AUDIT.md` |
 
 ### Final Verdict: **CONDITIONAL PASS**
 The geospatial search engine, provider abstraction, defensive coordinate validation, database triggers, API endpoints, and automated verification suites are fully implemented and verified. Full production sign-off requires live Google Maps Platform billing/credentials prior to production deployment.
