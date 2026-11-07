@@ -11,4 +11,5 @@ export * from './validateRequest';
 export * from './authContext';
 export * from './csrf';
 export * from './rateLimiter';
+export * from './trustedProxy';
 export * from './errorHandler';

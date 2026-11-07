@@ -24,6 +24,7 @@
     "test:email:unit": "vitest run src/test/email/email-provider.test.ts src/test/email/email-template.test.ts",
     "test:email:integration": "vitest run src/test/email/email-outbox.integration.test.ts src/test/email/email-webhook.integration.test.ts src/test/email/email-auth-integration.test.ts --fileParallelism=false",
     "test:email": "vitest run src/test/email/ --fileParallelism=false",
+    "test:redis": "vitest run src/test/redis/ --fileParallelism=false",
     "test:watch": "vitest"
   },
   "dependencies": {
@@ -36,6 +37,7 @@
     "cors": "^2.8.6",
     "express": "^5.3.0",
     "framer-motion": "^11.11.17",
+    "ioredis": "^6.0.0",
     "jsonwebtoken": "^9.0.3",
     "lucide-react": "^0.460.0",
     "multer": "^2.5.0",
