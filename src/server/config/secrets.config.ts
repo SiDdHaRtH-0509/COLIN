@@ -38,8 +38,36 @@ const INSECURE_DEV_SECRETS = [
 ];
 
 /**
+ * Calculates the Shannon entropy (in bits per character) of a secret string.
+ * H = - SUM(p_i * log2(p_i))
+ * Distinguishes key length from actual cryptographic information entropy.
+ */
+export function calculateShannonEntropy(str: string): number {
+  if (!str) return 0;
+  const frequencies = new Map<string, number>();
+  for (const char of str) {
+    frequencies.set(char, (frequencies.get(char) || 0) + 1);
+  }
+  let entropy = 0;
+  const len = str.length;
+  for (const count of frequencies.values()) {
+    const p = count / len;
+    entropy -= p * Math.log2(p);
+  }
+  return entropy;
+}
+
+/**
+ * Calculates the total estimated information entropy in bits (Shannon entropy * length).
+ */
+export function calculateTotalEntropyBits(str: string): number {
+  return calculateShannonEntropy(str) * str.length;
+}
+
+/**
  * Validates that a secret is not a known insecure dev default, a trivial repeating sequence,
- * or a predictable ascending/descending run.
+ * a predictable ascending/descending run, or an insufficiently random low-entropy string.
+ * Distinguishes key length from actual entropy.
  */
 export function isWeakOrPredictableSecret(secret: string): boolean {
   if (!secret) return true;
@@ -59,6 +87,14 @@ export function isWeakOrPredictableSecret(secret: string): boolean {
   // Standard numeric cycle (e.g. 01234567890123456789...)
   const numCycle = '0123456789'.repeat(5);
   if (numCycle.includes(secret)) return true;
+
+  // Information Entropy Threshold: For keys >= 32 characters, require at least 10 unique characters
+  // and a minimum Shannon entropy of 3.0 bits/char to reject low-entropy repeating sets.
+  if (secret.length >= 32) {
+    const uniqueChars = new Set(secret).size;
+    if (uniqueChars < 10) return true;
+    if (calculateShannonEntropy(secret) < 3.0) return true;
+  }
 
   return false;
 }

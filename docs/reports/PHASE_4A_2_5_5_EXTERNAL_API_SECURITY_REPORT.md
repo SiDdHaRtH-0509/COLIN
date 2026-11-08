@@ -96,10 +96,24 @@ The AWS IAM role or service account used by COLIN's `S3StorageProvider` is const
 - **SendGrid Event Webhook:** Verified using the ECDSA public key (`SENDGRID_WEBHOOK_VERIFICATION_KEY`) against incoming `X-Twilio-Email-Event-Webhook-Signature` and `X-Twilio-Email-Event-Webhook-Timestamp` headers.
 - **Postmark Webhook:** Protected by HTTP Basic Authentication (`EMAIL_WEBHOOK_BASIC_AUTH_USER` and `EMAIL_WEBHOOK_BASIC_AUTH_PASSWORD`), enforced at middleware entry point before JSON parsing.
 
-### 4.3 Carry-Forward Verification from Phase 4A.2.5.3 & Audit Remediation
-1. **Cryptographic Key Separation:** Enforced. `EMAIL_ENCRYPTION_KEY` is independent of `JWT_SECRET` and `RATE_LIMIT_IDENTITY_HMAC_SECRET`, with 256-bit entropy and CSPRNG generation.
-2. **Delivery-Event Immutability:** Enforced via PostgreSQL trigger `prevent_delivery_event_mutation()` using NULL-safe `IS DISTINCT FROM` across all columns and table permission revocation on `colin_app_runtime`. Parent `EmailOutbox` deletion cascades via `ON DELETE SET NULL` without deleting audit events or permitting re-linking.
-3. **Worker Crash Resilience & At-Least-Once Semantics:** Workers pass `outboxId` and `idempotencyKey` in `metadata` / `custom_args`. Webhook handlers reconcile un-recorded outbox records to avoid duplicate dispatches. If webhooks do not arrive before `staleTimeoutMinutes`, stale job reclamation re-dispatches the record under verified **at-least-once delivery semantics**.
+### 4.3 Provider-Side Idempotency Reality & Correlation Metadata
+A critical finding from our independent architectural audit is that **neither SendGrid nor Postmark provides native provider-side HTTP request idempotency**:
+- **SendGrid Mail Send API v3:** Does not accept an `Idempotency-Key` HTTP header. While `custom_args` can carry `{ idempotencyKey, outboxId }`, SendGrid treats these strictly as pass-through metadata reflected in Event Webhooks, NOT as server-side deduplication keys.
+- **Postmark `/email` API:** Does not support server-side request deduplication headers. The `Metadata` payload `{ idempotencyKey, outboxId }` is echoed in webhook delivery events for tracking, but repeated POST requests with the same payload will dispatch duplicate emails.
+
+### 4.4 Worker Crash Recovery, Webhook Reconciliation & At-Least-Once Delivery Semantics
+Because distributed email workers and third-party SaaS APIs operate without distributed two-phase commit (2PC):
+1. **Worker Crash After Dispatch:** If an email worker successfully executes `provider.send()` and the provider accepts the email (HTTP 200/202), but the worker crashes or terminates before executing the PostgreSQL `UPDATE email_outbox SET status = 'SENT'` query, the outbox record remains in status `'SENDING'`.
+2. **Webhook Reconciliation as Mitigating Guard:** When SendGrid or Postmark asynchronously posts an event webhook to COLIN, the webhook payload contains `custom_args` / `Metadata` carrying `outboxId`. The webhook handler (`handleSendGridWebhook` / `handlePostmarkWebhook`) queries the database and reconciles the orphaned outbox record, setting its status to `'DELIVERED'` and storing `providerMessageId`. This prevents subsequent worker sweeps from retrying the job.
+3. **Stale Recovery & Residual Duplicate-Delivery Risk:** If provider webhook delivery is delayed, fails, or is disabled, the orphaned record remains in `'SENDING'`. Once `staleTimeoutMinutes` (10 minutes) elapses, the outbox worker's `reclaimStaleJobs()` sweep detects the record and resets its status to `'FAILED'` with retry eligibility. A subsequent worker pass will re-dispatch the email to the provider.
+4. **Formal Semantics:** The email delivery system guarantees **at-least-once delivery semantics**. While webhook reconciliation minimizes duplicate emails, true zero-duplicate delivery is mathematically impossible without native provider-side idempotency deduplication.
+
+### 4.5 Delivery-Event Immutability & Database Role Separation
+Audit events in `email_delivery_events` are strictly append-only:
+1. **Role Permissions:** Both runtime roles (`colin_app_runtime` and `colin_admin_runtime`) have table-level permissions restricted to `SELECT` and `INSERT`. All `UPDATE` and `DELETE` queries fail immediately with PostgreSQL error `42501 (insufficient_privilege)`.
+2. **Column-Level Update Restrictions:** Even if table-level permissions are granted, `prevent_delivery_event_mutation()` enforces that all immutable columns (`id`, `created_at`, `event_timestamp`, `provider`, `provider_event_id`, `provider_message_id`, `event_type`, `recipient`, `metadata_json`) cannot be modified (`IS DISTINCT FROM`).
+3. **Manual FK Nullification & Re-Linking Prohibited:** The trigger explicitly blocks manual unlinking (`NEW.email_outbox_id IS NULL` when parent outbox row exists) and all re-linking (`NEW.email_outbox_id IS NOT NULL` on update).
+4. **Safe Cascade on Parent Outbox Deletion:** When a parent `EmailOutbox` record is deleted (e.g. data retention policy), PostgreSQL cascades `ON DELETE SET NULL`. The trigger evaluates `EXISTS (SELECT 1 FROM email_outbox WHERE id = OLD.email_outbox_id)` and cleanly allows the nullification only because the parent row has been deleted, preserving audit event records without data loss.
 
 ---
 

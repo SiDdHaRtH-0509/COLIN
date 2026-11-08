@@ -980,9 +980,18 @@ BEGIN
        OR OLD.provider_message_id IS DISTINCT FROM NEW.provider_message_id
        OR OLD.event_type IS DISTINCT FROM NEW.event_type
        OR OLD.recipient IS DISTINCT FROM NEW.recipient
-       OR OLD.metadata_json::text IS DISTINCT FROM NEW.metadata_json::text
-       OR (OLD.email_outbox_id IS DISTINCT FROM NEW.email_outbox_id AND NEW.email_outbox_id IS NOT NULL) THEN
+       OR OLD.metadata_json::text IS DISTINCT FROM NEW.metadata_json::text THEN
       RAISE EXCEPTION 'Audit Log Immutability Violation: Records in table email_delivery_events are append-only audit infrastructure and cannot be updated.';
+    END IF;
+
+    IF OLD.email_outbox_id IS DISTINCT FROM NEW.email_outbox_id THEN
+      IF NEW.email_outbox_id IS NOT NULL THEN
+        RAISE EXCEPTION 'Audit Log Immutability Violation: Re-linking email_outbox_id is strictly prohibited.';
+      END IF;
+
+      IF OLD.email_outbox_id IS NOT NULL AND EXISTS (SELECT 1 FROM email_outbox WHERE id = OLD.email_outbox_id) THEN
+        RAISE EXCEPTION 'Audit Log Immutability Violation: Manual unlinking of email_outbox_id is prohibited while parent outbox record exists.';
+      END IF;
     END IF;
   END IF;
 

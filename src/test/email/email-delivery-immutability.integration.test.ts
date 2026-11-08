@@ -11,18 +11,19 @@
 
 import { describe, it, expect, beforeAll } from 'vitest';
 import crypto from 'crypto';
-import { getAppPrismaClient } from '../../server/database';
+import { getAppPrismaClient, getAdminPrismaClient } from '../../server/database';
 import { initializeDatabaseConnections } from '../../server/database/lifecycle';
 import { EmailDeliveryEventType, EmailEventType, EmailOutboxStatus } from '@prisma/client';
 
 describe('COLIN Email Delivery-Event Immutability & Foreign Key Protection (Finding 3)', () => {
   const prisma = getAppPrismaClient();
+  const adminPrisma = getAdminPrismaClient();
 
   beforeAll(async () => {
     await initializeDatabaseConnections();
   });
 
-  it('(A) strictly rejects ordinary UPDATE operations on delivery events at the database level', async () => {
+  it('(A) strictly rejects ordinary UPDATE operations on delivery events for both app and admin roles', async () => {
     const eventId = `immut_upd_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
     const event = await prisma.emailDeliveryEvent.create({
       data: {
@@ -36,23 +37,30 @@ describe('COLIN Email Delivery-Event Immutability & Foreign Key Protection (Find
 
     expect(event.id).toBeDefined();
 
-    // 1. Attempt to update recipient
+    // 1. colin_app_runtime: Attempt to update recipient
     await expect(
       prisma.$executeRawUnsafe(
         `UPDATE email_delivery_events SET recipient = 'malicious@evil.test' WHERE id = '${event.id}'::uuid;`
       )
     ).rejects.toThrow(/(?:permission denied for table email_delivery_events|Audit Log Immutability Violation)/);
 
-    // 2. Attempt to update event type
+    // 2. colin_admin_runtime: Attempt to update recipient
+    await expect(
+      adminPrisma.$executeRawUnsafe(
+        `UPDATE email_delivery_events SET recipient = 'admin_tampered@evil.test' WHERE id = '${event.id}'::uuid;`
+      )
+    ).rejects.toThrow(/(?:permission denied for table email_delivery_events|Audit Log Immutability Violation)/);
+
+    // 3. Attempt to update event type
     await expect(
       prisma.$executeRawUnsafe(
         `UPDATE email_delivery_events SET event_type = 'BOUNCED'::"EmailDeliveryEventType" WHERE id = '${event.id}'::uuid;`
       )
     ).rejects.toThrow(/(?:permission denied for table email_delivery_events|Audit Log Immutability Violation)/);
 
-    // 3. Attempt to update provider message ID
+    // 4. Attempt to update provider message ID
     await expect(
-      prisma.$executeRawUnsafe(
+      adminPrisma.$executeRawUnsafe(
         `UPDATE email_delivery_events SET provider_message_id = 'tampered_id' WHERE id = '${event.id}'::uuid;`
       )
     ).rejects.toThrow(/(?:permission denied for table email_delivery_events|Audit Log Immutability Violation)/);
@@ -64,7 +72,7 @@ describe('COLIN Email Delivery-Event Immutability & Foreign Key Protection (Find
     expect(persisted!.eventType).toBe(EmailDeliveryEventType.DELIVERED);
   });
 
-  it('(B) strictly rejects ordinary DELETE operations on delivery events at the database level', async () => {
+  it('(B) strictly rejects ordinary DELETE operations on delivery events for both app and admin roles', async () => {
     const eventId = `immut_del_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
     const event = await prisma.emailDeliveryEvent.create({
       data: {
@@ -78,9 +86,16 @@ describe('COLIN Email Delivery-Event Immutability & Foreign Key Protection (Find
 
     expect(event.id).toBeDefined();
 
-    // Attempt direct DELETE query
+    // 1. colin_app_runtime: Attempt direct DELETE query
     await expect(
       prisma.$executeRawUnsafe(
+        `DELETE FROM email_delivery_events WHERE id = '${event.id}'::uuid;`
+      )
+    ).rejects.toThrow(/(?:permission denied for table email_delivery_events|Audit Log Immutability Violation)/);
+
+    // 2. colin_admin_runtime: Attempt direct DELETE query
+    await expect(
+      adminPrisma.$executeRawUnsafe(
         `DELETE FROM email_delivery_events WHERE id = '${event.id}'::uuid;`
       )
     ).rejects.toThrow(/(?:permission denied for table email_delivery_events|Audit Log Immutability Violation)/);
@@ -137,21 +152,41 @@ describe('COLIN Email Delivery-Event Immutability & Foreign Key Protection (Find
     expect(preservedEvent!.eventType).toBe(EmailDeliveryEventType.DELIVERED);
   });
 
-  it('(D) verifies that foreign key behavior does not weaken protections or allow re-linking/altering audit rows', async () => {
-    // Create an unlinked delivery event
-    const eventId = `immut_relink_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
-    const event = await prisma.emailDeliveryEvent.create({
+  it('(D) verifies that manual FK nullification and re-linking cannot bypass append-only protections', async () => {
+    // 1. Create an outbox record with an active delivery event
+    const parentOutbox = await prisma.emailOutbox.create({
       data: {
-        provider: 'sendgrid',
-        providerEventId: eventId,
-        eventType: EmailDeliveryEventType.DELIVERED,
-        eventTimestamp: new Date(),
-        recipient: 'audit.intact@colin.test',
+        recipient: 'manual.test@colin.test',
+        subject: 'Manual Nullification Test',
+        eventType: EmailEventType.VERIFICATION_EMAIL,
+        templateAlias: 'verification',
+        templateDataJson: {},
+        status: EmailOutboxStatus.ACCEPTED,
       },
     });
-    expect(event.emailOutboxId).toBeNull();
 
-    // Create a new outbox record
+    const eventId = `immut_manual_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
+    const linkedEvent = await prisma.emailDeliveryEvent.create({
+      data: {
+        emailOutboxId: parentOutbox.id,
+        provider: 'sendgrid',
+        providerEventId: eventId,
+        eventType: EmailDeliveryEventType.ACCEPTED,
+        eventTimestamp: new Date(),
+        recipient: 'manual.test@colin.test',
+      },
+    });
+    expect(linkedEvent.emailOutboxId).toBe(parentOutbox.id);
+
+    // 2. Attempt MANUAL unlinking (setting email_outbox_id = NULL) while parent outbox STILL exists!
+    // Must be blocked by the trigger: manual nullification is prohibited while parent exists.
+    await expect(
+      prisma.$executeRawUnsafe(
+        `UPDATE email_delivery_events SET email_outbox_id = NULL WHERE id = '${linkedEvent.id}'::uuid;`
+      )
+    ).rejects.toThrow(/Audit Log Immutability Violation: Manual unlinking of email_outbox_id is prohibited/);
+
+    // 3. Attempt manual re-linking to a different outbox
     const targetOutbox = await prisma.emailOutbox.create({
       data: {
         recipient: 'target@colin.test',
@@ -163,18 +198,16 @@ describe('COLIN Email Delivery-Event Immutability & Foreign Key Protection (Find
       },
     });
 
-    // Attempt to manually re-link email_outbox_id to targetOutbox.id
-    // This must fail because the trigger only permits transitioning to NULL, not setting non-NULL!
     await expect(
       prisma.$executeRawUnsafe(
-        `UPDATE email_delivery_events SET email_outbox_id = '${targetOutbox.id}'::uuid WHERE id = '${event.id}'::uuid;`
+        `UPDATE email_delivery_events SET email_outbox_id = '${targetOutbox.id}'::uuid WHERE id = '${linkedEvent.id}'::uuid;`
       )
     ).rejects.toThrow(/(?:permission denied for table email_delivery_events|Audit Log Immutability Violation)/);
 
-    // Attempting to delete the event still fails
+    // 4. Attempting to delete the event still fails
     await expect(
       prisma.$executeRawUnsafe(
-        `DELETE FROM email_delivery_events WHERE id = '${event.id}'::uuid;`
+        `DELETE FROM email_delivery_events WHERE id = '${linkedEvent.id}'::uuid;`
       )
     ).rejects.toThrow(/(?:permission denied for table email_delivery_events|Audit Log Immutability Violation)/);
 

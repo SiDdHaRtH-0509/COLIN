@@ -26,19 +26,36 @@ The COLIN platform operates five distinct cryptographic keys and verification se
 ## 2. Cryptographic Key Separation & Entropy Enforcement (Gate S05, S06, S07)
 
 ### 2.1 The Cross-Protocol Vulnerability & Audit Hardening
-A common architectural flaw in web applications is the reuse of a single master secret across multiple cryptographic primitives. In Phase 4A.2.5.5, key separation was established and subsequently audited to enforce 256-bit entropy across all symmetric keys:
+A common architectural flaw in web applications is the reuse of a single master secret across multiple cryptographic primitives. In Phase 4A.2.5.5, key separation was established and subsequently audited to enforce true cryptographic entropy across all symmetric keys:
 
 1. **CSPRNG Key Generation:** All keys must be generated using cryptographically secure pseudorandom number generators (`crypto.randomBytes(32)` or `generateCryptographicKey()`).
-2. **Rejection of Weak or Predictable Patterns:** `isWeakOrPredictableSecret()` rejects trivial repeating strings, cyclic alphabetic/numeric sequences, and known development defaults.
-3. **No Silent Fallbacks:** Neither `EMAIL_ENCRYPTION_KEY` nor `RATE_LIMIT_IDENTITY_HMAC_SECRET` fall back to `JWT_SECRET`.
-4. **Complete Pairwise Independence:** `validateProductionStartupEnvironment()` strictly prohibits any secret reuse:
-   - `EMAIL_ENCRYPTION_KEY !== JWT_SECRET`
-   - `RATE_LIMIT_IDENTITY_HMAC_SECRET !== JWT_SECRET`
-   - `RATE_LIMIT_IDENTITY_HMAC_SECRET !== EMAIL_ENCRYPTION_KEY`
-   - `EMAIL_ENCRYPTION_KEY_FALLBACK !== EMAIL_ENCRYPTION_KEY`
-   - `EMAIL_ENCRYPTION_KEY_FALLBACK !== JWT_SECRET`
-   - `EMAIL_ENCRYPTION_KEY_FALLBACK !== RATE_LIMIT_IDENTITY_HMAC_SECRET`
-3. **Fail-Fast Startup Guardrail:** In production, missing or identical keys throw `ConfigurationSecurityError` during bootstrap, halting execution before any HTTP traffic is accepted.
+2. **Distinguishing Key Length from Information Entropy:**
+   Raw string length does not guarantee cryptographic security. For example:
+   - `'abababababababababababababababab'` (length 32) has only 2 unique characters and a Shannon entropy of $1.00\text{ bit/char}$ ($32\text{ total bits}$), which is computationally trivial to brute-force.
+   - `'0123456789abcdef0123456789abcdef'` (length 32) has 16 characters but a repeating cyclic structure.
+   - A CSPRNG hex string from `crypto.randomBytes(32).toString('hex')` (length 64) exhibits Shannon entropy $\approx 3.9\text{ bits/char}$ and $> 240\text{ total entropy bits}$.
+
+   The Shannon entropy calculation implemented in `src/server/config/secrets.config.ts`:
+   $$H(X) = -\sum_{i=1}^{n} p(x_i) \log_2 p(x_i)$$
+   Total information entropy is given by:
+   $$E_{\text{total}} = \text{length} \times H(X)$$
+
+3. **Rejection of Weak or Predictable Patterns:** `isWeakOrPredictableSecret()` enforces both structural pattern checks (repeating chunks, cyclic alphabetical or numeric sequences, keyboard walks) and statistical entropy thresholds:
+   - Minimum unique characters: $\ge 10$ unique symbols for secrets $\ge 32$ characters.
+   - Minimum Shannon entropy: $\ge 3.0\text{ bits/character}$.
+4. **No Silent Fallbacks:** Neither `EMAIL_ENCRYPTION_KEY` nor `RATE_LIMIT_IDENTITY_HMAC_SECRET` falls back to `JWT_SECRET`.
+5. **Complete Pairwise Independence:** `validateProductionStartupEnvironment()` strictly enforces that no two keys in the system are identical. The complete pairwise distinctness matrix is verified:
+
+   | Key A | Key B | Distinction Enforced | Enforcement Mechanism |
+   |---|---|:---:|---|
+   | `JWT_SECRET` | `EMAIL_ENCRYPTION_KEY` | YES | Startup validation & `email.crypto.ts` assertKeySeparation |
+   | `JWT_SECRET` | `RATE_LIMIT_IDENTITY_HMAC_SECRET` | YES | Startup validation check |
+   | `EMAIL_ENCRYPTION_KEY` | `RATE_LIMIT_IDENTITY_HMAC_SECRET` | YES | Startup validation check |
+   | `EMAIL_ENCRYPTION_KEY` | `EMAIL_ENCRYPTION_KEY_FALLBACK` | YES | Startup validation & `email.crypto.ts` |
+   | `EMAIL_ENCRYPTION_KEY_FALLBACK` | `JWT_SECRET` | YES | Startup validation check |
+   | `EMAIL_ENCRYPTION_KEY_FALLBACK` | `RATE_LIMIT_IDENTITY_HMAC_SECRET` | YES | Startup validation check |
+
+6. **Fail-Fast Startup Guardrail:** In production, missing or identical keys throw `ConfigurationSecurityError` during bootstrap, halting execution before any HTTP traffic is accepted.
 
 ---
 

@@ -18,6 +18,8 @@ import {
   assertProductionSecretsValid,
   generateCryptographicKey,
   isWeakOrPredictableSecret,
+  calculateShannonEntropy,
+  calculateTotalEntropyBits,
 } from '../../server/config/secrets.config';
 
 describe('COLIN Phase 4A.2.5.5: Cryptographic Key Separation & Encryption (Gates S05, S06, S07)', () => {
@@ -88,10 +90,10 @@ describe('COLIN Phase 4A.2.5.5: Cryptographic Key Separation & Encryption (Gates
       ).toBe(true);
     });
 
-    it('rejects weak or predictable secret patterns in production', () => {
+    it('rejects weak or predictable secret patterns and distinguishes length from entropy', () => {
       const repetitiveEnv = {
         NODE_ENV: 'production',
-        JWT_SECRET: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', // 32 repeating chars
+        JWT_SECRET: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', // 32 repeating chars (0 entropy)
         EMAIL_ENCRYPTION_KEY: '01234567890123456789012345678901', // predictable numeric
         RATE_LIMIT_IDENTITY_HMAC_SECRET: 'abcdefghijklmnopqrstuvwxyzabcdef', // predictable alphabet
       };
@@ -102,6 +104,13 @@ describe('COLIN Phase 4A.2.5.5: Cryptographic Key Separation & Encryption (Gates
       expect(result.errors.some((e) => e.includes('EMAIL_ENCRYPTION_KEY uses a weak or predictable pattern'))).toBe(true);
       expect(result.errors.some((e) => e.includes('RATE_LIMIT_IDENTITY_HMAC_SECRET uses a weak or predictable pattern'))).toBe(true);
 
+      // Low entropy strings with sufficient length (>= 32 chars) are rejected
+      const lowEntropyString = 'abababababababababababababababab'; // length 32, but only 2 chars
+      expect(lowEntropyString.length).toBe(32);
+      expect(calculateShannonEntropy(lowEntropyString)).toBe(1.0); // 1 bit/char
+      expect(calculateTotalEntropyBits(lowEntropyString)).toBe(32); // only 32 bits total entropy
+      expect(isWeakOrPredictableSecret(lowEntropyString)).toBe(true);
+
       expect(isWeakOrPredictableSecret('11111111111111111111111111111111')).toBe(true);
       expect(isWeakOrPredictableSecret(generateCryptographicKey(32))).toBe(false);
     });
@@ -110,9 +119,85 @@ describe('COLIN Phase 4A.2.5.5: Cryptographic Key Separation & Encryption (Gates
       const key1 = generateCryptographicKey(32);
       const key2 = generateCryptographicKey(32);
 
-      expect(key1).toHaveLength(64); // 32 bytes in hex = 64 hex chars = 256 bits
+      expect(key1).toHaveLength(64); // 32 bytes in hex = 64 hex chars
       expect(key2).toHaveLength(64);
       expect(key1).not.toBe(key2);
+
+      // Verify actual Shannon entropy of CSPRNG generated key
+      const entropyPerChar = calculateShannonEntropy(key1);
+      const totalEntropy = calculateTotalEntropyBits(key1);
+      expect(entropyPerChar).toBeGreaterThan(3.5); // Hex maximum is 4.0 bits/char
+      expect(totalEntropy).toBeGreaterThan(220); // Close to theoretical 256 bits
+    });
+
+    it('verifies all pairs of cryptographic keys are pairwise distinct in production', () => {
+      const sharedSecret = 'a-super-long-secure-random-key-with-at-least-32-chars!';
+      const keyA = 'a-completely-unique-jwt-secret-with-32-chars-long!';
+      const keyB = 'a-completely-unique-email-key-with-32-chars-long!';
+      const keyC = 'a-completely-unique-hmac-secret-with-32-chars-long!';
+
+      // Pair 1: JWT === EMAIL
+      const res1 = validateProductionStartupEnvironment({
+        NODE_ENV: 'production',
+        JWT_SECRET: sharedSecret,
+        EMAIL_ENCRYPTION_KEY: sharedSecret,
+        RATE_LIMIT_IDENTITY_HMAC_SECRET: keyC,
+      });
+      expect(res1.valid).toBe(false);
+      expect(res1.errors.some((e) => e.includes('EMAIL_ENCRYPTION_KEY must not be identical to JWT_SECRET'))).toBe(true);
+
+      // Pair 2: JWT === HMAC
+      const res2 = validateProductionStartupEnvironment({
+        NODE_ENV: 'production',
+        JWT_SECRET: sharedSecret,
+        EMAIL_ENCRYPTION_KEY: keyB,
+        RATE_LIMIT_IDENTITY_HMAC_SECRET: sharedSecret,
+      });
+      expect(res2.valid).toBe(false);
+      expect(res2.errors.some((e) => e.includes('RATE_LIMIT_IDENTITY_HMAC_SECRET must not reuse JWT_SECRET'))).toBe(true);
+
+      // Pair 3: EMAIL === HMAC
+      const res3 = validateProductionStartupEnvironment({
+        NODE_ENV: 'production',
+        JWT_SECRET: keyA,
+        EMAIL_ENCRYPTION_KEY: sharedSecret,
+        RATE_LIMIT_IDENTITY_HMAC_SECRET: sharedSecret,
+      });
+      expect(res3.valid).toBe(false);
+      expect(res3.errors.some((e) => e.includes('RATE_LIMIT_IDENTITY_HMAC_SECRET must not reuse EMAIL_ENCRYPTION_KEY'))).toBe(true);
+
+      // Pair 4: FALLBACK === PRIMARY
+      const res4 = validateProductionStartupEnvironment({
+        NODE_ENV: 'production',
+        JWT_SECRET: keyA,
+        EMAIL_ENCRYPTION_KEY: sharedSecret,
+        EMAIL_ENCRYPTION_KEY_FALLBACK: sharedSecret,
+        RATE_LIMIT_IDENTITY_HMAC_SECRET: keyC,
+      });
+      expect(res4.valid).toBe(false);
+      expect(res4.errors.some((e) => e.includes('EMAIL_ENCRYPTION_KEY_FALLBACK cannot be identical to active EMAIL_ENCRYPTION_KEY'))).toBe(true);
+
+      // Pair 5: FALLBACK === JWT
+      const res5 = validateProductionStartupEnvironment({
+        NODE_ENV: 'production',
+        JWT_SECRET: sharedSecret,
+        EMAIL_ENCRYPTION_KEY: keyB,
+        EMAIL_ENCRYPTION_KEY_FALLBACK: sharedSecret,
+        RATE_LIMIT_IDENTITY_HMAC_SECRET: keyC,
+      });
+      expect(res5.valid).toBe(false);
+      expect(res5.errors.some((e) => e.includes('EMAIL_ENCRYPTION_KEY_FALLBACK must not reuse JWT_SECRET'))).toBe(true);
+
+      // Pair 6: FALLBACK === HMAC
+      const res6 = validateProductionStartupEnvironment({
+        NODE_ENV: 'production',
+        JWT_SECRET: keyA,
+        EMAIL_ENCRYPTION_KEY: keyB,
+        EMAIL_ENCRYPTION_KEY_FALLBACK: sharedSecret,
+        RATE_LIMIT_IDENTITY_HMAC_SECRET: sharedSecret,
+      });
+      expect(res6.valid).toBe(false);
+      expect(res6.errors.some((e) => e.includes('EMAIL_ENCRYPTION_KEY_FALLBACK must not reuse RATE_LIMIT_IDENTITY_HMAC_SECRET'))).toBe(true);
     });
 
     it('enforces that email crypto does not silently fall back to JWT_SECRET in production', () => {

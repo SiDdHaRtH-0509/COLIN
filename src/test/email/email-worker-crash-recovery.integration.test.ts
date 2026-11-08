@@ -18,6 +18,8 @@ import { initializeDatabaseConnections } from '../../server/database/lifecycle';
 import {
   EmailWorker,
   MockEmailProvider,
+  SendGridProvider,
+  PostmarkProvider,
   SendGridWebhookHandler,
   PostmarkWebhookHandler,
   EmailEventType,
@@ -199,5 +201,41 @@ describe('COLIN Email Worker Crash Recovery & Idempotency (Finding 4)', () => {
     const reconciled = await prisma.emailOutbox.findUnique({ where: { id: outbox.id } });
     expect(reconciled!.status).toBe(EmailOutboxStatus.DELIVERED);
     expect(reconciled!.providerMessageId).toBe(pmMessageId);
+  });
+
+  it('demonstrates residual duplicate-delivery risk and verifies providers use metadata for correlation rather than server-side deduplication', () => {
+    const sg = new SendGridProvider({ apiKey: 'SG.test_key_audit' });
+    const pm = new PostmarkProvider({ serverToken: 'pm-test-token-audit' });
+
+    const idempotencyKey = 'audit_idem_key_999';
+    const message = {
+      to: 'audit.student@colin.test',
+      subject: 'Audit Email',
+      htmlBody: '<p>Audit</p>',
+      textBody: 'Audit',
+      templateAlias: 'verification',
+      idempotencyKey,
+      metadata: { outboxId: 'outbox-uuid-123', idempotencyKey },
+    };
+
+    // 1. SendGrid payload formats custom_args (metadata), not a native HTTP Idempotency-Key
+    const sgPayload = sg.formatSendGridPayload(message);
+    expect(sgPayload.custom_args).toBeDefined();
+    expect((sgPayload.custom_args as any).idempotencyKey).toBe(idempotencyKey);
+    expect((sgPayload.custom_args as any).outboxId).toBe('outbox-uuid-123');
+
+    // 2. Postmark payload formats Metadata, not an idempotency header
+    const pmPayload = pm.formatPostmarkPayload(message);
+    expect(pmPayload.Metadata).toBeDefined();
+    expect((pmPayload.Metadata as any).idempotencyKey).toBe(idempotencyKey);
+    expect((pmPayload.Metadata as any).outboxId).toBe('outbox-uuid-123');
+
+    // 3. Documented architectural reality:
+    // Neither SendGrid Mail Send v3 nor Postmark /email natively rejects duplicate requests
+    // with identical custom_args/Metadata. Therefore, if a worker crashes after provider acceptance
+    // and webhook reconciliation does not arrive before staleTimeoutMinutes, stale recovery re-sends
+    // the email, resulting in at-least-once delivery semantics with honest residual duplicate risk.
+    expect(sg.providerName).toBe('sendgrid');
+    expect(pm.providerName).toBe('postmark');
   });
 });
