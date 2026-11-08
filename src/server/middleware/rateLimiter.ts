@@ -120,7 +120,7 @@ export class RateLimiter {
       // If Redis is ready and enabled, run through atomic Redis sliding window
       const config = getRedisConfig();
       if (config.rateLimitEnabled && isRedisReady()) {
-        const entryId = `${now}-${crypto.randomBytes(4).toString('hex')}`;
+        const entryId = `${now}-${crypto.randomUUID()}`;
         const effectiveFailMode = this.failMode || config.failMode;
 
         executeSlidingWindowLua(

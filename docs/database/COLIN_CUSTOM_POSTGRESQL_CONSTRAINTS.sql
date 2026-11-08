@@ -972,12 +972,16 @@ BEGIN
   END IF;
 
   IF TG_OP = 'UPDATE' THEN
-    IF OLD.provider != NEW.provider 
-       OR OLD.provider_event_id != NEW.provider_event_id
+    IF OLD.id IS DISTINCT FROM NEW.id
+       OR OLD.created_at IS DISTINCT FROM NEW.created_at
+       OR OLD.event_timestamp IS DISTINCT FROM NEW.event_timestamp
+       OR OLD.provider IS DISTINCT FROM NEW.provider
+       OR OLD.provider_event_id IS DISTINCT FROM NEW.provider_event_id
        OR OLD.provider_message_id IS DISTINCT FROM NEW.provider_message_id
-       OR OLD.event_type != NEW.event_type
+       OR OLD.event_type IS DISTINCT FROM NEW.event_type
        OR OLD.recipient IS DISTINCT FROM NEW.recipient
-       OR OLD.metadata_json::text IS DISTINCT FROM NEW.metadata_json::text THEN
+       OR OLD.metadata_json::text IS DISTINCT FROM NEW.metadata_json::text
+       OR (OLD.email_outbox_id IS DISTINCT FROM NEW.email_outbox_id AND NEW.email_outbox_id IS NOT NULL) THEN
       RAISE EXCEPTION 'Audit Log Immutability Violation: Records in table email_delivery_events are append-only audit infrastructure and cannot be updated.';
     END IF;
   END IF;

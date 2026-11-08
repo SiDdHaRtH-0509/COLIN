@@ -159,6 +159,40 @@ export class SendGridWebhookHandler {
         }
       }
 
+      // Worker crash recovery reconciliation: match via custom arguments (outboxId or idempotencyKey)
+      if (!matchedOutboxId) {
+        const rawEv = ev as Record<string, any>;
+        const fallbackOutboxId = rawEv.outboxId as string | undefined;
+        const fallbackIdempotency = rawEv.idempotencyKey as string | undefined;
+        if (fallbackOutboxId || fallbackIdempotency) {
+          const outboxRecord = await prisma.emailOutbox.findFirst({
+            where: {
+              OR: [
+                ...(fallbackOutboxId ? [{ id: fallbackOutboxId }] : []),
+                ...(fallbackIdempotency ? [{ idempotencyKey: fallbackIdempotency }] : []),
+              ],
+            },
+            select: { id: true, providerMessageId: true },
+          });
+          if (outboxRecord) {
+            matchedOutboxId = outboxRecord.id;
+            const updateData: { status?: EmailOutboxStatus; providerMessageId?: string } = {};
+            if (newOutboxStatus) {
+              updateData.status = newOutboxStatus;
+            }
+            if (!outboxRecord.providerMessageId && cleanMessageId) {
+              updateData.providerMessageId = cleanMessageId;
+            }
+            if (Object.keys(updateData).length > 0) {
+              await prisma.emailOutbox.update({
+                where: { id: matchedOutboxId },
+                data: updateData,
+              });
+            }
+          }
+        }
+      }
+
       // Record immutable delivery event
       await prisma.emailDeliveryEvent.create({
         data: {

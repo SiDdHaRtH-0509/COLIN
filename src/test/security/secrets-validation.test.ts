@@ -25,7 +25,7 @@ describe('COLIN Phase 4A.2.5.5: Secrets Validation & Redaction (Gates S03, S04, 
       const missingJwt = {
         NODE_ENV: 'production',
         EMAIL_ENCRYPTION_KEY: 'valid-32-byte-encryption-key-here!',
-        RATE_LIMIT_IDENTITY_HMAC_SECRET: 'valid-16-byte-hmac!',
+        RATE_LIMIT_IDENTITY_HMAC_SECRET: 'valid-32-byte-hmac-identity-secret!',
       };
       const res1 = validateProductionStartupEnvironment(missingJwt);
       expect(res1.valid).toBe(false);
@@ -60,7 +60,7 @@ describe('COLIN Phase 4A.2.5.5: Secrets Validation & Redaction (Gates S03, S04, 
         NODE_ENV: 'production',
         JWT_SECRET: 'prod-jwt-secret-with-minimum-32-chars-long!',
         EMAIL_ENCRYPTION_KEY: 'prod-email-key-with-minimum-32-chars-long!',
-        RATE_LIMIT_IDENTITY_HMAC_SECRET: 'prod-hmac-secret-16b!',
+        RATE_LIMIT_IDENTITY_HMAC_SECRET: 'prod-hmac-secret-with-minimum-32-chars!',
       };
 
       // 1. S3 Storage without credentials

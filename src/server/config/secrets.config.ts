@@ -7,6 +7,7 @@
  * and provides universal redaction for diagnostics and logging.
  */
 
+import crypto from 'crypto';
 import { z } from 'zod';
 
 export class ConfigurationSecurityError extends Error {
@@ -21,12 +22,46 @@ export class ConfigurationSecurityError extends Error {
   }
 }
 
+/**
+ * Generates a cryptographically strong random secret key using the system CSPRNG.
+ * Defaults to 32 bytes (256 bits) encoded as a hexadecimal string.
+ */
+export function generateCryptographicKey(bytes: number = 32): string {
+  return crypto.randomBytes(bytes).toString('hex');
+}
+
 const INSECURE_DEV_SECRETS = [
   'colin-super-secure-production-ready-jwt-secret-key-32chars!',
   'colin-rate-limit-hmac-dev-secret-32b!',
   'colin-webhook-secret-key-2026!',
   'colin-email-encryption-dev-key-32b!',
 ];
+
+/**
+ * Validates that a secret is not a known insecure dev default, a trivial repeating sequence,
+ * or a predictable ascending/descending run.
+ */
+export function isWeakOrPredictableSecret(secret: string): boolean {
+  if (!secret) return true;
+  if (INSECURE_DEV_SECRETS.includes(secret)) return true;
+  // Repetitive single character (e.g. 'aaaa...')
+  if (/^(.)\1+$/.test(secret)) return true;
+  // Repeating cyclic pattern of length 1 to 10
+  for (let len = 1; len <= 10; len++) {
+    const pattern = secret.slice(0, len);
+    if (pattern.repeat(Math.ceil(secret.length / len)).slice(0, secret.length) === secret) {
+      return true;
+    }
+  }
+  // Standard alphabetical cycle (e.g. abcdefghijklmnopqrstuvwxyzabc...)
+  const alphaCycle = 'abcdefghijklmnopqrstuvwxyz'.repeat(3);
+  if (alphaCycle.includes(secret.toLowerCase())) return true;
+  // Standard numeric cycle (e.g. 01234567890123456789...)
+  const numCycle = '0123456789'.repeat(5);
+  if (numCycle.includes(secret)) return true;
+
+  return false;
+}
 
 /**
  * Universal secrets and environment schema definition.
@@ -93,6 +128,8 @@ export function validateProductionStartupEnvironment(
     }
     if (INSECURE_DEV_SECRETS.includes(jwtSecret)) {
       errors.push('JWT_SECRET cannot use default insecure development secret.');
+    } else if (isWeakOrPredictableSecret(jwtSecret)) {
+      errors.push('JWT_SECRET uses a weak or predictable pattern.');
     }
   }
 
@@ -106,6 +143,8 @@ export function validateProductionStartupEnvironment(
     }
     if (INSECURE_DEV_SECRETS.includes(emailEncryptionKey)) {
       errors.push('EMAIL_ENCRYPTION_KEY cannot use default development secret.');
+    } else if (isWeakOrPredictableSecret(emailEncryptionKey)) {
+      errors.push('EMAIL_ENCRYPTION_KEY uses a weak or predictable pattern.');
     }
     if (jwtSecret && emailEncryptionKey === jwtSecret) {
       errors.push(
@@ -119,16 +158,40 @@ export function validateProductionStartupEnvironment(
   if (!rateLimitHmacSecret) {
     errors.push('RATE_LIMIT_IDENTITY_HMAC_SECRET is required in production for user privacy anonymization.');
   } else {
-    if (rateLimitHmacSecret.length < 16) {
-      errors.push('RATE_LIMIT_IDENTITY_HMAC_SECRET must be at least 16 characters in production.');
+    if (rateLimitHmacSecret.length < 32) {
+      errors.push('RATE_LIMIT_IDENTITY_HMAC_SECRET must be at least 32 characters (256 bits) in production.');
     }
     if (INSECURE_DEV_SECRETS.includes(rateLimitHmacSecret)) {
       errors.push('RATE_LIMIT_IDENTITY_HMAC_SECRET cannot use default development secret.');
+    } else if (isWeakOrPredictableSecret(rateLimitHmacSecret)) {
+      errors.push('RATE_LIMIT_IDENTITY_HMAC_SECRET uses a weak or predictable pattern.');
     }
     if (jwtSecret && rateLimitHmacSecret === jwtSecret) {
       errors.push(
         'CRYPTOGRAPHIC KEY SEPARATION VIOLATION: RATE_LIMIT_IDENTITY_HMAC_SECRET must not reuse JWT_SECRET.'
       );
+    }
+    if (emailEncryptionKey && rateLimitHmacSecret === emailEncryptionKey) {
+      errors.push(
+        'CRYPTOGRAPHIC KEY SEPARATION VIOLATION: RATE_LIMIT_IDENTITY_HMAC_SECRET must not reuse EMAIL_ENCRYPTION_KEY.'
+      );
+    }
+  }
+
+  // 4. Safe Key Rotation: Fallback Email Encryption Key
+  const emailEncryptionKeyFallback = env.EMAIL_ENCRYPTION_KEY_FALLBACK;
+  if (emailEncryptionKeyFallback) {
+    if (emailEncryptionKeyFallback.length < 32) {
+      errors.push('EMAIL_ENCRYPTION_KEY_FALLBACK must be at least 32 characters (256 bits) in production.');
+    }
+    if (emailEncryptionKey && emailEncryptionKeyFallback === emailEncryptionKey) {
+      errors.push('KEY ROTATION ERROR: EMAIL_ENCRYPTION_KEY_FALLBACK cannot be identical to active EMAIL_ENCRYPTION_KEY.');
+    }
+    if (jwtSecret && emailEncryptionKeyFallback === jwtSecret) {
+      errors.push('CRYPTOGRAPHIC KEY SEPARATION VIOLATION: EMAIL_ENCRYPTION_KEY_FALLBACK must not reuse JWT_SECRET.');
+    }
+    if (rateLimitHmacSecret && emailEncryptionKeyFallback === rateLimitHmacSecret) {
+      errors.push('CRYPTOGRAPHIC KEY SEPARATION VIOLATION: EMAIL_ENCRYPTION_KEY_FALLBACK must not reuse RATE_LIMIT_IDENTITY_HMAC_SECRET.');
     }
   }
 

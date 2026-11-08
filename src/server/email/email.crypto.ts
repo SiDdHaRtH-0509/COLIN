@@ -18,10 +18,17 @@ export function getPrimaryEncryptionKey(): Buffer {
     }
     return crypto.createHash('sha256').update('colin-email-encryption-dev-key-32b!').digest();
   }
-  if (process.env.NODE_ENV === 'production' && process.env.JWT_SECRET && secret === process.env.JWT_SECRET) {
-    throw new Error(
-      'CRYPTOGRAPHIC KEY SEPARATION VIOLATION: EMAIL_ENCRYPTION_KEY must not reuse JWT_SECRET. Independent keys are required.'
-    );
+  if (process.env.NODE_ENV === 'production') {
+    if (process.env.JWT_SECRET && secret === process.env.JWT_SECRET) {
+      throw new Error(
+        'CRYPTOGRAPHIC KEY SEPARATION VIOLATION: EMAIL_ENCRYPTION_KEY must not reuse JWT_SECRET. Independent keys are required.'
+      );
+    }
+    if (process.env.RATE_LIMIT_IDENTITY_HMAC_SECRET && secret === process.env.RATE_LIMIT_IDENTITY_HMAC_SECRET) {
+      throw new Error(
+        'CRYPTOGRAPHIC KEY SEPARATION VIOLATION: EMAIL_ENCRYPTION_KEY must not reuse RATE_LIMIT_IDENTITY_HMAC_SECRET. Independent keys are required.'
+      );
+    }
   }
   return crypto.createHash('sha256').update(secret).digest();
 }
@@ -30,6 +37,12 @@ export function getFallbackEncryptionKey(): Buffer | null {
   const fallbackSecret = process.env.EMAIL_ENCRYPTION_KEY_FALLBACK;
   if (!fallbackSecret) {
     return null;
+  }
+  const primarySecret = process.env.EMAIL_ENCRYPTION_KEY;
+  if (primarySecret && fallbackSecret === primarySecret) {
+    throw new Error(
+      'KEY ROTATION ERROR: EMAIL_ENCRYPTION_KEY_FALLBACK cannot be identical to active EMAIL_ENCRYPTION_KEY.'
+    );
   }
   return crypto.createHash('sha256').update(fallbackSecret).digest();
 }

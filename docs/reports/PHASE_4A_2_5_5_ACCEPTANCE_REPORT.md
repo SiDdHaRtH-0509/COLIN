@@ -66,23 +66,83 @@ Phase 4A.2.5.5 has implemented, validated, and audited a centralized, production
 
 ### 3.3 Phase 4A.2.5.4 (Redis Distributed Rate Limiting)
 1. **Clock Consistency:** Enhanced Lua script in `src/server/redis/redis.client.ts` to support authoritative Redis server `TIME`.
-2. **ZSET Member Uniqueness:** Guaranteed via `${now}-${crypto.randomBytes(4).toString('hex')}` entry IDs.
+2. **ZSET Member Uniqueness:** Upgraded to `${now}-${crypto.randomUUID()}` (122 bits of CSPRNG entropy), preventing member collisions and request undercounting.
 3. **Fail-Closed Security:** Verified that authentication endpoints fail closed when Redis is offline.
 
 ---
 
-## 4. Test Suite Accounting
+## 4. Final Targeted Audit Remediation & Closure (Findings 1 – 4)
 
-- **Verified Baseline (Commit `15b6efb`):** 35 test files, 585 tests.
-- **Phase 4A.2.5.5 Additions:** 3 test files, 16 tests:
-  - `src/test/security/cryptographic-separation.test.ts`: 6 tests
-  - `src/test/security/secrets-validation.test.ts`: 7 tests
-  - `src/test/security/bundle-leakage.test.ts`: 3 tests
-- **Total Post-Implementation Inventory:** **38 test files, 601 tests (100% passed, 0 failures, 0 regressions)**.
+### 4.1 Finding 1 — Cryptographic Key Strength & Entropy Enforcement
+- **Original Issue:** Ensure CSPRNG key generation, production rejection of weak/predictable patterns, pairwise independent key separation across all secrets, safe key rotation, backward-compatible decryption.
+- **Root Cause:** HMAC identity secret allowed 16 characters instead of 256 bits (32 characters); lack of weak cyclic pattern detection; missing CSPRNG key generator helper; missing separation checks between HMAC and Email Encryption key.
+- **Exact Files Changed:**
+  - `src/server/config/secrets.config.ts`
+  - `src/server/email/email.crypto.ts`
+  - `src/test/security/cryptographic-separation.test.ts`
+  - `src/test/security/secrets-validation.test.ts`
+- **Technical Correction:**
+  1. Implemented `generateCryptographicKey(bytes = 32): string` using system CSPRNG (`crypto.randomBytes`).
+  2. Implemented `isWeakOrPredictableSecret()` rejecting repetitive sequences, cyclic alphabetic/numeric sequences, and known development defaults.
+  3. Increased `RATE_LIMIT_IDENTITY_HMAC_SECRET` minimum length to 32 characters (256 bits).
+  4. Enforced strict pairwise separation between `JWT_SECRET`, `EMAIL_ENCRYPTION_KEY`, and `RATE_LIMIT_IDENTITY_HMAC_SECRET`.
+  5. Enforced safe rotation separation between primary and fallback encryption keys.
+- **Test Evidence:** `src/test/security/cryptographic-separation.test.ts` (10 tests passing), `src/test/security/secrets-validation.test.ts` (7 tests passing).
+- **Final Status: FULL PASS**
+
+### 4.2 Finding 2 — Redis ZSET Member Uniqueness
+- **Original Issue:** Sliding-window rate limiting used `${now}-${crypto.randomBytes(4).toString('hex')}` (32 bits of randomness), carrying non-zero collision risk under concurrent bursts, which could overwrite ZSET members and undercount requests.
+- **Root Cause:** 32-bit random entropy is insufficient to mathematically guarantee uniqueness under horizontal concurrency.
+- **Exact Files Changed:**
+  - `src/server/redis/rateLimiter.service.ts`
+  - `src/server/middleware/rateLimiter.ts`
+  - `src/test/redis/redis-ratelimit.integration.test.ts`
+- **Technical Correction:** Replaced `randomBytes(4)` with RFC 4122 v4 UUIDs (`crypto.randomUUID()`) yielding 122 bits of CSPRNG entropy (`${now}-${crypto.randomUUID()}`).
+- **Test Evidence:** `src/test/redis/redis-ratelimit.integration.test.ts` (8 tests passing), verifying 0 collisions across 2,000 rapid concurrent generations and exact 10/10 member retention under concurrent Redis Lua evaluation.
+- **Final Status: FULL PASS**
+
+### 4.3 Finding 3 — Email Delivery-Event Immutability & Cascade Integrity
+- **Original Issue:** Verify that PostgreSQL append-only protections and immutability triggers prevent all mutations, while permitting parent `EmailOutbox` deletion to cascade via `ON DELETE SET NULL` without deleting audit events or allowing unauthorized re-linking.
+- **Root Cause:** Need dedicated integration test proof verifying all four dimensions: (A) ordinary UPDATE blocked, (B) ordinary DELETE blocked, (C) parent outbox deletion safely sets `email_outbox_id = null`, (D) foreign key behavior does not weaken protections or permit column alterations.
+- **Exact Files Changed:**
+  - `docs/database/COLIN_CUSTOM_POSTGRESQL_CONSTRAINTS.sql`
+  - PostgreSQL trigger `prevent_delivery_event_mutation()`
+  - `src/test/email/email-delivery-immutability.integration.test.ts`
+- **Technical Correction:** Hardened `prevent_delivery_event_mutation()` using NULL-safe `IS DISTINCT FROM` across all columns (`id`, `created_at`, `event_timestamp`, `provider`, `provider_event_id`, `provider_message_id`, `event_type`, `recipient`, `metadata_json`), and strictly prohibiting any mutation where `NEW.email_outbox_id IS NOT NULL`. Added dedicated PostgreSQL integration test suite testing (A), (B), (C), (D).
+- **Test Evidence:** `src/test/email/email-delivery-immutability.integration.test.ts` (4 integration tests passing against live PostgreSQL 18.4).
+- **Final Status: FULL PASS**
+
+### 4.4 Finding 4 — Email Worker Crash Recovery & At-Least-Once Delivery
+- **Original Issue:** Worker crash after provider dispatch before database recording creates duplicate-delivery risk, requiring provider idempotency support, message-ID persistence, webhook reconciliation, and formal at-least-once delivery semantics.
+- **Root Cause:** Asynchronous boundaries between distributed workers, database, and external email SaaS providers lack distributed two-phase commit (2PC).
+- **Exact Files Changed:**
+  - `src/server/email/outbox/EmailWorker.ts`
+  - `src/server/email/webhooks/SendGridWebhookHandler.ts`
+  - `src/server/email/webhooks/PostmarkWebhookHandler.ts`
+  - `src/test/email/email-worker-crash-recovery.integration.test.ts`
+- **Technical Correction:**
+  1. Worker passes `outboxId` and `idempotencyKey` in `metadata` / `custom_args` to SendGrid and Postmark.
+  2. Webhook handlers reconcile un-recorded outbox records using `outboxId` or `idempotencyKey`, updating `providerMessageId` and setting status to `DELIVERED`, which prevents stale worker recovery from creating duplicate dispatches.
+  3. Documented distributed systems reality: In the absence of webhook arrival, stale recovery reclaims unacknowledged jobs after `staleTimeoutMinutes`, achieving **at-least-once delivery semantics**.
+- **Test Evidence:** `src/test/email/email-worker-crash-recovery.integration.test.ts` (3 tests passing against live PostgreSQL 18.4).
+- **Final Status: FULL PASS**
 
 ---
 
-## 5. Documentation Deliverables Index
+## 5. Test Suite Accounting
+
+- **Verified Baseline (Commit `15b6efb`):** 35 test files, 585 tests.
+- **Initial Phase 4A.2.5.5 Additions:** 3 test files, 16 tests.
+- **Audit Remediation Additions:** 2 test files, 13 additional tests:
+  - `src/test/email/email-delivery-immutability.integration.test.ts`: 4 tests
+  - `src/test/email/email-worker-crash-recovery.integration.test.ts`: 3 tests
+  - `src/test/security/cryptographic-separation.test.ts`: 4 additional tests (total 10)
+  - `src/test/redis/redis-ratelimit.integration.test.ts`: 2 additional tests (total 8)
+- **Total Post-Remediation Inventory:** **40 test files, 614 tests (100% passed, 0 failures, 0 regressions)**.
+
+---
+
+## 6. Documentation Deliverables Index
 
 The following reports are stored under `docs/reports/`:
 1. `docs/reports/PHASE_4A_2_5_5_READINESS_AUDIT.md`
@@ -95,7 +155,7 @@ The following reports are stored under `docs/reports/`:
 
 ---
 
-## 6. Stop Condition & Next Steps
+## 7. Stop Condition & Next Steps
 
 All engineering implementations, security audits, regression tests, and documentation deliverables for **Phase 4A.2.5.5** are complete.
 

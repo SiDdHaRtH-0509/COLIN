@@ -29,7 +29,7 @@ export class RateLimiterService {
     const config = getRedisConfig();
     const failMode = options?.failMode || policy.failMode || config.failMode;
     const now = Date.now();
-    const entryId = `${now}-${crypto.randomBytes(4).toString('hex')}`;
+    const entryId = `${now}-${crypto.randomUUID()}`;
 
     // 1. If Redis is ready and enabled, use atomic Redis Lua sliding-window
     if (config.rateLimitEnabled && isRedisReady()) {

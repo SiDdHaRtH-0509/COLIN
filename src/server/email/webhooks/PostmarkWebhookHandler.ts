@@ -151,6 +151,39 @@ export class PostmarkWebhookHandler {
       }
     }
 
+    // Worker crash recovery reconciliation: match via metadata (outboxId or idempotencyKey)
+    if (!matchedOutboxId && payload.Metadata) {
+      const metaOutboxId = payload.Metadata.outboxId as string | undefined;
+      const metaIdempotency = payload.Metadata.idempotencyKey as string | undefined;
+      if (metaOutboxId || metaIdempotency) {
+        const outbox = await prisma.emailOutbox.findFirst({
+          where: {
+            OR: [
+              ...(metaOutboxId ? [{ id: metaOutboxId }] : []),
+              ...(metaIdempotency ? [{ idempotencyKey: metaIdempotency }] : []),
+            ],
+          },
+          select: { id: true, providerMessageId: true },
+        });
+        if (outbox) {
+          matchedOutboxId = outbox.id;
+          const updateData: { status?: EmailOutboxStatus; providerMessageId?: string } = {};
+          if (newOutboxStatus) {
+            updateData.status = newOutboxStatus;
+          }
+          if (!outbox.providerMessageId && messageId) {
+            updateData.providerMessageId = messageId;
+          }
+          if (Object.keys(updateData).length > 0) {
+            await prisma.emailOutbox.update({
+              where: { id: matchedOutboxId },
+              data: updateData,
+            });
+          }
+        }
+      }
+    }
+
     // Record immutable delivery event
     await prisma.emailDeliveryEvent.create({
       data: {

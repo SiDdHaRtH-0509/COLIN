@@ -6,6 +6,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import express, { Request, Response } from 'express';
 import request from 'supertest';
+import crypto from 'crypto';
 import {
   connectRedis,
   disconnectRedis,
@@ -183,6 +184,69 @@ describe('COLIN Phase 4A.2.5.4: Distributed Rate Limiting Integration & Security
       // With active limiter, normal requests pass
       const res = await request(mockApp).get('/test/fail-closed');
       expect(res.status).toBe(200);
+    });
+  });
+
+  describe('5. Redis ZSET Member Uniqueness & Concurrency (Finding 2)', () => {
+    it('guarantees 100% unique entry IDs across 2,000 rapid concurrent generations', () => {
+      const count = 2000;
+      const ids = new Set<string>();
+      const now = Date.now();
+
+      for (let i = 0; i < count; i++) {
+        const id = `${now}-${crypto.randomUUID()}`;
+        ids.add(id);
+      }
+
+      // Zero collisions under burst conditions
+      expect(ids.size).toBe(count);
+    });
+
+    it('accurately counts concurrent requests in Redis ZSET without member collisions', async () => {
+      const client = getRedisClient();
+      const testKey = `rl:test:zset_uniqueness:${Date.now()}`;
+      const windowMs = 5000;
+      const limit = 20;
+      const concurrency = 10;
+      const now = Date.now();
+
+      // Fire 10 concurrent Lua executions with UUID entries
+      const promises = Array.from({ length: concurrency }).map(async () => {
+        const entryId = `${now}-${crypto.randomUUID()}`;
+        return client.eval(
+          `
+          local key = KEYS[1]
+          local now = tonumber(ARGV[1])
+          local windowMs = tonumber(ARGV[2])
+          local limit = tonumber(ARGV[3])
+          local entryId = ARGV[4]
+          local clearBefore = now - windowMs
+          redis.call('ZREMRANGEBYSCORE', key, '-inf', clearBefore)
+          local currentCount = redis.call('ZCARD', key)
+          if currentCount < limit then
+              redis.call('ZADD', key, now, entryId)
+              return 1
+          else
+              return 0
+          end
+          `,
+          1,
+          testKey,
+          now.toString(),
+          windowMs.toString(),
+          limit.toString(),
+          entryId
+        );
+      });
+
+      const results = await Promise.all(promises);
+      expect(results.every((r) => r === 1)).toBe(true);
+
+      // Verify exact count in ZSET: all 10 members exist uniquely
+      const totalMembers = await client.zcard(testKey);
+      expect(totalMembers).toBe(concurrency);
+
+      await client.del(testKey);
     });
   });
 });

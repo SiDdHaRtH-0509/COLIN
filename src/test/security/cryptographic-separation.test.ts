@@ -11,10 +11,13 @@ import {
   encryptActionToken,
   decryptActionToken,
   getPrimaryEncryptionKey,
+  getFallbackEncryptionKey,
 } from '../../server/email/email.crypto';
 import {
   validateProductionStartupEnvironment,
   assertProductionSecretsValid,
+  generateCryptographicKey,
+  isWeakOrPredictableSecret,
 } from '../../server/config/secrets.config';
 
 describe('COLIN Phase 4A.2.5.5: Cryptographic Key Separation & Encryption (Gates S05, S06, S07)', () => {
@@ -36,7 +39,7 @@ describe('COLIN Phase 4A.2.5.5: Cryptographic Key Separation & Encryption (Gates
         NODE_ENV: 'production',
         JWT_SECRET: sharedSecret,
         EMAIL_ENCRYPTION_KEY: sharedSecret, // REUSE VIOLATION
-        RATE_LIMIT_IDENTITY_HMAC_SECRET: 'a-distinct-hmac-secret-16chars!',
+        RATE_LIMIT_IDENTITY_HMAC_SECRET: 'a-distinct-hmac-secret-32-chars-long!',
         DATABASE_URL: 'postgresql://colin:pass@localhost:5432/colin',
       };
 
@@ -63,6 +66,53 @@ describe('COLIN Phase 4A.2.5.5: Cryptographic Key Separation & Encryption (Gates
       const result = validateProductionStartupEnvironment(prodEnv);
       expect(result.valid).toBe(false);
       expect(result.errors.some((e) => e.includes('RATE_LIMIT_IDENTITY_HMAC_SECRET must not reuse JWT_SECRET'))).toBe(true);
+    });
+
+    it('strictly forbids RATE_LIMIT_IDENTITY_HMAC_SECRET from reusing EMAIL_ENCRYPTION_KEY in production', () => {
+      const sharedSecret = 'a-super-long-secure-random-key-with-at-least-32-chars!';
+
+      const prodEnv = {
+        NODE_ENV: 'production',
+        JWT_SECRET: 'a-completely-unique-jwt-secret-32-bytes!',
+        EMAIL_ENCRYPTION_KEY: sharedSecret,
+        RATE_LIMIT_IDENTITY_HMAC_SECRET: sharedSecret, // REUSE VIOLATION
+        DATABASE_URL: 'postgresql://colin:pass@localhost:5432/colin',
+      };
+
+      const result = validateProductionStartupEnvironment(prodEnv);
+      expect(result.valid).toBe(false);
+      expect(
+        result.errors.some((e) =>
+          e.includes('RATE_LIMIT_IDENTITY_HMAC_SECRET must not reuse EMAIL_ENCRYPTION_KEY')
+        )
+      ).toBe(true);
+    });
+
+    it('rejects weak or predictable secret patterns in production', () => {
+      const repetitiveEnv = {
+        NODE_ENV: 'production',
+        JWT_SECRET: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', // 32 repeating chars
+        EMAIL_ENCRYPTION_KEY: '01234567890123456789012345678901', // predictable numeric
+        RATE_LIMIT_IDENTITY_HMAC_SECRET: 'abcdefghijklmnopqrstuvwxyzabcdef', // predictable alphabet
+      };
+
+      const result = validateProductionStartupEnvironment(repetitiveEnv);
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.includes('JWT_SECRET uses a weak or predictable pattern'))).toBe(true);
+      expect(result.errors.some((e) => e.includes('EMAIL_ENCRYPTION_KEY uses a weak or predictable pattern'))).toBe(true);
+      expect(result.errors.some((e) => e.includes('RATE_LIMIT_IDENTITY_HMAC_SECRET uses a weak or predictable pattern'))).toBe(true);
+
+      expect(isWeakOrPredictableSecret('11111111111111111111111111111111')).toBe(true);
+      expect(isWeakOrPredictableSecret(generateCryptographicKey(32))).toBe(false);
+    });
+
+    it('generates high-entropy CSPRNG keys with 256 bits of randomness', () => {
+      const key1 = generateCryptographicKey(32);
+      const key2 = generateCryptographicKey(32);
+
+      expect(key1).toHaveLength(64); // 32 bytes in hex = 64 hex chars = 256 bits
+      expect(key2).toHaveLength(64);
+      expect(key1).not.toBe(key2);
     });
 
     it('enforces that email crypto does not silently fall back to JWT_SECRET in production', () => {
@@ -131,6 +181,16 @@ describe('COLIN Phase 4A.2.5.5: Cryptographic Key Separation & Encryption (Gates
       const encryptedNew = encryptActionToken(newToken);
       const decryptedNew = decryptActionToken(encryptedNew);
       expect(decryptedNew).toBe(newToken);
+    });
+
+    it('throws if EMAIL_ENCRYPTION_KEY_FALLBACK is identical to EMAIL_ENCRYPTION_KEY', () => {
+      const activeKey = 'colin-active-encryption-key-32b-length!';
+      process.env.EMAIL_ENCRYPTION_KEY = activeKey;
+      process.env.EMAIL_ENCRYPTION_KEY_FALLBACK = activeKey;
+
+      expect(() => getFallbackEncryptionKey()).toThrowError(
+        /KEY ROTATION ERROR: EMAIL_ENCRYPTION_KEY_FALLBACK cannot be identical/
+      );
     });
   });
 });

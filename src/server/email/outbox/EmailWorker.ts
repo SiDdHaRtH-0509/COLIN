@@ -166,6 +166,10 @@ export class EmailWorker {
         replyTo: config.replyTo,
         templateAlias: record.templateAlias,
         idempotencyKey: record.idempotencyKey || undefined,
+        metadata: {
+          outboxId: record.id,
+          ...(record.idempotencyKey ? { idempotencyKey: record.idempotencyKey } : {}),
+        },
       };
 
       const result = await this.provider.sendEmail(message);

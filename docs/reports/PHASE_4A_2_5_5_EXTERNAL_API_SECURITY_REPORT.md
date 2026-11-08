@@ -96,10 +96,10 @@ The AWS IAM role or service account used by COLIN's `S3StorageProvider` is const
 - **SendGrid Event Webhook:** Verified using the ECDSA public key (`SENDGRID_WEBHOOK_VERIFICATION_KEY`) against incoming `X-Twilio-Email-Event-Webhook-Signature` and `X-Twilio-Email-Event-Webhook-Timestamp` headers.
 - **Postmark Webhook:** Protected by HTTP Basic Authentication (`EMAIL_WEBHOOK_BASIC_AUTH_USER` and `EMAIL_WEBHOOK_BASIC_AUTH_PASSWORD`), enforced at middleware entry point before JSON parsing.
 
-### 4.3 Carry-Forward Verification from Phase 4A.2.5.3
-1. **Cryptographic Key Separation:** Enforced. `EMAIL_ENCRYPTION_KEY` is independent of `JWT_SECRET`.
-2. **Delivery-Event Immutability:** Enforced via PostgreSQL trigger `prevent_delivery_event_mutation()` and permission revocation on `colin_app_runtime`.
-3. **Worker Crash Resilience:** Enforced via PostgreSQL CTE-materialized `FOR UPDATE SKIP LOCKED` batch claiming and automated stale job reclamation.
+### 4.3 Carry-Forward Verification from Phase 4A.2.5.3 & Audit Remediation
+1. **Cryptographic Key Separation:** Enforced. `EMAIL_ENCRYPTION_KEY` is independent of `JWT_SECRET` and `RATE_LIMIT_IDENTITY_HMAC_SECRET`, with 256-bit entropy and CSPRNG generation.
+2. **Delivery-Event Immutability:** Enforced via PostgreSQL trigger `prevent_delivery_event_mutation()` using NULL-safe `IS DISTINCT FROM` across all columns and table permission revocation on `colin_app_runtime`. Parent `EmailOutbox` deletion cascades via `ON DELETE SET NULL` without deleting audit events or permitting re-linking.
+3. **Worker Crash Resilience & At-Least-Once Semantics:** Workers pass `outboxId` and `idempotencyKey` in `metadata` / `custom_args`. Webhook handlers reconcile un-recorded outbox records to avoid duplicate dispatches. If webhooks do not arrive before `staleTimeoutMinutes`, stale job reclamation re-dispatches the record under verified **at-least-once delivery semantics**.
 
 ---
 
@@ -113,7 +113,7 @@ The AWS IAM role or service account used by COLIN's `S3StorageProvider` is const
 
 ### 5.2 Carry-Forward Verification from Phase 4A.2.5.4
 1. **Clock Consistency:** Sliding-window Lua script supports Redis server `TIME` as authoritative clock source, eliminating issues from host clock drift.
-2. **ZSET Member Uniqueness:** Guaranteed via `${now}-${crypto.randomBytes(4).toString('hex')}` entry IDs.
+2. **ZSET Member Uniqueness:** Guaranteed via `${now}-${crypto.randomUUID()}` entry IDs (122 bits of CSPRNG entropy), preventing member collisions and request undercounting under high concurrent bursts.
 3. **Fail-Closed Security:** Authentication rate limiters strictly reject traffic when Redis is unavailable (`failMode: 'closed'`).
 
 ---

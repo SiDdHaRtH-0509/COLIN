@@ -18,27 +18,26 @@ The COLIN platform operates five distinct cryptographic keys and verification se
 | **`JWT_SECRET`** | HMAC-SHA256 (HS256) | 256 bits (32 bytes) | Access and refresh token signing & signature verification | `src/server/auth/TokenService.ts`, `src/server/middleware/authContext.ts` | Graceful expiration; refresh token re-issuance |
 | **`EMAIL_ENCRYPTION_KEY`** | AES-256-GCM (Authenticated Encryption) | 256 bits (32 bytes) | At-rest encryption of sensitive verification and password-reset action tokens stored in `email_outbox` | `src/server/email/email.crypto.ts`, `src/server/email/outbox/EmailWorker.ts` | Dual-key rotation with zero downtime (`EMAIL_ENCRYPTION_KEY_FALLBACK`) |
 | **`EMAIL_ENCRYPTION_KEY_FALLBACK`** | AES-256-GCM | 256 bits (32 bytes) | Decryption of existing in-flight tokens generated under the previous primary key | `src/server/email/email.crypto.ts` | Temporary; retained during active migration window (24–48 hours) |
-| **`RATE_LIMIT_IDENTITY_HMAC_SECRET`** | HMAC-SHA256 | 128+ bits (16+ bytes) | Deterministic privacy-preserving hashing of user emails for Redis rate limiting | `src/server/redis/identity.ts` | Independent secret; rotation flushes rate-limiting buckets gracefully |
+| **`RATE_LIMIT_IDENTITY_HMAC_SECRET`** | HMAC-SHA256 | 256 bits (32 bytes) | Deterministic privacy-preserving hashing of user emails for Redis rate limiting | `src/server/redis/identity.ts` | Independent secret; rotation flushes rate-limiting buckets gracefully |
 | **`SENDGRID_WEBHOOK_VERIFICATION_KEY`** | ECDSA (secp256r1) | Standard Public Key | Verification of SendGrid Event Webhook digital signatures | `src/server/email/webhooks/SendGridWebhookHandler.ts` | Update public key in env upon SendGrid key rotation |
 
 ---
 
-## 2. Cryptographic Key Separation (Gate S05, S06, S07)
+## 2. Cryptographic Key Separation & Entropy Enforcement (Gate S05, S06, S07)
 
-### 2.1 The Cross-Protocol Vulnerability
-A common architectural flaw in web applications is the reuse of a single master secret (often `JWT_SECRET` or `APP_SECRET`) across multiple cryptographic primitives (e.g. using the same secret for HMAC token signing and AES-GCM data encryption). 
+### 2.1 The Cross-Protocol Vulnerability & Audit Hardening
+A common architectural flaw in web applications is the reuse of a single master secret across multiple cryptographic primitives. In Phase 4A.2.5.5, key separation was established and subsequently audited to enforce 256-bit entropy across all symmetric keys:
 
-This introduces critical security risks:
-1. **Cross-Protocol Attacks:** An attacker who discovers a vulnerability in one primitive or context may forge credentials or decrypt ciphertexts in another.
-2. **Blast Radius Amplification:** Compromise of an email worker immediately compromises all user session tokens.
-3. **Privilege Violations:** Different services require different access permissions (e.g., an email outbox worker should never hold signing authority over admin JWT tokens).
-
-### 2.2 Enforced Independent Key Management
-In Phase 4A.2.5.5, cryptographic key separation is strictly enforced:
-1. **No Silent Fallback:** `src/server/email/email.crypto.ts` was refactored to remove the fallback `process.env.EMAIL_ENCRYPTION_KEY || process.env.JWT_SECRET`.
-2. **Distinct Key Enforcement:** `validateProductionStartupEnvironment()` in `src/server/config/secrets.config.ts` actively rejects configurations where:
-   - `EMAIL_ENCRYPTION_KEY === JWT_SECRET`
-   - `RATE_LIMIT_IDENTITY_HMAC_SECRET === JWT_SECRET`
+1. **CSPRNG Key Generation:** All keys must be generated using cryptographically secure pseudorandom number generators (`crypto.randomBytes(32)` or `generateCryptographicKey()`).
+2. **Rejection of Weak or Predictable Patterns:** `isWeakOrPredictableSecret()` rejects trivial repeating strings, cyclic alphabetic/numeric sequences, and known development defaults.
+3. **No Silent Fallbacks:** Neither `EMAIL_ENCRYPTION_KEY` nor `RATE_LIMIT_IDENTITY_HMAC_SECRET` fall back to `JWT_SECRET`.
+4. **Complete Pairwise Independence:** `validateProductionStartupEnvironment()` strictly prohibits any secret reuse:
+   - `EMAIL_ENCRYPTION_KEY !== JWT_SECRET`
+   - `RATE_LIMIT_IDENTITY_HMAC_SECRET !== JWT_SECRET`
+   - `RATE_LIMIT_IDENTITY_HMAC_SECRET !== EMAIL_ENCRYPTION_KEY`
+   - `EMAIL_ENCRYPTION_KEY_FALLBACK !== EMAIL_ENCRYPTION_KEY`
+   - `EMAIL_ENCRYPTION_KEY_FALLBACK !== JWT_SECRET`
+   - `EMAIL_ENCRYPTION_KEY_FALLBACK !== RATE_LIMIT_IDENTITY_HMAC_SECRET`
 3. **Fail-Fast Startup Guardrail:** In production, missing or identical keys throw `ConfigurationSecurityError` during bootstrap, halting execution before any HTTP traffic is accepted.
 
 ---
