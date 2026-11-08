@@ -301,10 +301,14 @@ export function redactSecrets<T>(data: T): T {
   }
 
   if (typeof data === 'string') {
+    let sanitized = data.replace(
+      /((?:postgres(?:ql)?|redis(?:s)?):\/\/[^:]+:)([^@]+)(@)/gi,
+      '$1***REDACTED***$3'
+    );
     if (data.includes('://') && (data.startsWith('postgres') || data.startsWith('redis'))) {
-      return redactUrlCredentials(data) as unknown as T;
+      sanitized = redactUrlCredentials(sanitized);
     }
-    return data;
+    return sanitized as unknown as T;
   }
 
   if (Array.isArray(data)) {

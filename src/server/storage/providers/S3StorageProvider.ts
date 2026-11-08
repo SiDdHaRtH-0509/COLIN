@@ -25,6 +25,9 @@ import {
   StorageValidationError,
   StorageProviderError,
 } from '../storage.types';
+import { getCircuitBreaker } from '../../reliability/circuitBreaker';
+import { withTimeout } from '../../reliability/timeout';
+import { IntegrationCircuitOpenError } from '../../reliability/errors';
 
 export interface S3StorageConfig {
   bucket: string;
@@ -89,27 +92,38 @@ export class S3StorageProvider implements StorageProvider {
     const uniqueId = crypto.randomBytes(16).toString('hex');
     const storageKey = `${subDirPrefix}prop_img_${uniqueId}.${extension}`;
 
+    const breaker = getCircuitBreaker('s3-storage', { failureThreshold: 3, openDurationMs: 15000 });
+
     try {
-      const command = new PutObjectCommand({
-        Bucket: this.config.bucket,
-        Key: storageKey,
-        Body: file.buffer,
-        ContentType: file.mimeType,
-        // Enforce AES256 server-side encryption at rest
-        ServerSideEncryption: 'AES256',
+      return await breaker.execute(async () => {
+        const command = new PutObjectCommand({
+          Bucket: this.config.bucket,
+          Key: storageKey,
+          Body: file.buffer,
+          ContentType: file.mimeType,
+          // Enforce AES256 server-side encryption at rest
+          ServerSideEncryption: 'AES256',
+        });
+
+        await withTimeout(
+          () => client.send(command),
+          10000,
+          { provider: 's3-storage', operationName: 'upload' }
+        );
+
+        const publicUrl = this.formatPublicUrl(storageKey);
+
+        return {
+          storageKey,
+          publicUrl,
+          fileSizeBytes: file.buffer.length,
+          mimeType: file.mimeType,
+        };
       });
-
-      await client.send(command);
-
-      const publicUrl = this.formatPublicUrl(storageKey);
-
-      return {
-        storageKey,
-        publicUrl,
-        fileSizeBytes: file.buffer.length,
-        mimeType: file.mimeType,
-      };
     } catch (err: unknown) {
+      if (err instanceof IntegrationCircuitOpenError) {
+        throw new StorageProviderError(`S3 Storage circuit breaker is OPEN. Fast-failing request.`, err);
+      }
       throw new StorageProviderError(
         `Failed to upload object '${storageKey}' to S3 bucket '${this.config.bucket}'.`,
         err
@@ -123,15 +137,25 @@ export class S3StorageProvider implements StorageProvider {
   async delete(storageKey: string): Promise<void> {
     const client = this.getClientOrThrow();
     const sanitizedKey = this.sanitizeKey(storageKey);
+    const breaker = getCircuitBreaker('s3-storage', { failureThreshold: 3, openDurationMs: 15000 });
 
     try {
-      const command = new DeleteObjectCommand({
-        Bucket: this.config.bucket,
-        Key: sanitizedKey,
-      });
+      await breaker.execute(async () => {
+        const command = new DeleteObjectCommand({
+          Bucket: this.config.bucket,
+          Key: sanitizedKey,
+        });
 
-      await client.send(command);
+        await withTimeout(
+          () => client.send(command),
+          10000,
+          { provider: 's3-storage', operationName: 'delete' }
+        );
+      });
     } catch (err: unknown) {
+      if (err instanceof IntegrationCircuitOpenError) {
+        throw new StorageProviderError(`S3 Storage circuit breaker is OPEN. Fast-failing delete.`, err);
+      }
       throw new StorageProviderError(`Failed to delete object '${sanitizedKey}' from S3.`, err);
     }
   }
@@ -142,20 +166,30 @@ export class S3StorageProvider implements StorageProvider {
   async exists(storageKey: string): Promise<boolean> {
     const client = this.getClientOrThrow();
     const sanitizedKey = this.sanitizeKey(storageKey);
+    const breaker = getCircuitBreaker('s3-storage', { failureThreshold: 3, openDurationMs: 15000 });
 
     try {
-      const command = new HeadObjectCommand({
-        Bucket: this.config.bucket,
-        Key: sanitizedKey,
+      return await breaker.execute(async () => {
+        const command = new HeadObjectCommand({
+          Bucket: this.config.bucket,
+          Key: sanitizedKey,
+        });
+        await withTimeout(
+          () => client.send(command),
+          10000,
+          { provider: 's3-storage', operationName: 'exists' }
+        );
+        return true;
       });
-      await client.send(command);
-      return true;
     } catch (err: unknown) {
       // 404 / NotFound means it does not exist
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const status = (err as any)?.$metadata?.httpStatusCode || (err as any)?.name;
       if (status === 404 || status === 'NotFound' || status === 'NoSuchKey') {
         return false;
+      }
+      if (err instanceof IntegrationCircuitOpenError) {
+        throw new StorageProviderError(`S3 Storage circuit breaker is OPEN. Fast-failing exists check.`, err);
       }
       throw new StorageProviderError(`Failed to inspect object '${sanitizedKey}' on S3.`, err);
     }
@@ -167,26 +201,36 @@ export class S3StorageProvider implements StorageProvider {
   async getMetadata(storageKey: string): Promise<StorageMetadata | null> {
     const client = this.getClientOrThrow();
     const sanitizedKey = this.sanitizeKey(storageKey);
+    const breaker = getCircuitBreaker('s3-storage', { failureThreshold: 3, openDurationMs: 15000 });
 
     try {
-      const command = new HeadObjectCommand({
-        Bucket: this.config.bucket,
-        Key: sanitizedKey,
-      });
-      const response = await client.send(command);
+      return await breaker.execute(async () => {
+        const command = new HeadObjectCommand({
+          Bucket: this.config.bucket,
+          Key: sanitizedKey,
+        });
+        const response = await withTimeout(
+          () => client.send(command),
+          10000,
+          { provider: 's3-storage', operationName: 'getMetadata' }
+        );
 
-      return {
-        storageKey: sanitizedKey,
-        size: response.ContentLength || 0,
-        mimeType: response.ContentType,
-        lastModified: response.LastModified,
-        eTag: response.ETag?.replace(/"/g, ''),
-      };
+        return {
+          storageKey: sanitizedKey,
+          size: response.ContentLength || 0,
+          mimeType: response.ContentType,
+          lastModified: response.LastModified,
+          eTag: response.ETag?.replace(/"/g, ''),
+        };
+      });
     } catch (err: unknown) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const status = (err as any)?.$metadata?.httpStatusCode || (err as any)?.name;
       if (status === 404 || status === 'NotFound' || status === 'NoSuchKey') {
         return null;
+      }
+      if (err instanceof IntegrationCircuitOpenError) {
+        throw new StorageProviderError(`S3 Storage circuit breaker is OPEN. Fast-failing metadata query.`, err);
       }
       throw new StorageProviderError(`Failed to get metadata for object '${sanitizedKey}' on S3.`, err);
     }

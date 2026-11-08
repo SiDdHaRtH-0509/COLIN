@@ -162,8 +162,8 @@ export class SendGridWebhookHandler {
       // Worker crash recovery reconciliation: match via custom arguments (outboxId or idempotencyKey)
       if (!matchedOutboxId) {
         const rawEv = ev as Record<string, any>;
-        const fallbackOutboxId = rawEv.outboxId as string | undefined;
-        const fallbackIdempotency = rawEv.idempotencyKey as string | undefined;
+        const fallbackOutboxId = (rawEv.outboxId || rawEv.custom_args?.outboxId) as string | undefined;
+        const fallbackIdempotency = (rawEv.idempotencyKey || rawEv.custom_args?.idempotencyKey) as string | undefined;
         if (fallbackOutboxId || fallbackIdempotency) {
           const outboxRecord = await prisma.emailOutbox.findFirst({
             where: {

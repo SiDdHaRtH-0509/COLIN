@@ -10,6 +10,7 @@ import crypto from 'crypto';
 import { executeSlidingWindowLua, getRedisClient, isRedisReady } from './redis.client';
 import { getRedisConfig } from './redis.config';
 import { RateLimitPolicy, RateLimitResult } from './redis.types';
+import { ReliabilityLogger } from '../reliability';
 
 interface InMemoryBucket {
   timestamps: number[];
@@ -58,6 +59,13 @@ export class RateLimiterService {
         };
       } catch (err: any) {
         // Redis failure during operation
+        ReliabilityLogger.warn('Redis rate limit check encountered error', {
+          provider: 'redis',
+          operation: 'checkRateLimit',
+          error: err,
+          details: { key, failMode },
+        });
+
         if (failMode === 'closed') {
           return {
             allowed: false,

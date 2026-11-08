@@ -8,19 +8,31 @@
 import { EmailProvider } from './EmailProvider';
 import { EmailMessage, EmailSendResult, EmailProviderName } from '../email.types';
 import { EmailConfigurationError } from '../email.errors';
+import { getCircuitBreaker } from '../../reliability/circuitBreaker';
+import { withTimeout } from '../../reliability/timeout';
+import { IntegrationCircuitOpenError } from '../../reliability/errors';
 
 export type PostmarkFetchFunction = typeof fetch;
+
+export interface PostmarkProviderOptions {
+  serverToken?: string;
+  apiEndpoint?: string;
+  fetchFn?: PostmarkFetchFunction;
+  timeoutMs?: number;
+}
 
 export class PostmarkProvider implements EmailProvider {
   public readonly providerName: EmailProviderName = 'postmark';
   private readonly serverToken: string;
   private readonly apiEndpoint: string;
   private readonly fetchFn: PostmarkFetchFunction;
+  private readonly timeoutMs: number;
 
-  constructor(options?: { serverToken?: string; apiEndpoint?: string; fetchFn?: PostmarkFetchFunction }) {
+  constructor(options?: PostmarkProviderOptions) {
     this.serverToken = options?.serverToken || process.env.POSTMARK_SERVER_TOKEN || '';
     this.apiEndpoint = options?.apiEndpoint || 'https://api.postmarkapp.com/email';
     this.fetchFn = options?.fetchFn || globalThis.fetch;
+    this.timeoutMs = options?.timeoutMs || 5000;
   }
 
   public validatePrerequisites(): void {
@@ -70,58 +82,93 @@ export class PostmarkProvider implements EmailProvider {
   public async sendEmail(message: EmailMessage): Promise<EmailSendResult> {
     this.validatePrerequisites();
 
-    const payload = this.formatPostmarkPayload(message);
+    const breaker = getCircuitBreaker('postmark', {
+      failureThreshold: 3,
+      openDurationMs: 20000,
+    });
 
     try {
-      const response = await this.fetchFn(this.apiEndpoint, {
-        method: 'POST',
-        headers: {
-          'X-Postmark-Server-Token': this.serverToken,
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
+      return await breaker.execute(async () => {
+        const payload = this.formatPostmarkPayload(message);
 
-      const responseText = await response.text();
-      let responseJson: Record<string, any> = {};
-      try {
-        responseJson = JSON.parse(responseText);
-      } catch {
-        responseJson = { Message: responseText };
-      }
+        const response = await withTimeout(
+          (signal) =>
+            this.fetchFn(this.apiEndpoint, {
+              method: 'POST',
+              headers: {
+                'X-Postmark-Server-Token': this.serverToken,
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+              },
+              body: JSON.stringify(payload),
+              signal,
+            }),
+          this.timeoutMs,
+          { provider: 'postmark', operationName: 'sendMail' }
+        );
 
-      if (response.status === 200 && responseJson.ErrorCode === 0) {
+        const responseText = await response.text();
+        let responseJson: Record<string, any> = {};
+        try {
+          responseJson = JSON.parse(responseText);
+        } catch {
+          responseJson = { Message: responseText };
+        }
+
+        if (response.status === 200 && responseJson.ErrorCode === 0) {
+          return {
+            success: true,
+            provider: this.providerName,
+            providerMessageId: responseJson.MessageID || `pm_${Date.now()}`,
+            statusCode: 200,
+          };
+        }
+
+        const isRetryable =
+          response.status === 429 ||
+          response.status >= 500 ||
+          responseJson.ErrorCode === 405 ||
+          responseJson.ErrorCode === 500;
+
+        if (isRetryable) {
+          throw new Error(`Postmark error ${responseJson.ErrorCode || response.status}: ${responseJson.Message || responseText}`);
+        }
+
+        const errorCode = responseJson.ErrorCode ? `POSTMARK_${responseJson.ErrorCode}` : `POSTMARK_${response.status}`;
+        const errorMessage = responseJson.Message || `Postmark API error (HTTP ${response.status})`;
+
         return {
-          success: true,
+          success: false,
           provider: this.providerName,
-          providerMessageId: responseJson.MessageID || `pm_${Date.now()}`,
-          statusCode: 200,
+          statusCode: response.status,
+          error: {
+            code: errorCode,
+            message: errorMessage,
+            retryable: false,
+          },
+        };
+      });
+    } catch (circuitErr: unknown) {
+      if (circuitErr instanceof IntegrationCircuitOpenError) {
+        return {
+          success: false,
+          provider: this.providerName,
+          statusCode: 503,
+          error: {
+            code: 'POSTMARK_CIRCUIT_OPEN',
+            message: circuitErr.message,
+            retryable: false,
+          },
         };
       }
-
-      const isRetryable = response.status === 429 || response.status >= 500;
-      const errorCode = responseJson.ErrorCode ? `POSTMARK_${responseJson.ErrorCode}` : `POSTMARK_${response.status}`;
-      const errorMessage = responseJson.Message || `Postmark API error (HTTP ${response.status})`;
-
+      const messageStr = circuitErr instanceof Error ? circuitErr.message : String(circuitErr);
+      const isTimeout = messageStr.toLowerCase().includes('timeout') || messageStr.toLowerCase().includes('timed out');
       return {
         success: false,
         provider: this.providerName,
-        statusCode: response.status,
+        statusCode: isTimeout ? 504 : 500,
         error: {
-          code: errorCode,
-          message: errorMessage,
-          retryable: isRetryable,
-        },
-      };
-    } catch (err: unknown) {
-      const messageStr = err instanceof Error ? err.message : String(err);
-      return {
-        success: false,
-        provider: this.providerName,
-        statusCode: 500,
-        error: {
-          code: 'POSTMARK_NETWORK_ERROR',
+          code: isTimeout ? 'POSTMARK_TIMEOUT' : 'POSTMARK_NETWORK_ERROR',
           message: messageStr,
           retryable: true,
         },

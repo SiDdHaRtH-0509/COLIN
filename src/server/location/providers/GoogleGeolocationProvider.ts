@@ -18,6 +18,9 @@ import {
   GeolocationProviderError,
 } from '../location.types';
 import { validateCoordinates } from '../validation';
+import { getCircuitBreaker } from '../../reliability/circuitBreaker';
+import { withRetry } from '../../reliability/retry';
+import { IntegrationCircuitOpenError } from '../../reliability/errors';
 
 export interface GoogleGeolocationConfig {
   apiKey: string;
@@ -47,28 +50,56 @@ export class GoogleGeolocationProvider implements GeolocationProvider {
   }
 
   private async fetchWithTimeout(url: string): Promise<any> {
-    try {
-      const response = await fetch(url, {
-        signal: AbortSignal.timeout(this.timeoutMs),
-      });
+    const breaker = getCircuitBreaker('google-maps', {
+      failureThreshold: 3,
+      openDurationMs: 15000,
+    });
 
-      if (!response.ok) {
+    try {
+      return await breaker.execute(async () => {
+        return await withRetry(
+          async () => {
+            try {
+              const response = await fetch(url, {
+                signal: AbortSignal.timeout(this.timeoutMs),
+              });
+
+              if (!response.ok) {
+                const isRetryable = response.status === 429 || response.status >= 500;
+                throw new GeolocationProviderError(
+                  `Google Maps API returned HTTP ${response.status}: ${response.statusText}`,
+                  isRetryable
+                );
+              }
+
+              return await response.json();
+            } catch (err: any) {
+              if (err.name === 'TimeoutError' || err.code === 20) {
+                throw new GeolocationProviderError(`Google Maps API request timed out after ${this.timeoutMs}ms.`, true);
+              }
+              if (err instanceof GeolocationProviderError) {
+                throw err;
+              }
+              const sanitized = this.redactKey(err.message || String(err));
+              throw new GeolocationProviderError(`Google Maps API communication failed: ${sanitized}`, true);
+            }
+          },
+          {
+            maxAttempts: 2,
+            baseDelayMs: 200,
+            jitter: true,
+            isRetryable: (err) => err instanceof GeolocationProviderError && err.isRetryable,
+          }
+        );
+      });
+    } catch (err: unknown) {
+      if (err instanceof IntegrationCircuitOpenError) {
         throw new GeolocationProviderError(
-          `Google Maps API returned HTTP ${response.status}: ${response.statusText}`,
-          response.status >= 500
+          `Google Maps API circuit breaker is OPEN. Fast-failing request.`,
+          false
         );
       }
-
-      return await response.json();
-    } catch (err: any) {
-      if (err.name === 'TimeoutError' || err.code === 20) {
-        throw new GeolocationProviderError(`Google Maps API request timed out after ${this.timeoutMs}ms.`, true);
-      }
-      if (err instanceof GeolocationProviderError) {
-        throw err;
-      }
-      const sanitized = this.redactKey(err.message || String(err));
-      throw new GeolocationProviderError(`Google Maps API communication failed: ${sanitized}`, true);
+      throw err;
     }
   }
 

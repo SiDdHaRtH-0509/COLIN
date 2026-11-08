@@ -139,6 +139,15 @@ export function translateDatabaseError(error: unknown): DatabaseError {
     return new DatabaseAuthorizationError('Database runtime role is prohibited from performing this administrative action.');
   }
 
+  if (
+    rawMsg.includes('deadlock detected') ||
+    rawMsg.includes('40P01') ||
+    rawMsg.includes('could not serialize access') ||
+    rawMsg.includes('40001')
+  ) {
+    return new TransactionConflictError('Concurrent database deadlock or serialization conflict detected. Please retry.');
+  }
+
   if (rawMsg.includes('duplicate key value') || rawMsg.includes('23505') || rawMsg.includes('uq_')) {
     return new UniqueConstraintViolationError('Unique constraint violation: duplicate record detected.');
   }

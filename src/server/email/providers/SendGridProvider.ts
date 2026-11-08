@@ -8,19 +8,31 @@
 import { EmailProvider } from './EmailProvider';
 import { EmailMessage, EmailSendResult, EmailProviderName } from '../email.types';
 import { EmailConfigurationError } from '../email.errors';
+import { getCircuitBreaker } from '../../reliability/circuitBreaker';
+import { withTimeout } from '../../reliability/timeout';
+import { IntegrationCircuitOpenError } from '../../reliability/errors';
 
 export type SendGridFetchFunction = typeof fetch;
+
+export interface SendGridProviderOptions {
+  apiKey?: string;
+  apiEndpoint?: string;
+  fetchFn?: SendGridFetchFunction;
+  timeoutMs?: number;
+}
 
 export class SendGridProvider implements EmailProvider {
   public readonly providerName: EmailProviderName = 'sendgrid';
   private readonly apiKey: string;
   private readonly apiEndpoint: string;
   private readonly fetchFn: SendGridFetchFunction;
+  private readonly timeoutMs: number;
 
-  constructor(options?: { apiKey?: string; apiEndpoint?: string; fetchFn?: SendGridFetchFunction }) {
+  constructor(options?: SendGridProviderOptions) {
     this.apiKey = options?.apiKey || process.env.SENDGRID_API_KEY || '';
     this.apiEndpoint = options?.apiEndpoint || 'https://api.sendgrid.com/v3/mail/send';
     this.fetchFn = options?.fetchFn || globalThis.fetch;
+    this.timeoutMs = options?.timeoutMs || 5000;
   }
 
   public validatePrerequisites(): void {
@@ -84,58 +96,89 @@ export class SendGridProvider implements EmailProvider {
   public async sendEmail(message: EmailMessage): Promise<EmailSendResult> {
     this.validatePrerequisites();
 
-    const payload = this.formatSendGridPayload(message);
+    const breaker = getCircuitBreaker('sendgrid', {
+      failureThreshold: 3,
+      openDurationMs: 20000,
+    });
 
     try {
-      const response = await this.fetchFn(this.apiEndpoint, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
+      return await breaker.execute(async () => {
+        const payload = this.formatSendGridPayload(message);
 
-      const messageId = response.headers.get('x-message-id') || `sg_${Date.now()}`;
+        const response = await withTimeout(
+          (signal) =>
+            this.fetchFn(this.apiEndpoint, {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${this.apiKey}`,
+                'Content-Type': 'application/json',
+                Accept: 'application/json',
+              },
+              body: JSON.stringify(payload),
+              signal,
+            }),
+          this.timeoutMs,
+          { provider: 'sendgrid', operationName: 'sendMail' }
+        );
 
-      if (response.status === 202 || response.status === 200) {
+        const messageId = response.headers.get('x-message-id') || `sg_${Date.now()}`;
+
+        if (response.status === 202 || response.status === 200) {
+          return {
+            success: true,
+            provider: this.providerName,
+            providerMessageId: messageId,
+            statusCode: response.status,
+          };
+        }
+
+        // Handle SendGrid errors
+        let errorBody = '';
+        try {
+          errorBody = await response.text();
+        } catch {
+          errorBody = 'Unable to parse SendGrid error response';
+        }
+
+        const isRetryable = response.status === 429 || response.status >= 500;
+
+        // If provider failed with 5xx or 429, throw to record failure in circuit breaker
+        if (isRetryable) {
+          throw new Error(`SendGrid HTTP ${response.status}: ${errorBody}`);
+        }
+
         return {
-          success: true,
+          success: false,
           provider: this.providerName,
-          providerMessageId: messageId,
           statusCode: response.status,
+          error: {
+            code: `SENDGRID_${response.status}`,
+            message: errorBody || `SendGrid returned HTTP ${response.status}`,
+            retryable: false,
+          },
+        };
+      });
+    } catch (circuitErr: unknown) {
+      if (circuitErr instanceof IntegrationCircuitOpenError) {
+        return {
+          success: false,
+          provider: this.providerName,
+          statusCode: 503,
+          error: {
+            code: 'SENDGRID_CIRCUIT_OPEN',
+            message: circuitErr.message,
+            retryable: false,
+          },
         };
       }
-
-      // Handle SendGrid errors
-      let errorBody = '';
-      try {
-        errorBody = await response.text();
-      } catch {
-        errorBody = 'Unable to parse SendGrid error response';
-      }
-
-      const isRetryable = response.status === 429 || response.status >= 500;
-
+      const messageStr = circuitErr instanceof Error ? circuitErr.message : String(circuitErr);
+      const isTimeout = messageStr.toLowerCase().includes('timeout') || messageStr.toLowerCase().includes('timed out');
       return {
         success: false,
         provider: this.providerName,
-        statusCode: response.status,
+        statusCode: isTimeout ? 504 : 500,
         error: {
-          code: `SENDGRID_${response.status}`,
-          message: errorBody || `SendGrid returned HTTP ${response.status}`,
-          retryable: isRetryable,
-        },
-      };
-    } catch (err: unknown) {
-      const messageStr = err instanceof Error ? err.message : String(err);
-      return {
-        success: false,
-        provider: this.providerName,
-        statusCode: 500,
-        error: {
-          code: 'SENDGRID_NETWORK_ERROR',
+          code: isTimeout ? 'SENDGRID_TIMEOUT' : 'SENDGRID_NETWORK_ERROR',
           message: messageStr,
           retryable: true,
         },

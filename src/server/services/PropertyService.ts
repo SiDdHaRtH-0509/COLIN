@@ -17,6 +17,7 @@ import {
 import { RecordNotFoundError, ValidationConstraintError } from '../database/errors';
 import { Property, PropertyVerificationStatus, PropertyPhoto } from '@prisma/client';
 import { processPropertyImage, storageProvider } from '../storage';
+import { withRetry, ReliabilityLogger } from '../reliability';
 import {
   validateCoordinates,
   locationService,
@@ -448,9 +449,33 @@ export class PropertyService {
       });
     } catch (dbErr) {
       // Compensating transaction: Clean up storage assets if DB persistence fails
-      await storageProvider.delete(masterUpload.storageKey).catch(() => {});
+      // Use withRetry to ensure temporary storage glitches don't orphan assets
+      await withRetry(() => storageProvider.delete(masterUpload.storageKey), {
+        maxAttempts: 3,
+        baseDelayMs: 100,
+        jitter: true,
+      }).catch((cleanupErr) => {
+        ReliabilityLogger.error('Compensating storage cleanup failed for master asset', {
+          provider: 's3-storage',
+          operation: 'uploadPhotoRollback',
+          error: cleanupErr,
+          details: { storageKey: masterUpload.storageKey, propertyId },
+        });
+      });
+
       if (thumbnailUpload) {
-        await storageProvider.delete(thumbnailUpload.storageKey).catch(() => {});
+        await withRetry(() => storageProvider.delete(thumbnailUpload.storageKey), {
+          maxAttempts: 3,
+          baseDelayMs: 100,
+          jitter: true,
+        }).catch((cleanupErr) => {
+          ReliabilityLogger.error('Compensating storage cleanup failed for thumbnail asset', {
+            provider: 's3-storage',
+            operation: 'uploadPhotoRollback',
+            error: cleanupErr,
+            details: { storageKey: thumbnailUpload.storageKey, propertyId },
+          });
+        });
       }
       throw dbErr;
     }
