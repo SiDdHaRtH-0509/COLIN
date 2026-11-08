@@ -18,6 +18,7 @@ export interface RetryOptions {
   isRetryable?: (error: unknown, attempt: number) => boolean;
   onRetry?: (error: unknown, attempt: number, delayMs: number) => void;
   signal?: AbortSignal;
+  randomFn?: () => number;
 }
 
 /**
@@ -47,12 +48,14 @@ export function parseRetryAfterHeader(headerValue?: string | number | null): num
 
 /**
  * Calculates backoff delay with exponential scaling and randomized full jitter.
+ * delay = random(0, min(maxDelay, baseDelay * 2^(attempt - 1)))
  */
 export function calculateBackoffDelay(
   attempt: number,
   baseDelayMs: number,
   maxDelayMs: number,
-  jitter = true
+  jitter = true,
+  randomFn: () => number = Math.random
 ): number {
   const exponential = baseDelayMs * Math.pow(2, Math.max(0, attempt - 1));
   const bounded = Math.min(maxDelayMs, exponential);
@@ -61,8 +64,8 @@ export function calculateBackoffDelay(
     return bounded;
   }
 
-  // Full jitter: random between 0 and bounded
-  return Math.floor(Math.random() * bounded);
+  // Full jitter: random uniformly distributed between 0 and bounded
+  return Math.floor(randomFn() * (bounded + 1));
 }
 
 /**
@@ -110,7 +113,7 @@ export async function withRetry<T>(
         }
 
         // Determine backoff delay: check for Retry-After first
-        let delayMs = calculateBackoffDelay(attempt, baseDelayMs, maxDelayMs, jitter);
+        let delayMs = calculateBackoffDelay(attempt, baseDelayMs, maxDelayMs, jitter, options.randomFn);
 
         if (err instanceof IntegrationRateLimitError && err.retryAfterSeconds) {
           delayMs = Math.max(delayMs, err.retryAfterSeconds * 1000);
@@ -137,9 +140,15 @@ export async function withRetry<T>(
 
         // Sleep for delay duration with abort awareness
         await new Promise<void>((resolve, reject) => {
-          const timer = setTimeout(resolve, delayMs);
+          let onAbort: (() => void) | null = null;
+          const timer = setTimeout(() => {
+            if (activeSignal && onAbort) {
+              activeSignal.removeEventListener('abort', onAbort);
+            }
+            resolve();
+          }, delayMs);
           if (activeSignal) {
-            const onAbort = () => {
+            onAbort = () => {
               clearTimeout(timer);
               reject(activeSignal.reason || new Error('Operation aborted during backoff delay.'));
             };

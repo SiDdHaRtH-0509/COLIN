@@ -10,10 +10,12 @@ import { createApp } from './app';
 import { getServerConfig } from './config/serverConfig';
 import { assertProductionSecretsValid } from './config/secrets.config';
 import { initializeDatabaseConnections, shutdownDatabaseConnections } from './database/lifecycle';
-import { initializeRedis, shutdownRedis } from './redis';
+import { initializeRedis } from './redis';
+import { executeGracefulShutdown, registerBackgroundWorker, unregisterBackgroundWorker } from './lifecycle/shutdown';
+
+export { executeGracefulShutdown, registerBackgroundWorker, unregisterBackgroundWorker };
 
 let serverInstance: http.Server | null = null;
-let isShuttingDown = false;
 
 export async function startServer(): Promise<http.Server> {
   // 1. Validate production secrets and cryptographic key separation
@@ -59,44 +61,12 @@ export async function startServer(): Promise<http.Server> {
 
 export function setupGracefulShutdown(server: http.Server): void {
   const handleShutdown = async (signal: string) => {
-    if (isShuttingDown) {
-      return;
-    }
-    isShuttingDown = true;
-    console.log(`[SERVER LIFECYCLE] Received ${signal}. Initiating graceful teardown...`);
-
-    // 1. Stop accepting new HTTP requests
-    server.close(async () => {
-      console.log('[SERVER LIFECYCLE] HTTP connection listener closed.');
-
-      // 2. Disconnect database & redis connections
-      try {
-        await shutdownDatabaseConnections();
-        console.log('[SERVER LIFECYCLE] Database connections cleanly released.');
-      } catch (dbErr) {
-        console.error('[SERVER LIFECYCLE ERROR] Error closing database connections:', dbErr);
-      }
-
-      try {
-        await shutdownRedis();
-        console.log('[SERVER LIFECYCLE] Redis connections cleanly released.');
-      } catch (redisErr) {
-        console.error('[SERVER LIFECYCLE ERROR] Error closing Redis connection:', redisErr);
-      }
-
-      console.log('[SERVER LIFECYCLE] Graceful shutdown complete. Exiting.');
-      if (process.env.NODE_ENV !== 'test') {
-        process.exit(0);
-      }
+    await executeGracefulShutdown({
+      server,
+      signal,
+      gracePeriodMs: 10000,
+      exitProcess: true,
     });
-
-    // Forceful termination fallback if teardown hangs
-    setTimeout(() => {
-      console.error('[SERVER LIFECYCLE TIMEOUT] Teardown exceeded 10 seconds. Forcing termination.');
-      if (process.env.NODE_ENV !== 'test') {
-        process.exit(1);
-      }
-    }, 10000).unref();
   };
 
   process.once('SIGINT', () => handleShutdown('SIGINT'));

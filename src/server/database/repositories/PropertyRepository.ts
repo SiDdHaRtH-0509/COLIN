@@ -569,6 +569,19 @@ export class PropertyRepository extends BaseRepository {
   }
 
   /**
+   * Retrieves all photos associated with a property, ordered by displayOrder asc.
+   */
+  async findPhotosByPropertyId(propertyId: string, tx?: Prisma.TransactionClient): Promise<PropertyPhoto[]> {
+    return this.execute(async () => {
+      const client = this.getClient(tx);
+      return client.propertyPhoto.findMany({
+        where: { propertyId },
+        orderBy: { displayOrder: 'asc' },
+      });
+    });
+  }
+
+  /**
    * Adds a photo to a property.
    * Compatible with both 2-argument calls (propertyId, input) and 3-argument calls (propertyId, input, tx).
    */

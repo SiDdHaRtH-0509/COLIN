@@ -49,7 +49,7 @@ export class GoogleGeolocationProvider implements GeolocationProvider {
     return text.split(this.apiKey).join('[REDACTED_KEY]');
   }
 
-  private async fetchWithTimeout(url: string): Promise<any> {
+  private async fetchWithTimeout(url: string, parentSignal?: AbortSignal): Promise<any> {
     const breaker = getCircuitBreaker('google-maps', {
       failureThreshold: 3,
       openDurationMs: 15000,
@@ -59,9 +59,15 @@ export class GoogleGeolocationProvider implements GeolocationProvider {
       return await breaker.execute(async () => {
         return await withRetry(
           async () => {
+            const timeoutSignal = AbortSignal.timeout(this.timeoutMs);
+            const effectiveSignal =
+              parentSignal && typeof AbortSignal.any === 'function'
+                ? AbortSignal.any([parentSignal, timeoutSignal])
+                : timeoutSignal;
+
             try {
               const response = await fetch(url, {
-                signal: AbortSignal.timeout(this.timeoutMs),
+                signal: effectiveSignal,
               });
 
               if (!response.ok) {
@@ -74,6 +80,9 @@ export class GoogleGeolocationProvider implements GeolocationProvider {
 
               return await response.json();
             } catch (err: any) {
+              if (parentSignal?.aborted) {
+                throw new GeolocationProviderError('Google Maps API request aborted by caller.', false);
+              }
               if (err.name === 'TimeoutError' || err.code === 20) {
                 throw new GeolocationProviderError(`Google Maps API request timed out after ${this.timeoutMs}ms.`, true);
               }
@@ -89,6 +98,7 @@ export class GoogleGeolocationProvider implements GeolocationProvider {
             baseDelayMs: 200,
             jitter: true,
             isRetryable: (err) => err instanceof GeolocationProviderError && err.isRetryable,
+            signal: parentSignal,
           }
         );
       });

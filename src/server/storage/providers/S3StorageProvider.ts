@@ -61,6 +61,8 @@ export class S3StorageProvider implements StorageProvider {
           secretAccessKey,
         },
         forcePathStyle: forcePathStyle ?? Boolean(endpoint),
+        // Enforce maxAttempts: 1 to prevent internal SDK retries from amplifying application-level withRetry budgets
+        maxAttempts: 1,
       });
     }
   }
@@ -106,7 +108,7 @@ export class S3StorageProvider implements StorageProvider {
         });
 
         await withTimeout(
-          () => client.send(command),
+          (signal) => client.send(command, { abortSignal: signal }),
           10000,
           { provider: 's3-storage', operationName: 'upload' }
         );
@@ -147,7 +149,7 @@ export class S3StorageProvider implements StorageProvider {
         });
 
         await withTimeout(
-          () => client.send(command),
+          (signal) => client.send(command, { abortSignal: signal }),
           10000,
           { provider: 's3-storage', operationName: 'delete' }
         );
@@ -175,7 +177,7 @@ export class S3StorageProvider implements StorageProvider {
           Key: sanitizedKey,
         });
         await withTimeout(
-          () => client.send(command),
+          (signal) => client.send(command, { abortSignal: signal }),
           10000,
           { provider: 's3-storage', operationName: 'exists' }
         );
@@ -210,7 +212,7 @@ export class S3StorageProvider implements StorageProvider {
           Key: sanitizedKey,
         });
         const response = await withTimeout(
-          () => client.send(command),
+          (signal) => client.send(command, { abortSignal: signal }),
           10000,
           { provider: 's3-storage', operationName: 'getMetadata' }
         );

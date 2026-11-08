@@ -450,16 +450,19 @@ export class PropertyService {
     } catch (dbErr) {
       // Compensating transaction: Clean up storage assets if DB persistence fails
       // Use withRetry to ensure temporary storage glitches don't orphan assets
+      const failedCleanupKeys: string[] = [];
+
       await withRetry(() => storageProvider.delete(masterUpload.storageKey), {
         maxAttempts: 3,
         baseDelayMs: 100,
         jitter: true,
       }).catch((cleanupErr) => {
+        failedCleanupKeys.push(masterUpload.storageKey);
         ReliabilityLogger.error('Compensating storage cleanup failed for master asset', {
           provider: 's3-storage',
           operation: 'uploadPhotoRollback',
           error: cleanupErr,
-          details: { storageKey: masterUpload.storageKey, propertyId },
+          details: { storageKey: masterUpload.storageKey, propertyId, code: 'STORAGE_COMPENSATING_CLEANUP_FAILED' },
         });
       });
 
@@ -469,12 +472,25 @@ export class PropertyService {
           baseDelayMs: 100,
           jitter: true,
         }).catch((cleanupErr) => {
+          failedCleanupKeys.push(thumbnailUpload.storageKey);
           ReliabilityLogger.error('Compensating storage cleanup failed for thumbnail asset', {
             provider: 's3-storage',
             operation: 'uploadPhotoRollback',
             error: cleanupErr,
-            details: { storageKey: thumbnailUpload.storageKey, propertyId },
+            details: { storageKey: thumbnailUpload.storageKey, propertyId, code: 'STORAGE_COMPENSATING_CLEANUP_FAILED' },
           });
+        });
+      }
+
+      if (failedCleanupKeys.length > 0) {
+        ReliabilityLogger.error('Storage compensating cleanup failed to remove all orphaned assets', {
+          provider: 's3-storage',
+          operation: 'uploadPhotoCompensatingCleanupFailed',
+          details: {
+            propertyId,
+            code: 'STORAGE_COMPENSATING_CLEANUP_FAILED',
+            orphanedKeys: failedCleanupKeys,
+          },
         });
       }
       throw dbErr;
