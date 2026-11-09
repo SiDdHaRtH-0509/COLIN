@@ -17,6 +17,7 @@ const router = Router();
 router.use(requireAdmin());
 
 router.get('/', bookingController.adminListAll);
+router.get('/finance-summary', bookingController.adminFinanceSummary);
 
 router.post(
   '/:bookingId/schedule',

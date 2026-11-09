@@ -662,6 +662,81 @@ export class BookingService {
   async listAllBookingsForAdmin(options: { page?: number; limit?: number; status?: BookingStatus } = {}) {
     return bookingRepository.findAll(options);
   }
+
+  /**
+   * Generates financial and double-entry ledger reconciliation summary for admin dashboard.
+   */
+  async getFinanceSummary(): Promise<{
+    totalBookings: number;
+    feePaidCount: number;
+    acceptedCount: number;
+    rejectedCount: number;
+    expiredCount: number;
+    totalCollected: number;
+    escrowBalance: number;
+    revenueRetained: number;
+    refundsPaid: number;
+    isBalanced: boolean;
+  }> {
+    const prisma = getAppPrismaClient();
+    const [bookings, transactions] = await Promise.all([
+      prisma.bookingRequest.findMany(),
+      prisma.ledgerTransaction.findMany({ include: { entries: true } }),
+    ]);
+
+    let totalCollected = 0;
+    let escrowBalance = 0;
+    let revenueRetained = 0;
+    let refundsPaid = 0;
+    let feePaidCount = 0;
+    let acceptedCount = 0;
+    let rejectedCount = 0;
+    let expiredCount = 0;
+
+    for (const b of bookings) {
+      const paid = Number(b.amountPaid);
+      const ref = Number(b.refundAmount);
+      const ret = Number(b.platformFeeRetained);
+
+      if (['FEE_PAID', 'VISIT_SCHEDULED', 'DECISION_PENDING'].includes(b.status)) {
+        feePaidCount++;
+        escrowBalance += paid;
+      } else if (b.status === 'ACCEPTED') {
+        acceptedCount++;
+        revenueRetained += ret;
+      } else if (['REJECTED_REFUND_DUE', 'REJECTED_REFUNDED'].includes(b.status)) {
+        rejectedCount++;
+        refundsPaid += ref;
+        revenueRetained += ret;
+      } else if (b.status === 'AUTO_EXPIRED') {
+        expiredCount++;
+        revenueRetained += ret;
+      }
+      totalCollected += paid;
+    }
+
+    let totalDebits = 0;
+    let totalCredits = 0;
+    for (const tx of transactions) {
+      for (const entry of tx.entries) {
+        if (entry.entryType === 'DEBIT') totalDebits += Number(entry.amount);
+        else totalCredits += Number(entry.amount);
+      }
+    }
+
+    return {
+      totalBookings: bookings.length,
+      feePaidCount,
+      acceptedCount,
+      rejectedCount,
+      expiredCount,
+      totalCollected,
+      escrowBalance,
+      revenueRetained,
+      refundsPaid,
+      isBalanced: Math.abs(totalDebits - totalCredits) < 0.001,
+    };
+  }
 }
 
 export const bookingService = new BookingService();

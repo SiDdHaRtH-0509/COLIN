@@ -295,6 +295,29 @@ export class BookingController {
       next(err);
     }
   };
+
+  /**
+   * GET /api/v1/admin/bookings/finance-summary
+   * Provides platform financial totals and double-entry ledger verification.
+   */
+  public adminFinanceSummary = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const summary = await bookingService.getFinanceSummary();
+      const response: ApiResponse<typeof summary> = {
+        success: true,
+        message: 'Platform financial summary retrieved successfully.',
+        data: summary,
+        meta: {
+          requestId: req.id || 'unknown',
+          timestamp: new Date().toISOString(),
+        },
+      };
+
+      res.status(200).json(response);
+    } catch (err) {
+      next(err);
+    }
+  };
 }
 
 export const bookingController = new BookingController();
