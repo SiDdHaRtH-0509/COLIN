@@ -681,7 +681,7 @@ export class BookingService {
     const prisma = getAppPrismaClient();
     const [bookings, transactions] = await Promise.all([
       prisma.bookingRequest.findMany(),
-      prisma.ledgerTransaction.findMany({ include: { entries: true } }),
+      prisma.ledgerTransaction.findMany({ where: { status: 'POSTED' }, include: { entries: true } }),
     ]);
 
     let totalCollected = 0;
@@ -724,6 +724,8 @@ export class BookingService {
       }
     }
 
+    const isBalanced = Math.abs(totalDebits - totalCredits) < 0.001;
+
     return {
       totalBookings: bookings.length,
       feePaidCount,
@@ -734,7 +736,7 @@ export class BookingService {
       escrowBalance,
       revenueRetained,
       refundsPaid,
-      isBalanced: Math.abs(totalDebits - totalCredits) < 0.001,
+      isBalanced,
     };
   }
 }
