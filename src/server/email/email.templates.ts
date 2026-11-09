@@ -338,3 +338,263 @@ support@colin.in`;
     textBody,
   };
 }
+
+
+/**
+ * 5. Booking Confirmation Template
+ */
+export function renderBookingConfirmationEmail(data: {
+  studentName: string;
+  propertyName: string;
+  bookingId: string;
+}): RenderedTemplate {
+  const safeName = escapeHtml(data.studentName || 'Student');
+  const safeProp = escapeHtml(data.propertyName);
+  const subject = `Visit Request Received — ${data.propertyName}`;
+
+  const htmlContent = `
+    <h2 style="margin: 0 0 16px 0; color: #142B45; font-size: 20px;">Guided Visit Requested!</h2>
+    <p style="margin: 0 0 16px 0; line-height: 1.6; color: #334155;">
+      Hello ${safeName}, your visit request for <strong>${safeProp}</strong> has been logged.
+    </p>
+    <p style="margin: 0 0 16px 0; line-height: 1.6; color: #334155;">
+      Booking Reference: <code>${escapeHtml(data.bookingId)}</code>
+    </p>
+    <p style="margin: 0; line-height: 1.6; color: #334155;">
+      Please complete the ₹150 visit pass fee to activate scheduling with our COLIN visit guide.
+    </p>
+  `;
+
+  const textBody = `Hello ${data.studentName || 'Student'},
+Your visit request for ${data.propertyName} has been recorded (Ref: ${data.bookingId}).
+Please complete the ₹150 visit pass fee to proceed with scheduling.
+— Team COLIN`;
+
+  return {
+    subject,
+    htmlBody: wrapBaseLayout(subject, htmlContent),
+    textBody,
+  };
+}
+
+/**
+ * 6. Payment Confirmation Template
+ */
+export function renderPaymentConfirmationEmail(data: {
+  studentName: string;
+  propertyName: string;
+  amount: number;
+  paymentReference: string;
+}): RenderedTemplate {
+  const safeName = escapeHtml(data.studentName || 'Student');
+  const safeProp = escapeHtml(data.propertyName);
+  const subject = `Payment Confirmed — ₹${data.amount.toFixed(2)} for ${data.propertyName}`;
+
+  const htmlContent = `
+    <h2 style="margin: 0 0 16px 0; color: #142B45; font-size: 20px;">Payment Verified!</h2>
+    <p style="margin: 0 0 16px 0; line-height: 1.6; color: #334155;">
+      Hello ${safeName}, we verified your payment of <strong>₹${data.amount.toFixed(2)}</strong> for the in-person visit to <strong>${safeProp}</strong>.
+    </p>
+    <p style="margin: 0 0 16px 0; font-size: 13px; color: #64748B;">
+      Payment Reference: ${escapeHtml(data.paymentReference)}
+    </p>
+    <div class="security-notice">
+      <strong>55% Guarantee:</strong> If after the visit you decide not to proceed, ₹82.50 (55%) will be refunded automatically.
+    </div>
+  `;
+
+  const textBody = `Hello ${data.studentName || 'Student'},
+We received your payment of ₹${data.amount.toFixed(2)} for ${data.propertyName} (Ref: ${data.paymentReference}).
+Our operations team will assign a visit slot shortly.
+— Team COLIN`;
+
+  return {
+    subject,
+    htmlBody: wrapBaseLayout(subject, htmlContent),
+    textBody,
+  };
+}
+
+/**
+ * 7. Visit Scheduled Template
+ */
+export function renderVisitScheduledEmail(data: {
+  studentName: string;
+  propertyName: string;
+  scheduledTime: string;
+  address: string;
+}): RenderedTemplate {
+  const safeName = escapeHtml(data.studentName || 'Student');
+  const safeProp = escapeHtml(data.propertyName);
+  const subject = `Visit Scheduled — ${data.propertyName}`;
+
+  const htmlContent = `
+    <h2 style="margin: 0 0 16px 0; color: #142B45; font-size: 20px;">Your Visit is Confirmed!</h2>
+    <p style="margin: 0 0 16px 0; line-height: 1.6; color: #334155;">
+      Hello ${safeName}, an in-person guided visit to <strong>${safeProp}</strong> has been scheduled.
+    </p>
+    <div style="background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 16px; margin: 16px 0;">
+      <p style="margin: 0 0 8px 0; font-weight: 700; color: #142B45;">Scheduled Time: ${escapeHtml(data.scheduledTime)}</p>
+      <p style="margin: 0; font-size: 13px; color: #64748B;">Address: ${escapeHtml(data.address)}</p>
+    </div>
+  `;
+
+  const textBody = `Hello ${data.studentName || 'Student'},
+Your visit to ${data.propertyName} is scheduled for: ${data.scheduledTime} at ${data.address}.
+— Team COLIN`;
+
+  return {
+    subject,
+    htmlBody: wrapBaseLayout(subject, htmlContent),
+    textBody,
+  };
+}
+
+/**
+ * 8. Visit Completed & 12-Hour Decision Window Template
+ */
+export function renderVisitCompletedEmail(data: {
+  studentName: string;
+  propertyName: string;
+  deadlineTime: string;
+}): RenderedTemplate {
+  const safeName = escapeHtml(data.studentName || 'Student');
+  const safeProp = escapeHtml(data.propertyName);
+  const subject = `Visit Completed — 12-Hour Decision Window Open for ${data.propertyName}`;
+
+  const htmlContent = `
+    <h2 style="margin: 0 0 16px 0; color: #142B45; font-size: 20px;">Physical Inspection Complete</h2>
+    <p style="margin: 0 0 16px 0; line-height: 1.6; color: #334155;">
+      Hello ${safeName}, your visit to <strong>${safeProp}</strong> has been recorded as complete by our guide.
+    </p>
+    <div class="security-notice">
+      <strong>Decision Deadline:</strong> You have 12 hours (until <strong>${escapeHtml(data.deadlineTime)}</strong>) to accept or reject this stay.
+    </div>
+    <p style="margin: 16px 0 0 0; font-size: 13px; color: #334155;">
+      • <strong>Accept:</strong> Secures your room allocation.<br>
+      • <strong>Reject:</strong> 55% refund (₹82.50) processed to your account.
+    </p>
+  `;
+
+  const textBody = `Hello ${data.studentName || 'Student'},
+Your visit to ${data.propertyName} is completed.
+Your 12-hour decision deadline expires on: ${data.deadlineTime}.
+Please log into COLIN to submit your decision (Accept or Reject).
+— Team COLIN`;
+
+  return {
+    subject,
+    htmlBody: wrapBaseLayout(subject, htmlContent),
+    textBody,
+  };
+}
+
+/**
+ * 9. Booking Decision Outcome Template
+ */
+export function renderBookingDecisionEmail(data: {
+  studentName: string;
+  propertyName: string;
+  decision: string;
+  refundAmount: number;
+}): RenderedTemplate {
+  const safeName = escapeHtml(data.studentName || 'Student');
+  const safeProp = escapeHtml(data.propertyName);
+  const isAccepted = data.decision === 'ACCEPTED';
+  const subject = `Booking ${isAccepted ? 'Confirmed' : 'Decision Recorded'} — ${data.propertyName}`;
+
+  const htmlContent = `
+    <h2 style="margin: 0 0 16px 0; color: #142B45; font-size: 20px;">Decision: ${escapeHtml(data.decision)}</h2>
+    <p style="margin: 0 0 16px 0; line-height: 1.6; color: #334155;">
+      Hello ${safeName}, your decision for <strong>${safeProp}</strong> has been processed.
+    </p>
+    ${
+      isAccepted
+        ? `<p style="margin: 0; color: #047857; font-weight: 700;">Congratulations! The property host has been notified of your acceptance.</p>`
+        : `<p style="margin: 0; color: #B45309;">Your refund of <strong>₹${data.refundAmount.toFixed(2)}</strong> has been scheduled.</p>`
+    }
+  `;
+
+  const textBody = `Hello ${data.studentName || 'Student'},
+Your decision (${data.decision}) for ${data.propertyName} is confirmed.
+${isAccepted ? 'Room reservation confirmed.' : `Refund of ₹${data.refundAmount.toFixed(2)} scheduled.`}
+— Team COLIN`;
+
+  return {
+    subject,
+    htmlBody: wrapBaseLayout(subject, htmlContent),
+    textBody,
+  };
+}
+
+/**
+ * 10. Property Submitted for Moderation Template
+ */
+export function renderPropertySubmittedEmail(data: {
+  ownerName: string;
+  propertyName: string;
+}): RenderedTemplate {
+  const safeName = escapeHtml(data.ownerName || 'Property Host');
+  const safeProp = escapeHtml(data.propertyName);
+  const subject = `Listing Submitted for Verification — ${data.propertyName}`;
+
+  const htmlContent = `
+    <h2 style="margin: 0 0 16px 0; color: #142B45; font-size: 20px;">Listing Under Review</h2>
+    <p style="margin: 0 0 16px 0; line-height: 1.6; color: #334155;">
+      Hello ${safeName}, your listing <strong>${safeProp}</strong> has been submitted to the COLIN verification queue.
+    </p>
+    <p style="margin: 0; font-size: 13px; color: #64748B;">
+      Our quality assurance team will inspect the details and photographs. You will receive an update once approved.
+    </p>
+  `;
+
+  const textBody = `Hello ${data.ownerName || 'Property Host'},
+Your listing ${data.propertyName} has been submitted for COLIN verification.
+— Team COLIN`;
+
+  return {
+    subject,
+    htmlBody: wrapBaseLayout(subject, htmlContent),
+    textBody,
+  };
+}
+
+/**
+ * 11. Property Moderation Decision Template
+ */
+export function renderPropertyModerationEmail(data: {
+  ownerName: string;
+  propertyName: string;
+  status: 'VERIFIED' | 'REJECTED';
+  reason?: string;
+}): RenderedTemplate {
+  const safeName = escapeHtml(data.ownerName || 'Property Host');
+  const safeProp = escapeHtml(data.propertyName);
+  const isApproved = data.status === 'VERIFIED';
+  const subject = `Listing ${isApproved ? 'Approved & Verified' : 'Needs Attention'} — ${data.propertyName}`;
+
+  const htmlContent = `
+    <h2 style="margin: 0 0 16px 0; color: #142B45; font-size: 20px;">
+      ${isApproved ? 'Congratulations! Listing Verified' : 'Listing Requires Revisions'}
+    </h2>
+    <p style="margin: 0 0 16px 0; line-height: 1.6; color: #334155;">
+      Hello ${safeName}, our inspection team has completed review of <strong>${safeProp}</strong>.
+    </p>
+    ${
+      isApproved
+        ? `<p style="margin: 0; color: #047857; font-weight: 700;">Your accommodation is now live and discoverable in student searches!</p>`
+        : `<div class="security-notice"><strong>Reason:</strong> ${escapeHtml(data.reason || 'Missing required information.')}</div>
+           <p style="margin: 12px 0 0 0; font-size: 13px; color: #64748B;">You can update the listing from your Owner Dashboard and resubmit.</p>`
+    }
+  `;
+
+  const textBody = `Hello ${data.ownerName || 'Property Host'},
+Review for ${data.propertyName}: ${isApproved ? 'VERIFIED and live!' : `REJECTED: ${data.reason || 'Requires revisions.'}`}
+— Team COLIN`;
+
+  return {
+    subject,
+    htmlBody: wrapBaseLayout(subject, htmlContent),
+    textBody,
+  };
+}

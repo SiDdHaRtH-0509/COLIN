@@ -44,7 +44,7 @@ export const LoginPage: React.FC = () => {
 
     try {
       const isOwnerRole = email.toLowerCase().includes('owner') || email.toLowerCase().includes('host');
-      const success = await login(email, isOwnerRole ? 'owner' : 'student');
+      const success = await login(email, isOwnerRole ? 'owner' : 'student', password);
       if (success) {
         if (redirectUrl && redirectUrl !== '/') {
           navigate(redirectUrl);

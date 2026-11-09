@@ -86,6 +86,7 @@ export const SignUpPage: React.FC = () => {
         phone,
         role,
         university: role === 'student' ? university : undefined,
+        password,
       });
 
       if (success) {

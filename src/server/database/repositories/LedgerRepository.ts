@@ -158,4 +158,34 @@ export class LedgerRepository extends BaseRepository {
       return net;
     });
   }
+
+  /**
+   * Finds an active ledger account by category, or creates it if missing.
+   */
+  async ensureAccount(
+    category: LedgerAccountCategory,
+    name: string,
+    accountType: LedgerAccountType,
+    accountNumber: string,
+    tx?: Prisma.TransactionClient
+  ) {
+    return this.execute(async () => {
+      const client = this.getClient(tx);
+      const existing = await client.ledgerAccount.findFirst({
+        where: { accountCategory: category },
+      });
+      if (existing) return existing;
+
+      return client.ledgerAccount.create({
+        data: {
+          accountNumber,
+          name,
+          accountType,
+          accountCategory: category,
+          currency: 'INR',
+          isActive: true,
+        },
+      });
+    });
+  }
 }

@@ -9,5 +9,6 @@ export * from './OwnerRepository';
 export * from './AdminPropertyRepository';
 export * from './BedReservationRepository';
 export * from './LedgerRepository';
+export * from './BookingRepository';
 export * from './AdminAuditRepository';
 export * from './AdminAuthRepository';
