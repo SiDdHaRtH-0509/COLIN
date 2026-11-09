@@ -12,8 +12,9 @@ import { assertProductionSecretsValid } from './config/secrets.config';
 import { initializeDatabaseConnections, shutdownDatabaseConnections } from './database/lifecycle';
 import { initializeRedis } from './redis';
 import { executeGracefulShutdown, registerBackgroundWorker, unregisterBackgroundWorker } from './lifecycle/shutdown';
+import { bookingExpiryWorker } from './workers/BookingExpiryWorker';
 
-export { executeGracefulShutdown, registerBackgroundWorker, unregisterBackgroundWorker };
+export { executeGracefulShutdown, registerBackgroundWorker, unregisterBackgroundWorker, bookingExpiryWorker };
 
 let serverInstance: http.Server | null = null;
 
@@ -47,6 +48,10 @@ export async function startServer(): Promise<http.Server> {
         reject(err);
       });
     });
+
+    // Start autonomous background workers
+    bookingExpiryWorker.start();
+    registerBackgroundWorker(bookingExpiryWorker);
 
     // Register process termination handlers
     setupGracefulShutdown(server);

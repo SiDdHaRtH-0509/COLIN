@@ -627,7 +627,7 @@ export class BookingRepository extends BaseRepository {
         where: {
           status: BookingStatus.DECISION_PENDING,
           decisionDeadline: {
-            lt: now,
+            lte: now,
           },
         },
       });
