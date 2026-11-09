@@ -7,17 +7,10 @@ import React, { useState, useEffect } from 'react';
 import {
   CalendarCheck,
   Clock,
-  User,
-  Building,
   CheckCircle2,
-  XCircle,
-  AlertTriangle,
   RefreshCw,
   Search,
-  Filter,
   Calendar,
-  ShieldCheck,
-  Send,
   Timer,
 } from 'lucide-react';
 import { apiClient } from '../../services/apiClient';
@@ -79,9 +72,10 @@ export const AdminVisitsPage: React.FC = () => {
     setIsLoading(true);
     setFeedbackMessage(null);
     try {
-      const res = await apiClient.get<{ items: AdminBooking[] }>('/api/v1/admin/bookings?limit=50');
-      if (res.success && Array.isArray(res.data?.items)) {
-        setBookings(res.data.items);
+      const res = await apiClient.get<AdminBooking[] | { items: AdminBooking[] }>('/api/v1/admin/bookings?limit=50');
+      if (res.success && res.data) {
+        const items = Array.isArray(res.data) ? res.data : (res.data as any).items || [];
+        setBookings(items);
       } else {
         setBookings([]);
       }

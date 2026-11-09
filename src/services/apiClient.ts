@@ -4,6 +4,25 @@
  * Supports cookie-based JWT sessions, Bearer authorization fallback, CSRF protection, and file uploads.
  */
 
+export interface ApiResponseMeta {
+  requestId?: string;
+  timestamp?: string;
+  attribution?: string;
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export interface ApiSuccessResponse<T = unknown> {
+  success: true;
+  message?: string;
+  data: T;
+  meta?: ApiResponseMeta;
+}
+
 export interface ApiErrorResponse {
   success: false;
   error?: {
@@ -12,7 +31,10 @@ export interface ApiErrorResponse {
     details?: unknown;
   };
   message?: string;
+  meta?: ApiResponseMeta;
 }
+
+export type ApiResponse<T = unknown> = ApiSuccessResponse<T> | ApiErrorResponse;
 
 export class ApiError extends Error {
   public statusCode: number;
@@ -179,28 +201,30 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
 }
 
 export const apiClient = {
-  get: <T>(url: string, options?: RequestOptions) => request<T>(url, { ...options, method: 'GET' }),
-  post: <T>(url: string, body?: any, options?: RequestOptions) =>
-    request<T>(url, {
+  get: <T = unknown>(url: string, options?: RequestOptions): Promise<ApiResponse<T>> =>
+    request<ApiResponse<T>>(url, { ...options, method: 'GET' }),
+  post: <T = unknown>(url: string, body?: unknown, options?: RequestOptions): Promise<ApiResponse<T>> =>
+    request<ApiResponse<T>>(url, {
       ...options,
       method: 'POST',
       body: body instanceof FormData ? body : JSON.stringify(body),
     }),
-  patch: <T>(url: string, body?: any, options?: RequestOptions) =>
-    request<T>(url, {
+  patch: <T = unknown>(url: string, body?: unknown, options?: RequestOptions): Promise<ApiResponse<T>> =>
+    request<ApiResponse<T>>(url, {
       ...options,
       method: 'PATCH',
       body: body instanceof FormData ? body : JSON.stringify(body),
     }),
-  put: <T>(url: string, body?: any, options?: RequestOptions) =>
-    request<T>(url, {
+  put: <T = unknown>(url: string, body?: unknown, options?: RequestOptions): Promise<ApiResponse<T>> =>
+    request<ApiResponse<T>>(url, {
       ...options,
       method: 'PUT',
       body: body instanceof FormData ? body : JSON.stringify(body),
     }),
-  delete: <T>(url: string, options?: RequestOptions) => request<T>(url, { ...options, method: 'DELETE' }),
-  upload: <T>(url: string, formData: FormData, options?: RequestOptions) =>
-    request<T>(url, {
+  delete: <T = unknown>(url: string, options?: RequestOptions): Promise<ApiResponse<T>> =>
+    request<ApiResponse<T>>(url, { ...options, method: 'DELETE' }),
+  upload: <T = unknown>(url: string, formData: FormData, options?: RequestOptions): Promise<ApiResponse<T>> =>
+    request<ApiResponse<T>>(url, {
       ...options,
       method: 'POST',
       body: formData,

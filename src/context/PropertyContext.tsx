@@ -292,14 +292,17 @@ export const PropertyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     let isMounted = true;
     async function fetchLiveProperties() {
       try {
-        const res = await apiClient.get<{ properties: any[] }>('/api/v1/properties?limit=50');
-        if (isMounted && res.success && Array.isArray(res.data?.properties) && res.data.properties.length > 0) {
-          const adapted = res.data.properties.map(adaptBackendPropertyToFrontend);
-          setProperties((prev) => {
-            const liveIds = new Set(adapted.map((p) => p.id));
-            const existingNonOverlapping = prev.filter((p) => !liveIds.has(p.id));
-            return [...adapted, ...existingNonOverlapping];
-          });
+        const res = await apiClient.get<any[] | { properties: any[] }>('/api/v1/properties?limit=50');
+        if (isMounted && res.success && res.data) {
+          const rawProps = Array.isArray(res.data) ? res.data : (res.data as any).properties || [];
+          if (rawProps.length > 0) {
+            const adapted: Property[] = rawProps.map((p: any) => adaptBackendPropertyToFrontend(p));
+            setProperties((prev) => {
+              const liveIds = new Set(adapted.map((p: Property) => p.id));
+              const existingNonOverlapping = prev.filter((p) => !liveIds.has(p.id));
+              return [...adapted, ...existingNonOverlapping];
+            });
+          }
         }
       } catch {
         // Retain local / mock properties if backend is offline

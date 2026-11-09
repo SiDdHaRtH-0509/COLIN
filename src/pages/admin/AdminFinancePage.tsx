@@ -5,16 +5,13 @@
 
 import React, { useState, useEffect } from 'react';
 import {
-  DollarSign,
   TrendingUp,
-  ShieldCheck,
   RotateCcw,
   Scale,
   RefreshCw,
   CheckCircle2,
   AlertTriangle,
   ArrowUpRight,
-  ArrowDownLeft,
   Lock,
 } from 'lucide-react';
 import { apiClient } from '../../services/apiClient';

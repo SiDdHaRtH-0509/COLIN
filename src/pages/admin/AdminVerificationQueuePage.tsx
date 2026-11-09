@@ -8,7 +8,6 @@ import {
   ShieldCheck,
   CheckCircle2,
   XCircle,
-  Clock,
   Eye,
   Building,
   MapPin,
@@ -17,7 +16,6 @@ import {
   AlertCircle,
   RefreshCw,
   Search,
-  Filter,
 } from 'lucide-react';
 import { apiClient } from '../../services/apiClient';
 import { useProperties } from '../../context/PropertyContext';
@@ -76,7 +74,7 @@ export const AdminVerificationQueuePage: React.FC = () => {
       } else {
         // Fallback: derive pending from local properties if backend offline
         const localPending = properties
-          .filter((p) => p.verificationStatus === 'pending' || !p.isColinCertified)
+          .filter((p) => (p.verificationStatus !== 'approved' && p.verificationStatus !== 'rejected') || !p.isColinCertified)
           .map((p) => ({
             id: p.id,
             name: p.title,
@@ -105,7 +103,7 @@ export const AdminVerificationQueuePage: React.FC = () => {
     } catch {
       // Offline fallback
       const localPending = properties
-        .filter((p) => p.verificationStatus === 'pending' || !p.isColinCertified)
+        .filter((p) => (p.verificationStatus !== 'approved' && p.verificationStatus !== 'rejected') || !p.isColinCertified)
         .map((p) => ({
           id: p.id,
           name: p.title,

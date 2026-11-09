@@ -66,10 +66,8 @@ export class BookingController {
           pagination: {
             page: result.page,
             limit: result.limit,
-            totalItems: result.total,
+            total: result.total,
             totalPages: result.totalPages,
-            hasNextPage: result.page < result.totalPages,
-            hasPreviousPage: result.page > 1,
           },
         },
       };
@@ -202,10 +200,8 @@ export class BookingController {
           pagination: {
             page: result.page,
             limit: result.limit,
-            totalItems: result.total,
+            total: result.total,
             totalPages: result.totalPages,
-            hasNextPage: result.page < result.totalPages,
-            hasPreviousPage: result.page > 1,
           },
         },
       };

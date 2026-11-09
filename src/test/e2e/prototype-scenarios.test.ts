@@ -39,17 +39,12 @@ describe('COLIN Prototype End-to-End Scenarios (1 to 14)', () => {
 
   // Shared session credentials & entity IDs
   let student1Token: string;
-  let student1Id: string;
   let student2Token: string;
-  let student2Id: string;
   let student3Token: string;
-  let student3Id: string;
 
   let ownerToken: string;
-  let ownerUserId: string;
 
   let adminToken: string;
-  let adminId: string;
 
   let propertyId: string;
   let photoIds: string[] = [];
@@ -69,7 +64,7 @@ describe('COLIN Prototype End-to-End Scenarios (1 to 14)', () => {
       where: { code: 'SUPER_ADMIN' },
     });
 
-    const adminAcc = await adminPrisma.adminAccount.create({
+    await adminPrisma.adminAccount.create({
       data: {
         username: `e2e_admin_${Date.now()}`,
         email: adminEmail,
@@ -87,8 +82,6 @@ describe('COLIN Prototype End-to-End Scenarios (1 to 14)', () => {
           : {}),
       },
     });
-    adminId = adminAcc.id;
-
     const adminLoginRes = await request(app)
       .post('/api/v1/auth/admin/login')
       .send({
@@ -128,7 +121,6 @@ describe('COLIN Prototype End-to-End Scenarios (1 to 14)', () => {
     expect(regRes.body.success).toBe(true);
     expect(regRes.body.data.user.role).toBe('STUDENT');
     student1Token = regRes.body.data.tokens.accessToken;
-    student1Id = regRes.body.data.user.id;
 
     // Student profile update
     const updateRes = await request(app)
@@ -176,7 +168,6 @@ describe('COLIN Prototype End-to-End Scenarios (1 to 14)', () => {
     expect(regRes.status).toBe(201);
     expect(regRes.body.data.user.role).toBe('OWNER');
     ownerToken = regRes.body.data.tokens.accessToken;
-    ownerUserId = regRes.body.data.user.id;
 
     // Create property listing
     const propRes = await request(app)
@@ -440,7 +431,6 @@ describe('COLIN Prototype End-to-End Scenarios (1 to 14)', () => {
       { ipAddress: '127.0.0.1', userAgent: 'Vitest/E2E' }
     );
     student2Token = reg2.tokens.accessToken;
-    student2Id = reg2.user.id;
 
     // 2. Create booking 2
     const b2Res = await request(app)
@@ -519,7 +509,6 @@ describe('COLIN Prototype End-to-End Scenarios (1 to 14)', () => {
       { ipAddress: '127.0.0.1', userAgent: 'Vitest/E2E' }
     );
     student3Token = reg3.tokens.accessToken;
-    student3Id = reg3.user.id;
 
     // 2. Create booking 3
     const b3Res = await request(app)

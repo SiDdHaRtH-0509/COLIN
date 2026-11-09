@@ -572,7 +572,7 @@ export class BookingRepository extends BaseRepository {
       const refund = new Prisma.Decimal(decisionData.refundAmount.toString());
       const retained = new Prisma.Decimal(decisionData.platformFeeRetained.toString());
 
-      let paymentStatus = BookingPaymentStatus.PAID;
+      let paymentStatus: BookingPaymentStatus = BookingPaymentStatus.PAID;
       if (decisionData.decision === StudentDecision.REJECTED) {
         paymentStatus = BookingPaymentStatus.PARTIALLY_REFUNDED;
       } else if (decisionData.decision === StudentDecision.EXPIRED) {

@@ -13,6 +13,8 @@ import {
   JournalTransactionType,
   LedgerTransactionStatus,
   LedgerEntryType,
+  LedgerAccountCategory,
+  LedgerAccountType,
 } from '@prisma/client';
 import { BaseRepository } from './BaseRepository';
 

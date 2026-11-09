@@ -352,10 +352,11 @@ export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       // Sync live visit bookings from backend GET /api/v1/bookings
       apiClient
-        .get<{ items: any[] }>('/api/v1/bookings?limit=50')
+        .get<any[] | { items: any[] }>('/api/v1/bookings?limit=50')
         .then((res) => {
-          if (isMounted && res.success && Array.isArray(res.data?.items)) {
-            const liveBookings: VisitBooking[] = res.data.items.map((b: any) => {
+          if (isMounted && res.success && res.data) {
+            const rawItems = Array.isArray(res.data) ? res.data : (res.data as any).items || [];
+            const liveBookings: VisitBooking[] = rawItems.map((b: any) => {
               let status: VisitBooking['status'] = 'Pending';
               if (b.status === 'VISIT_SCHEDULED') status = 'VISIT_CONFIRMED';
               else if (b.status === 'DECISION_PENDING') status = 'VISIT_COMPLETED_DECISION_PENDING';

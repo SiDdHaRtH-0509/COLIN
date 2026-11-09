@@ -10,9 +10,8 @@ import { Express } from 'express';
 import { PropertyType, PropertyGenderPolicy, PropertyVerificationStatus, AdminAccountStatus } from '@prisma/client';
 import { createApp } from '../../server/app';
 import { getAppPrismaClient, getAdminPrismaClient } from '../../server/database/prisma';
-import { initializeDatabaseConnections, shutdownDatabaseConnections } from '../../server/database/lifecycle';
+import { initializeDatabaseConnections } from '../../server/database/lifecycle';
 import { authService } from '../../server/services/AuthService';
-import { adminAuthService } from '../../server/services/AdminAuthService';
 import { PasswordService } from '../../server/auth/password.service';
 
 describe('COLIN Booking & Guided Visit Lifecycle Integration Suite', () => {
@@ -104,7 +103,7 @@ describe('COLIN Booking & Guided Visit Lifecycle Integration Suite', () => {
       where: { code: 'SUPER_ADMIN' },
     });
 
-    const adminAcc = await adminPrisma.adminAccount.create({
+    await adminPrisma.adminAccount.create({
       data: {
         username: `booking_admin_${Date.now()}`,
         email: adminEmail,

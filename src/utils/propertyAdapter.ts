@@ -120,6 +120,13 @@ export function adaptBackendPropertyToFrontend(backendProp: any): Property {
       backendProp.description ||
       'Verified student living accommodation inspected for safety, security, and verified amenities.',
     highlights: ['Zero Brokerage', '55% Visit Refund Guarantee', 'COLIN Verified Host'],
+    houseRules: backendProp.houseRules || [
+      'No smoking inside rooms',
+      'Quiet hours after 10 PM',
+      'Guests permitted until 8 PM',
+    ],
+    visitSlotFee: backendProp.visitSlotFee ?? 150,
+    refundGuaranteePercent: backendProp.refundGuaranteePercent ?? 55,
 
     ownerId: backendProp.ownerId || backendProp.owner?.userId || 'usr-owner-01',
     ownerName: backendProp.owner?.businessName || 'Verified Host',

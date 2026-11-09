@@ -19,6 +19,7 @@ import {
   PaymentGateway,
   PaymentType,
   PaymentStatus,
+  EmailEventType,
   Prisma,
 } from '@prisma/client';
 import { AuthorizationError } from '../middleware/authContext';
@@ -154,14 +155,18 @@ export class BookingService {
           bookingId: booking.id,
         });
         await emailOutboxService.enqueueEmail({
-          recipientEmail: studentEmail,
-          recipientName: student.user?.profile?.firstName || 'Student',
+          eventType: EmailEventType.MARKETPLACE_NOTIFICATION,
+          recipient: studentEmail,
           subject: template.subject,
-          htmlBody: template.htmlBody,
-          textBody: template.textBody,
-          templateName: 'booking_confirmation',
-          referenceType: 'booking',
-          referenceId: booking.id,
+          templateAlias: 'booking_confirmation',
+          templateData: {
+            studentName: student.user?.profile?.firstName || 'Student',
+            propertyName: property.name,
+            bookingId: booking.id,
+            htmlBody: template.htmlBody,
+            textBody: template.textBody,
+          },
+          idempotencyKey: `booking_confirm_${booking.id}`,
         });
       }
     } catch {
@@ -300,14 +305,19 @@ export class BookingService {
           paymentReference: paymentResult.paymentId,
         });
         await emailOutboxService.enqueueEmail({
-          recipientEmail: studentEmail,
-          recipientName: detailed.student.user.profile?.firstName || 'Student',
+          eventType: EmailEventType.MARKETPLACE_NOTIFICATION,
+          recipient: studentEmail,
           subject: template.subject,
-          htmlBody: template.htmlBody,
-          textBody: template.textBody,
-          templateName: 'payment_confirmation',
-          referenceType: 'booking',
-          referenceId: booking.id,
+          templateAlias: 'payment_confirmation',
+          templateData: {
+            studentName: detailed.student.user.profile?.firstName || 'Student',
+            propertyName: detailed.property.name,
+            amount: 150.0,
+            paymentReference: paymentResult.paymentId,
+            htmlBody: template.htmlBody,
+            textBody: template.textBody,
+          },
+          idempotencyKey: `payment_confirm_${booking.id}`,
         });
       }
     } catch {}
@@ -355,14 +365,19 @@ export class BookingService {
           address: detailed.property.addressLine1 || detailed.property.city,
         });
         await emailOutboxService.enqueueEmail({
-          recipientEmail: studentEmail,
-          recipientName: detailed.student.user.profile?.firstName || 'Student',
+          eventType: EmailEventType.MARKETPLACE_NOTIFICATION,
+          recipient: studentEmail,
           subject: template.subject,
-          htmlBody: template.htmlBody,
-          textBody: template.textBody,
-          templateName: 'visit_scheduled',
-          referenceType: 'booking',
-          referenceId: booking.id,
+          templateAlias: 'visit_scheduled',
+          templateData: {
+            studentName: detailed.student.user.profile?.firstName || 'Student',
+            propertyName: detailed.property.name,
+            scheduledTime: start.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }),
+            address: detailed.property.addressLine1 || detailed.property.city,
+            htmlBody: template.htmlBody,
+            textBody: template.textBody,
+          },
+          idempotencyKey: `visit_sched_${booking.id}`,
         });
       }
     } catch {}
@@ -401,14 +416,21 @@ export class BookingService {
           }),
         });
         await emailOutboxService.enqueueEmail({
-          recipientEmail: studentEmail,
-          recipientName: detailed.student.user.profile?.firstName || 'Student',
+          eventType: EmailEventType.MARKETPLACE_NOTIFICATION,
+          recipient: studentEmail,
           subject: template.subject,
-          htmlBody: template.htmlBody,
-          textBody: template.textBody,
-          templateName: 'visit_completed',
-          referenceType: 'booking',
-          referenceId: booking.id,
+          templateAlias: 'visit_completed',
+          templateData: {
+            studentName: detailed.student.user.profile?.firstName || 'Student',
+            propertyName: detailed.property.name,
+            deadlineTime: new Date(detailed.decisionDeadline).toLocaleString('en-IN', {
+              dateStyle: 'medium',
+              timeStyle: 'short',
+            }),
+            htmlBody: template.htmlBody,
+            textBody: template.textBody,
+          },
+          idempotencyKey: `visit_comp_${booking.id}`,
         });
       }
     } catch {}
@@ -552,14 +574,19 @@ export class BookingService {
           refundAmount,
         });
         await emailOutboxService.enqueueEmail({
-          recipientEmail: studentEmail,
-          recipientName: detailed.student.user.profile?.firstName || 'Student',
+          eventType: EmailEventType.MARKETPLACE_NOTIFICATION,
+          recipient: studentEmail,
           subject: template.subject,
-          htmlBody: template.htmlBody,
-          textBody: template.textBody,
-          templateName: 'booking_decision',
-          referenceType: 'booking',
-          referenceId: booking.id,
+          templateAlias: 'booking_decision',
+          templateData: {
+            studentName: detailed.student.user.profile?.firstName || 'Student',
+            propertyName: detailed.property.name,
+            decision: decisionEnum,
+            refundAmount,
+            htmlBody: template.htmlBody,
+            textBody: template.textBody,
+          },
+          idempotencyKey: `decision_${booking.id}_${decisionEnum}`,
         });
       }
     } catch {}
