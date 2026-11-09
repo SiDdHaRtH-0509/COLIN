@@ -4,16 +4,19 @@
 
 # COLIN — Student Accommodation Discovery & Management Platform
 
-**A full-stack, enterprise-grade student accommodation discovery, booking, and property management ecosystem.**
+**An enterprise-grade student accommodation discovery, guided visit booking, and property management platform.**
 
 [![React](https://img.shields.io/badge/React-18.3-61DAFB?logo=react&logoColor=black)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-20+-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![Express](https://img.shields.io/badge/Express-5.3-000000?logo=express&logoColor=white)](https://expressjs.com/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-18.4-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Redis](https://img.shields.io/badge/Redis-7.2-DC382D?logo=redis&logoColor=white)](https://redis.io/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-38B2AC?logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
-[![Vite](https://img.shields.io/badge/Vite-5.4-646CFF?logo=vite&logoColor=white)](https://vitejs.dev/)
-[![Vitest](https://img.shields.io/badge/Vitest-535%2F535%20Passing-44A833?logo=vitest&logoColor=white)](https://vitest.dev/)
+[![Vitest](https://img.shields.io/badge/Vitest-762%2F762%20Passing-44A833?logo=vitest&logoColor=white)](https://vitest.dev/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-[Live Demo](#demo-credentials) • [Key Features](#key-features) • [Architecture](#architecture) • [Directory Structure](#repository-structure) • [Documentation](#documentation) • [Getting Started](#getting-started)
+[Live Workspaces](#platform-workspaces) • [Key Features](#key-features) • [End-to-End Lifecycle](#guided-visit--financial-lifecycle) • [Architecture](#architecture) • [Testing & QA](#testing--quality-assurance) • [Reports](#documentation)
 
 ---
 
@@ -21,155 +24,129 @@
 
 ## Overview
 
-**COLIN** bridges the trust and operational gap between university students searching for safe, affordable accommodation and property owners managing student housing. 
+**COLIN** bridges the trust, safety, and operational gap between university students seeking certified accommodations and property hosts managing PGs, hostels, and student flats.
 
-Engineered with role-based authentication, interactive discovery maps, 3D room walkthroughs, verified physical audit badges, centralized field concierge booking, and client-side binary media storage, COLIN provides a dual-sided marketplace tailored for student living.
+Operating across four unified portals, COLIN integrates multi-attribute accommodation discovery, in-person field concierge visits, cryptographic role-based access control, PostgreSQL 18 transactional immutability, and an IAS-1 compliant double-entry financial ledger.
+
+---
+
+## Platform Workspaces
+
+The platform delivers four distinct user experiences:
+
+1. **Public Discovery Portal (`/`, `/property/:id`)**: High-performance student accommodation search engine with multi-facet filters (city, type, gender policy, budget, amenities). Restricts unverified listings and shields host contact details from unauthenticated users.
+2. **Student Scholar Portal (`/student/*`)**: Secure student workspace featuring academic profile customization, housing preference matching, guided visit booking requests, simulated payment capture (`TEST/SIMULATED`), a 12-hour post-visit decision countdown, and virtual room tours.
+3. **Property Owner Portal (`/owner/*`)**: Host inventory and operations portal supporting step-by-step listing registration, an 8-photo mandatory photographic evidence pipeline with cover photo selection, room and bed inventory management, and submission for physical quality verification.
+4. **Admin Control Centre (`/admin/*`)**: High-security operational headquarters providing a live property verification queue, field visit scheduling and guide dispatch, visit completion recording with automatic 12-hour deadline calculation, overdue decision expiry workers, and real-time double-entry ledger summaries.
+
+---
+
+## Guided Visit & Financial Lifecycle
+
+COLIN eliminates broker spam and protects students through a managed, in-person visit model backed by double-entry ledger accounting:
+
+```mermaid
+stateDiagram-v2
+    [*] --> PAYMENT_PENDING: Student requests visit (₹150 fee)
+    PAYMENT_PENDING --> FEE_PAID: Student captures payment (Escrow Posted)
+    FEE_PAID --> VISIT_SCHEDULED: Admin schedules visit slot & guide
+    VISIT_SCHEDULED --> DECISION_PENDING: Admin records physical completion
+    note right of DECISION_PENDING: Strict 12-Hour Server Decision Deadline Activated
+
+    DECISION_PENDING --> ACCEPTED: Student Accepts Accommodation
+    note right of ACCEPTED: 100% (₹150) Settles from Escrow to Platform Revenue
+
+    DECISION_PENDING --> REJECTED_REFUND_DUE: Student Rejects Accommodation
+    note right of REJECTED_REFUND_DUE: 55% (₹82.50) Student Refund Payable\n45% (₹67.50) Retained Platform Fee
+
+    DECISION_PENDING --> AUTO_EXPIRED: 12-Hour Deadline Elapsed
+    note right of AUTO_EXPIRED: 100% (₹150) Forfeited to Platform Revenue\nTriggered by Expiry Worker
+```
+
+### Double-Entry General Ledger Invariant
+Every financial event is recorded across balanced debit and credit entries. The database trigger `trg_prevent_unbalanced_ledger_transaction` guarantees that unposted or unbalanced journal entries are rejected at the storage engine level ($\sum \text{Debits} \equiv \sum \text{Credits}$).
 
 ---
 
 ## Key Features
 
-### 🎓 Student Experience & Discovery Portal
-* **Intelligent Discovery Engine**: Multi-mode browsing (Grid, List, Map views) with real-time filters for university proximity, budget, AC/Non-AC, meal inclusion, and private vs. shared rooms.
-* **COLIN Certified Shield**: 50-point physical inspection badge verifying fire safety, structural integrity, CCTV security, hygiene standards, and verified Wi-Fi speed.
-* **Interactive 3D Virtual Tours**: High-fidelity panoramic room walkthroughs allowing students to inspect layout and dimensions prior to booking.
-* **Centralized Field Concierge Booking**: Visit scheduling coordinated by trained COLIN Field Executives to protect student safety and eliminate direct broker spam.
-* **12-Hour Decision Window & 55% Refund Guarantee**: After an in-person visit, students receive a 12-hour reserved decision window; if they choose not to proceed, 55% of their deposit is promptly refunded.
-* **Student Journey Widget & Compare Stays**: Persistent progress tracker guiding students through discovery, scheduling, peer roommate matching, and lease confirmation.
-* **Tiffin Connect**: Curated local meal plan discovery integrated with dietary preferences.
+### 🎓 Student Experience & Discovery
+* **Discovery Engine**: Filter by proximity to Delhi University North Campus, budget ceiling, room occupancy, and gender policy.
+* **COLIN Verified Shield**: On-site audited listings meeting 50 physical safety, hygiene, Wi-Fi, and fire-safety standards.
+* **12-Hour Reserved Window**: Following an on-site visit, the student holds a strict 12-hour exclusive decision window before the room is released.
+* **Fair 55% Refund Guarantee**: If the accommodation does not meet student expectations, 55% (₹82.50) is refunded to the student payable account.
 
-### 🏢 Host & Property Owner Management Portal
-* **Fixed Viewport Navigation**: 3-tier desktop sidebar with fixed branding, independently scrollable navigation items, and anchored subscription/logout actions.
-* **Executive Performance Dashboard**: 12-column balanced grid displaying real-time occupancy rates, bed counts, monthly revenue projections, and certification statuses.
-* **Property Lifecycle & Inventory (CRUD)**: Create and edit properties with 6-month or 12-month listing durations, dynamic pricing, and an in-app Student Portal Preview modal.
-* **Granular Bed Inventory**: Room-by-room and bed-by-bed occupancy tracking across Single, Double, and Triple sharing units.
-* **Client-Side Photo Upload Pipeline**:
-  - Drag-and-drop dropzone supporting up to 8 high-resolution photos per property (JPG, JPEG, PNG, WEBP, max 5 MB).
-  - Fast IndexedDB binary storage (`colin_property_media_db`) preventing browser quota exceptions.
-  - Cover photo selection, thumbnail reordering, live photo counters, and fallback SVG cards.
-* **Monetisation & Subscriptions**: Tiered host memberships (`FREE`, `VERIFIED_HOST`, and `PREMIUM_PARTNER`) providing sponsored search ranking and homepage spotlight carousels.
-* **Privacy-Shielded Enquiries**: Direct student contact details remain masked until a confirmed booking is finalized through COLIN Concierge.
+### 🏢 Property Host Management
+* **Listing Lifecycle**: Create listings in `DRAFT`, upload mandatory photographic assets, and submit for verification (`SUBMITTED`).
+* **8-Photo Evidence Pipeline**: Requires distinct shots of facade, bedroom, bathroom, mess hall, study room, common area, water filtration, and security features.
+* **Bed & Room Allocation**: Manage Single, Double, and Triple occupancy beds with dynamic monthly rent and security deposits.
+* **Safety Isolation**: Host accounts are isolated from visitor scheduling; direct contact masking prevents student harassment.
+
+### 🛡️ Admin Moderation & Quality Control
+* **Moderation Pipeline**: Review submitted listings, inspect high-resolution gallery evidence, and grant official verification badges.
+* **Dispatch & Coordination**: Assign field guides and schedule visit time windows with students.
+* **Overdue Decision Expiry Worker**: Scans and settles visits exceeding the 12-hour deadline via `POST /api/v1/admin/bookings/process-expirations`.
+* **Zero-Sum Balance Sheet**: Continuous tracking of `ESCROW_CASH`, `ESCROW_LIABILITY_STUDENT_DEPOSITS`, `REVENUE_VISIT_FEES`, and `REFUNDS_PAYABLE_STUDENT`.
 
 ---
 
-## Architecture & Data Isolation
+## Architecture & Technology Stack
 
 ```mermaid
-graph LR
-    subgraph Client Application
-        Router[React Router 6]
-        Auth[AuthContext & Role Guard]
-        StudentCtx[StudentContext]
-        PropertyCtx[PropertyContext]
+graph TD
+    subgraph Frontend Application
+        R6[React Router 6]
+        AuthCtx[Auth & AdminAuth Contexts]
+        Portals[Public | Student | Owner | Admin]
     end
 
-    subgraph User Experience
-        SP[Student Portal]
-        OP[Host / Owner Portal]
+    subgraph Backend API Gateway
+        Express[Express 5.3 Framework]
+        RBAC[JWT Role Guards]
+        RateLimit[Redis 7 Sliding Window Rate Limiter]
     end
 
-    subgraph Persistent Storage
-        LS[(localStorage: User-Scoped Keys)]
-        IDB_Photos[(IndexedDB: colin_property_media_db)]
-        IDB_Avatars[(IndexedDB: colin_avatar_db)]
+    subgraph Services & Domain
+        AuthSvc[Authentication & Crypto Service]
+        PropSvc[Property & Photo Pipeline]
+        BookSvc[Visit Booking Lifecycle Service]
+        LedgSvc[Double-Entry Ledger Engine]
     end
 
-    Router --> Auth
-    Auth -->|Role: STUDENT| SP
-    Auth -->|Role: OWNER| OP
-    SP <--> StudentCtx
-    OP <--> PropertyCtx
-    StudentCtx <--> LS
-    PropertyCtx <--> LS
-    OP <--> IDB_Photos
-    SP <--> IDB_Avatars
+    subgraph Storage & Infrastructure
+        AppDB[(PostgreSQL 18: colin_app_runtime)]
+        AdminDB[(PostgreSQL 18: colin_admin_runtime)]
+        Cache[(Redis 7: Session & Rate Limit Store)]
+    end
+
+    Portals --> R6 --> AuthCtx --> Express
+    Express --> RBAC --> RateLimit
+    RateLimit --> AuthSvc & PropSvc & BookSvc
+    BookSvc --> LedgSvc
+    AuthSvc --> AppDB & AdminDB
+    PropSvc --> AppDB
+    BookSvc --> AppDB
+    LedgSvc --> AppDB
+    RateLimit --> Cache
 ```
 
-* **Complete Multi-User Account Isolation**: All user state is isolated using user-scoped storage namespaces (`colin_student_${userId}_*` and `colin_owner_${userId}_*`). Newly registered users start completely clean with zero inherited demo data.
-* **Persistent Re-Login**: Accounts maintain state across logout and login sessions without cross-contamination.
-* **Binary Media Persistence**: Profile avatars and property photographs are stored directly as client-side binary blobs in dedicated IndexedDB databases (`colin_avatar_db` and `colin_property_media_db`), ensuring high performance and reliable storage.
-
----
-
-## Repository Structure
-
-```text
-COLIN/
-├── public/                     # Static public assets (logos, icons)
-│   └── assets/
-│       └── colin-logo.png      # Official COLIN brand mark
-├── docs/                       # Project documentation & engineering reports
-│   ├── MONETIZATION_STRATEGY.md # Economic model, fees, and refund architecture
-│   ├── database/               # Central relational database architecture & SQL
-│   │   ├── COLIN_DATABASE_ARCHITECTURE.md
-│   │   ├── COLIN_DATABASE_ERD.md
-│   │   ├── COLIN_DATABASE_RELATIONSHIPS.md
-│   │   ├── COLIN_DATABASE_ROLE_PERMISSION_MATRIX.md
-│   │   ├── COLIN_DATA_DICTIONARY.md
-│   │   ├── COLIN_DATA_MIGRATION_PLAN.md
-│   │   └── COLIN_CUSTOM_POSTGRESQL_CONSTRAINTS.sql
-│   └── reports/                # Milestone audit & acceptance reports
-│       ├── FINAL_DATABASE_ACCEPTANCE_REPORT.md
-│       ├── PHASE_4A_R2_1_2_2_FINAL_EXECUTION_REPORT.md
-│       ├── POSTGRESQL_LIVE_VERIFICATION_REPORT.md
-│       ├── DATABASE_ROLE_LIVE_PRIVILEGE_VERIFICATION.md
-│       ├── POSTGRESQL_CONCURRENCY_LIVE_EVIDENCE.md
-│       ├── LEDGER_INTEGRITY_LIVE_VERIFICATION.md
-│       ├── PRISMA_VALIDATION_AND_GENERATION_REPORT.md
-│       ├── PHASE_4A_ACCEPTANCE_REPORT.md
-│       ├── PHASE_3A_ACCEPTANCE_REPORT.md
-│       ├── PHASE_3_REPORT.md
-│       ├── PHASE_2_FINAL_ACCEPTANCE_REPORT.md
-│       └── PHASE_1_REPORT.md
-├── src/
-│   ├── components/
-│   │   ├── common/             # Reusable UI (Navbar, Footer, Buttons, Badges)
-│   │   ├── home/               # Homepage landing sections & discovery bars
-│   │   ├── owner/              # Host layout, photo uploader, and management UI
-│   │   ├── property/           # Property cards, slot booking modals, placeholders
-│   │   └── student/            # Student portal layouts, journey widgets, cards
-│   ├── constants/              # Application-wide constants (booking policies)
-│   ├── context/                # React context providers (Auth, Student, Property, Toast)
-│   ├── data/                   # Mock seed data (properties, initial owners)
-│   ├── pages/
-│   │   ├── owner/              # Host portal pages (Dashboard, Inventory, Photos, Audits)
-│   │   └── student/            # Student portal pages (Explore, Compare, Wishlist, Visits)
-│   ├── services/               # Geolocation and calculation services
-│   ├── test/                   # Vitest unit and integration test suites
-│   ├── types/                  # TypeScript interface definitions
-│   ├── utils/                  # IndexedDB image storage & validation utilities
-│   ├── App.tsx                 # Root application routes & role-based guards
-│   ├── index.css               # Global Tailwind CSS directives & custom styling
-│   └── main.tsx                # React DOM entrypoint
-├── index.html                  # HTML5 entrypoint template
-├── package.json                # Project dependencies & build scripts
-├── postcss.config.js           # PostCSS configuration
-├── tailwind.config.js          # Tailwind CSS theme & typography tokens
-├── tsconfig.json               # TypeScript compiler configuration
-└── vite.config.ts              # Vite bundler configuration
-```
-
----
-
-## Demo Credentials
-
-You can use the following pre-configured credentials to evaluate the platform:
-
-| Role | Email | Password | Access Level |
-| :--- | :--- | :--- | :--- |
-| **Student (Demo)** | `student.demo@colin.in` | `colin123` | Full student discovery, visits, wishlist, journey tracker |
-| **Property Owner (Demo)** | `owner.demo@colin.in` | `colin123` | Full host dashboard, property CRUD, rooms, certification |
-| **Fresh Registration** | Any valid email | Custom | Starts with clean, isolated, empty profile and inventory |
+* **Frontend**: React 18, TypeScript 5.6, Tailwind CSS 3.4, Lucide Icons, Vite 5.4.
+* **Backend**: Node.js 20+, Express 5.3, TypeScript strict mode.
+* **ORM & Database**: Prisma ORM 5.22, PostgreSQL 18.4 (with custom check constraints, triggers, and least-privilege roles `colin_app_runtime` vs `colin_admin_runtime`).
+* **Cache & Rate Limiting**: Redis 7.2 Alpine with atomic Lua sliding-window scripts and 128-bit UUID member tracking.
+* **Security & Crypto**: CSPRNG 256-bit key generation, Argon2id/Bcrypt password hashing, AES-256-GCM email encryption, and immutable audit logs.
 
 ---
 
 ## Getting Started
 
 ### Prerequisites
-* [Node.js](https://nodejs.org/) (v18.0.0 or higher recommended)
-* `npm` or `pnpm`
+* [Node.js](https://nodejs.org/) v20.0.0 or higher
+* [pnpm](https://pnpm.io/) v9 or higher
+* [PostgreSQL](https://www.postgresql.org/) v18 (configured on port 5433 or standard 5432)
+* [Redis](https://redis.io/) v7 (running on port 6379)
 
-### Installation & Local Setup
+### Local Setup
 
 1. **Clone the repository**:
    ```bash
@@ -179,66 +156,70 @@ You can use the following pre-configured credentials to evaluate the platform:
 
 2. **Install dependencies**:
    ```bash
-   npm install
+   pnpm install
    ```
 
-3. **Start the development server**:
+3. **Configure Environment Variables**:
+   Copy `.env.example` to `.env` and configure your database and Redis connection URLs:
+   ```env
+   DATABASE_URL="postgresql://colin_app_runtime:AppPass123!@localhost:5433/colin_dev?schema=public"
+   ADMIN_DATABASE_URL="postgresql://colin_admin_runtime:AdminPass123!@localhost:5433/colin_dev?schema=public"
+   REDIS_URL="redis://localhost:6379"
+   JWT_SECRET="<64-char-hex-secret>"
+   PORT=3000
+   ```
+
+4. **Run Database Migrations & Invariants**:
    ```bash
-   npm run dev
+   npx prisma migrate deploy
+   ```
+
+5. **Start Frontend & Backend Development Servers**:
+   ```bash
+   pnpm run dev
    ```
    Open [http://localhost:5173](http://localhost:5173) in your browser.
-
-4. **Run test suites**:
-   ```bash
-   npm run test
-   ```
-
-5. **Build for production**:
-   ```bash
-   npm run build
-   ```
 
 ---
 
 ## Testing & Quality Assurance
 
-The platform is continuously verified across **520 unique tests** (100% pass rate) with zero failures and zero skipped tests:
+The COLIN platform prototype is verified by an exhaustive, automated regression and integration test suite:
 
-* **Google Maps & Geolocation Infrastructure** (`pnpm run test:location:unit`, `test:location:integration`, `test:location:compliance`): **60 tests** covering forward and reverse geocoding, address autocomplete with session tokens, mathematical coordinate bounds (-90..90, -180..180), independent Haversine distance calculation, antimeridian and polar bounding boxes, in-memory TTL caching, API key secret redaction, live PostgreSQL 18.4 geospatial radius discovery with distance sorting, and **16 data retention & compliance tests** verifying 30-day Google coordinate expiration, indefinite Place ID retention, owner-confirmed immunity, and public DTO coordinate suppression.
-* **Cloud Image Storage Suite** (`pnpm run test:storage:unit` & `test:storage:integration`): **33 tests** covering binary magic-byte detection, Sharp decompression-bomb defense (16 MP limit), EXIF/GPS stripping, WebP master/thumbnail generation, provider abstraction (`LocalStorageProvider` & `S3StorageProvider`), multipart binary uploads, 8-photo limit enforcement via PostgreSQL row locks, and compensating rollback.
-* **Core Marketplace Domain & Business APIs** (`pnpm run test:marketplace:integration` & `test:marketplace:adversarial`): **40 tests** covering student/owner profiles, property inventory lifecycle, room/bed management, admin moderation, public search/filtering, and cross-tenant authorization boundaries.
-* **Authentication & Authorization Suites** (`pnpm run test:auth:integration` & `test:auth:adversarial`): **41 tests** covering Argon2id password hashing, JWT access/refresh rotation with replay detection, family session revocation, and RBAC guards.
-* **Backend Core API Architecture** (`pnpm run test:api:integration`): **34 tests** covering request correlation, structured logging, centralized error translation, and response envelope normalization.
-* **Backend ORM & Connection Integration** (`pnpm run test:orm:integration`): **43 tests** covering dual-client connection pooling (`appPrisma` & `adminPrisma`), schema parity, and model relations.
-* **PostgreSQL 18.4 Engine Integration** (`pnpm run test:db:integration`): **78 tests** covering 10 domains (schema invariants, visit-fee settlement policy, double-entry ledger balancing, volunteer guards, payout safety, bed reservations, 8-photo limit, append-only immutability, role permissions, and multi-client concurrency races).
-* **Unit, Invariant & Portal Regression Suite** (`pnpm run test:unit`): **217 tests** across 15 test suites verifying UI workflows, context isolation, client validation, and security invariants.
-* **Type Safety**: Strictly checked with `npx tsc --noEmit` (0 errors).
-* **Production Bundle**: Successfully builds with Vite tree-shaking and asset minification (`pnpm run build`).
+```bash
+# Execute the complete automated test suite (762 tests)
+pnpm exec vitest run
+
+# Run only the 14-scenario end-to-end integration suite
+pnpm exec vitest run src/test/e2e/prototype-scenarios.test.ts
+
+# Run the guided visit booking and double-entry ledger suite
+pnpm exec vitest run src/test/booking/booking-lifecycle.integration.test.ts
+
+# Run admin control centre page tests
+pnpm exec vitest run src/test/admin_pages.test.tsx
+```
+
+### Verified Test Metrics
+* **Total Test Files**: 57 passed (57)
+* **Total Tests**: **762 passed (762)**
+* **Failing Tests**: **0**
+* **Skipped Tests**: **0**
+* **Test Duration**: ~45 seconds
+* **Type Safety**: Clean (`npx tsc --noEmit`)
 
 ---
 
-## Documentation
+## Documentation & Milestone Reports
 
-Full architectural documentation and milestone progress reports are available in the [`docs/`](docs/) directory:
-* [Phase 4A.2.5.2 Google Maps & Geolocation Report](docs/reports/PHASE_4A_2_5_2_GOOGLE_MAPS_GEOLOCATION_REPORT.md)
-* [Phase 4A.2.5.2 Final Google Maps Data Retention Audit](docs/reports/PHASE_4A_2_5_2_FINAL_GOOGLE_DATA_RETENTION_AUDIT.md)
-* [Phase 4A.2.5.2 Google Maps Policy & Caching Compliance](docs/reports/PHASE_4A_2_5_2_GOOGLE_MAPS_POLICY_COMPLIANCE.md)
-* [Phase 4A.2.5.2 PostgreSQL Geospatial Performance & Index Selectivity](docs/reports/PHASE_4A_2_5_2_POSTGRESQL_GEOSPATIAL_PERFORMANCE.md)
-* [Phase 4A.2.5.2.0 Geolocation Architecture Audit](docs/reports/PHASE_4A_2_5_2_0_GEOLOCATION_ARCHITECTURE_AUDIT.md)
-* [Phase 4A.2.5.1 Cloud Image Storage Infrastructure Report](docs/reports/PHASE_4A_2_5_1_CLOUD_IMAGE_STORAGE_REPORT.md)
-* [Phase 4A.2.5.1 Cloud Storage Implementation Plan](docs/reports/PHASE_4A_2_5_1_0_STORAGE_IMPLEMENTATION_PLAN.md)
-* [Final Database Acceptance Report](docs/reports/FINAL_DATABASE_ACCEPTANCE_REPORT.md)
-* [Phase 4A.2.2.1 Live PostgreSQL Verification Report](docs/reports/POSTGRESQL_LIVE_VERIFICATION_REPORT.md)
-* [Database Role Live Privilege Verification](docs/reports/DATABASE_ROLE_LIVE_PRIVILEGE_VERIFICATION.md)
-* [PostgreSQL Concurrency Live Evidence](docs/reports/POSTGRESQL_CONCURRENCY_LIVE_EVIDENCE.md)
-* [Ledger Integrity Live Verification](docs/reports/LEDGER_INTEGRITY_LIVE_VERIFICATION.md)
-* [Prisma Validation & Client Generation](docs/reports/PRISMA_VALIDATION_AND_GENERATION_REPORT.md)
+Comprehensive engineering specifications, audit logs, and verification reports are maintained in the [`docs/`](docs/) directory:
+
+* [COLIN Prototype Completion Report](docs/reports/COLIN_PROTOTYPE_COMPLETION_REPORT.md)
+* [COLIN Feature Completion Matrix](docs/reports/COLIN_FEATURE_COMPLETION_MATRIX.md)
+* [COLIN End-to-End Test Report (762 Passing Tests)](docs/reports/COLIN_END_TO_END_TEST_REPORT.md)
+* [COLIN Known Limitations & Roadmap](docs/reports/COLIN_KNOWN_LIMITATIONS.md)
 * [Central Database Architecture](docs/database/COLIN_DATABASE_ARCHITECTURE.md)
 * [Platform Monetization Strategy](docs/MONETIZATION_STRATEGY.md)
-* [Phase 4A Admin Control Centre Acceptance](docs/reports/PHASE_4A_ACCEPTANCE_REPORT.md)
-* [Phase 3A Acceptance Report](docs/reports/PHASE_3A_ACCEPTANCE_REPORT.md)
-* [Phase 2 Final Acceptance Report](docs/reports/PHASE_2_FINAL_ACCEPTANCE_REPORT.md)
-* [Phase 1 Foundation Report](docs/reports/PHASE_1_REPORT.md)
 
 ---
 
