@@ -18,6 +18,7 @@ import {
   CreditCard
 } from 'lucide-react';
 import { Button } from '../common/Button';
+import { apiClient } from '../../services/apiClient';
 
 interface VisitSlotModalProps {
   property: Property;
@@ -26,7 +27,7 @@ interface VisitSlotModalProps {
 }
 
 export const VisitSlotModal: React.FC<VisitSlotModalProps> = ({ property, isOpen, onClose }) => {
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const studentContext = useStudent();
   const [selectedDate, setSelectedDate] = useState('Tomorrow, Nov 2');
   const [selectedSlot, setSelectedSlot] = useState('11:00 AM - 12:30 PM');
@@ -39,11 +40,33 @@ export const VisitSlotModal: React.FC<VisitSlotModalProps> = ({ property, isOpen
   const handleBooking = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    await new Promise((res) => setTimeout(res, 600));
+
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(property.id);
+    let backendBookingId: string | null = null;
+
+    if (isUuid && isAuthenticated) {
+      try {
+        const createRes = await apiClient.post<any>('/api/v1/bookings', {
+          propertyId: property.id,
+        });
+
+        if (createRes.success && createRes.data?.id) {
+          backendBookingId = createRes.data.id;
+          // Process ₹150 simulated payment immediately
+          await apiClient.post(`/api/v1/bookings/${backendBookingId}/pay`, {
+            idempotencyKey: `sim-pay-${backendBookingId}-${Date.now()}`,
+          });
+        }
+      } catch (err) {
+        console.warn('Backend booking request failed; falling back to simulated UI flow:', err);
+      }
+    } else {
+      await new Promise((res) => setTimeout(res, 400));
+    }
 
     const randomRef = `COLIN-VIS-2026-${Math.floor(1000 + Math.random() * 9000)}`;
     const booking: VisitBooking = {
-      id: `VSLOT-${Math.floor(100000 + Math.random() * 900000)}`,
+      id: backendBookingId || `VSLOT-${Math.floor(100000 + Math.random() * 900000)}`,
       bookingReference: randomRef,
       propertyId: property.id,
       propertyTitle: property.title,
@@ -56,7 +79,7 @@ export const VisitSlotModal: React.FC<VisitSlotModalProps> = ({ property, isOpen
       studentPhone: studentPhone,
       studentAge: 20,
       roomTypeInterested: property.roomType || 'Double Sharing Room',
-      status: 'PENDING_COLIN_REVIEW',
+      status: backendBookingId ? 'VISIT_CONFIRMED' : 'PENDING_COLIN_REVIEW',
       feePaid: property.visitSlotFee || VISIT_BOOKING_FEE,
       refundPolicy: `${VISIT_REFUND_PERCENTAGE}% guaranteed refund (₹${VISIT_REFUND_AMOUNT.toFixed(2)}) if you physically inspect the room and reject it within 12 hours.`,
       meetingGuideName: 'Verified COLIN Ambassador (Assigned upon review)',

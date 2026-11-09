@@ -8,6 +8,7 @@ import {
 } from '../constants/booking';
 import { saveProfilePhoto, getProfilePhoto, deleteProfilePhoto } from '../utils/imageStorage';
 import { useAuth } from './AuthContext';
+import { apiClient } from '../services/apiClient';
 
 export interface StudentPreferences {
   fullName: string;
@@ -328,6 +329,87 @@ export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   }, [currentUserId]);
 
+  // Sync live profile and preferences from backend API for authenticated non-demo students
+  useEffect(() => {
+    let isMounted = true;
+    if (user && user.role === 'student' && !isDemo) {
+      apiClient
+        .get<any>('/api/v1/students/me')
+        .then((res) => {
+          if (isMounted && res.success && res.data) {
+            const profile = res.data;
+            setStudentPreferences((prev) => ({
+              ...prev,
+              fullName: `${profile.user?.profile?.firstName || ''} ${profile.user?.profile?.lastName || ''}`.trim() || prev.fullName,
+              email: profile.user?.email || prev.email,
+              phone: profile.user?.phone || prev.phone,
+              university: profile.collegeName || prev.university,
+              course: profile.course || prev.course,
+            }));
+          }
+        })
+        .catch(() => {});
+
+      // Sync live visit bookings from backend GET /api/v1/bookings
+      apiClient
+        .get<{ items: any[] }>('/api/v1/bookings?limit=50')
+        .then((res) => {
+          if (isMounted && res.success && Array.isArray(res.data?.items)) {
+            const liveBookings: VisitBooking[] = res.data.items.map((b: any) => {
+              let status: VisitBooking['status'] = 'Pending';
+              if (b.status === 'VISIT_SCHEDULED') status = 'VISIT_CONFIRMED';
+              else if (b.status === 'DECISION_PENDING') status = 'VISIT_COMPLETED_DECISION_PENDING';
+              else if (b.status === 'ACCEPTED') status = 'STUDENT_ACCEPTED';
+              else if (b.status === 'REJECTED_REFUND_DUE' || b.status === 'REJECTED_REFUNDED') status = 'STUDENT_REJECTED';
+              else if (b.status === 'AUTO_EXPIRED') status = 'DECISION_EXPIRED';
+              else if (b.status === 'CANCELLED') status = 'Cancelled';
+
+              return {
+                id: b.id,
+                propertyId: b.propertyId,
+                propertyTitle: b.property?.name || 'Verified Accommodation',
+                propertyImage:
+                  b.property?.photos?.[0]?.photoStorageUrl ||
+                  b.property?.photos?.[0]?.thumbnailUrl ||
+                  'https://images.unsplash.com/photo-1555854877-bab0e564b8d5?auto=format&fit=crop&w=800&q=80',
+                propertyAddress: b.property?.addressLine1 || b.property?.city || 'Delhi NCR',
+                monthlyRent: 12000,
+                scheduledDate: b.visitSlot?.scheduledStartTime
+                  ? new Date(b.visitSlot.scheduledStartTime).toISOString().split('T')[0]
+                  : new Date().toISOString().split('T')[0],
+                scheduledTimeSlot: b.visitSlot?.scheduledStartTime
+                  ? new Date(b.visitSlot.scheduledStartTime).toLocaleTimeString('en-IN', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })
+                  : '10:00 AM - 12:00 PM',
+                status,
+                createdAt: b.createdAt,
+                decisionDeadline: b.decisionDeadline ? new Date(b.decisionDeadline).toISOString() : undefined,
+                visitCompletedAt: b.visitCompletedAt ? new Date(b.visitCompletedAt).toISOString() : undefined,
+                decisionStatus: b.studentDecision || 'PENDING',
+                refundCalculated: Number(b.refundAmount || 0),
+                bookingFee: Number(b.bookingFeeAmount || 150),
+                studentNotes: b.rejectionReason,
+              };
+            });
+
+            if (liveBookings.length > 0) {
+              setVisits((prev) => {
+                const liveIds = new Set(liveBookings.map((lb) => lb.id));
+                const remaining = prev.filter((v) => !liveIds.has(v.id));
+                return [...liveBookings, ...remaining];
+              });
+            }
+          }
+        })
+        .catch(() => {});
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, [user, isDemo]);
+
   // Persist user-scoped data to localStorage
   useEffect(() => {
     try {
@@ -611,6 +693,16 @@ export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     const decisionTime = new Date().toISOString();
 
+    // Fire backend decision mutation if live session
+    if (user && !isDemo) {
+      apiClient
+        .post(`/api/v1/bookings/${visitId}/decision`, {
+          decision: decision === 'accept' ? 'ACCEPTED' : 'REJECTED',
+          rejectionReason: reason || 'Room did not match scholar criteria',
+        })
+        .catch(() => {});
+    }
+
     if (decision === 'accept') {
       setVisits((prev) =>
         prev.map((v) =>
@@ -715,6 +807,23 @@ export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Profile preferences
   const updateStudentPreferences = (prefs: Partial<StudentPreferences>) => {
     setStudentPreferences((prev) => ({ ...prev, ...prefs }));
+
+    // Sync to backend API if authenticated non-demo student
+    if (user && user.role === 'student' && !isDemo) {
+      const patchData: any = {};
+      if (prefs.fullName) {
+        const parts = prefs.fullName.trim().split(' ');
+        patchData.firstName = parts[0];
+        if (parts.length > 1) patchData.lastName = parts.slice(1).join(' ');
+      }
+      if (prefs.phone) patchData.phone = prefs.phone;
+      if (prefs.university) patchData.collegeName = prefs.university;
+      if (prefs.course) patchData.course = prefs.course;
+
+      if (Object.keys(patchData).length > 0) {
+        apiClient.patch('/api/v1/students/me', patchData).catch(() => {});
+      }
+    }
   };
 
   // Dynamic profile completion calculation based on actual completed fields

@@ -29,6 +29,8 @@ import {
   INITIAL_OWNER_PROFILE,
 } from '../data/mockOwnerData';
 import { useAuth } from './AuthContext';
+import { apiClient } from '../services/apiClient';
+import { adaptBackendPropertyToFrontend } from '../utils/propertyAdapter';
 
 const STORAGE_KEYS = {
   PROPERTIES: 'colin_all_properties',
@@ -284,6 +286,30 @@ export const PropertyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     } catch {}
     return DEFAULT_INSPECTION_SLOTS;
   });
+
+  // Load live properties from backend API if available
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchLiveProperties() {
+      try {
+        const res = await apiClient.get<{ properties: any[] }>('/api/v1/properties?limit=50');
+        if (isMounted && res.success && Array.isArray(res.data?.properties) && res.data.properties.length > 0) {
+          const adapted = res.data.properties.map(adaptBackendPropertyToFrontend);
+          setProperties((prev) => {
+            const liveIds = new Set(adapted.map((p) => p.id));
+            const existingNonOverlapping = prev.filter((p) => !liveIds.has(p.id));
+            return [...adapted, ...existingNonOverlapping];
+          });
+        }
+      } catch {
+        // Retain local / mock properties if backend is offline
+      }
+    }
+    fetchLiveProperties();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Sync Global Data to localStorage
   useEffect(() => {

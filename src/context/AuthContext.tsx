@@ -106,8 +106,14 @@ function mapBackendUserToFrontend(backendUser: any, roleOverride?: UserRole): Us
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      const stored = localStorage.getItem(AUTH_STORAGE_KEY);
+      if (stored) return JSON.parse(stored);
+    } catch {}
+    return null;
+  });
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [authModalMessage, setAuthModalMessage] = useState<string>(
     'Sign in or register for a free COLIN account to unlock verified property details, direct owner contact, and in-person visit slot bookings.'
