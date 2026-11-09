@@ -24,6 +24,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { Button } from '../../components/common/Button';
+import { apiClient } from '../../services/apiClient';
 
 export const OwnerCertificationPage: React.FC = () => {
   const {
@@ -72,6 +73,11 @@ export const OwnerCertificationPage: React.FC = () => {
     e.preventDefault();
     if (!activeProperty) return;
     setPaymentProcessing(true);
+
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(activeProperty.id);
+    if (isUuid) {
+      apiClient.post(`/api/v1/owner/properties/${activeProperty.id}/submit`).catch(() => {});
+    }
 
     setTimeout(() => {
       setPaymentProcessing(false);

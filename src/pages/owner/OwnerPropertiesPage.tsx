@@ -23,6 +23,7 @@ import {
   Camera,
 } from 'lucide-react';
 import { Button } from '../../components/common/Button';
+import { apiClient } from '../../services/apiClient';
 import { CITIES, UNIVERSITIES_LIST } from '../../data/mockData';
 import { PropertyPhotoUploader } from '../../components/owner/PropertyPhotoUploader';
 import {
@@ -239,6 +240,42 @@ export const OwnerPropertiesPage: React.FC = () => {
       const created = addProperty(propertyPayload);
       if (created && created.id && user?.id) {
         await savePropertyPhotos(created.id, user.id, formPhotos);
+      }
+
+      // Sync property and photos to live backend API if authenticated non-demo host
+      if (user && user.role === 'owner' && user.id !== 'usr-owner-01') {
+        const cat = (formData.category || 'pg').toUpperCase();
+        const pType = cat === 'HOSTEL' ? 'HOSTEL' : cat === 'FLAT' ? 'FLAT' : 'PG';
+        const gPol = formData.gender === 'girls' ? 'GIRLS_ONLY' : formData.gender === 'boys' ? 'BOYS_ONLY' : 'COED';
+
+        apiClient
+          .post<any>('/api/v1/owner/properties', {
+            name: formData.title || 'Student Accommodation',
+            propertyType: pType,
+            genderPolicy: gPol,
+            addressLine1: formData.fullAddress || formData.neighborhood || 'Campus Road',
+            city: formData.city || 'Delhi',
+            state: 'Delhi',
+            pincode: '110007',
+            totalRooms: 10,
+            totalBeds: 20,
+            availableBeds: 10,
+            description: formData.description || 'Verified student accommodation listed on COLIN.',
+          })
+          .then(async (res) => {
+            if (res.success && res.data?.id) {
+              const livePropId = res.data.id;
+              for (const p of formPhotos) {
+                if (p.file) {
+                  const fd = new FormData();
+                  fd.append('photo', p.file);
+                  if (p.isCover) fd.append('isCover', 'true');
+                  await apiClient.upload(`/api/v1/owner/properties/${livePropId}/photos/upload`, fd).catch(() => {});
+                }
+              }
+            }
+          })
+          .catch(() => {});
       }
     }
 

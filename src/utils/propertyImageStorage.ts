@@ -19,6 +19,7 @@ export interface PropertyPhoto {
   dataUrl: string;
   isCover: boolean;
   createdAt: string;
+  file?: File;
 }
 
 const DB_NAME = 'colin_property_media_db';

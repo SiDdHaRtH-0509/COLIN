@@ -101,6 +101,7 @@ export const PropertyPhotoUploader: React.FC<PropertyPhotoUploaderProps> = ({
             dataUrl,
             isCover: isFirstPhoto,
             createdAt: new Date().toISOString(),
+            file,
           });
         } catch {
           errors.push(`Failed to read "${file.name}".`);
