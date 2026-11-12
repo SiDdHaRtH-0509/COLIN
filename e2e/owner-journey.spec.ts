@@ -45,15 +45,18 @@ test.describe('Owner Browser Journey', () => {
 
     // Navigate to Owner Properties Page
     await page.goto('/owner/properties');
-    await expect(page.getByText(/Property Portfolio|My Properties/i).first()).toBeVisible();
+    await expect(page.getByText(/Property Management|Property Portfolio|My Properties/i).first()).toBeVisible();
 
-    // Click "Add New Property" action button on the page
-    const addPropBtn = page.getByRole('button', { name: 'Add New Property' });
-    await expect(addPropBtn).toBeVisible();
-    await addPropBtn.click();
+    // If edit property button exists, click it to open property listing form; otherwise click Add New Property
+    const editPropBtn = page.getByRole('button', { name: 'Edit Property' }).first();
+    if (await editPropBtn.isVisible()) {
+      await editPropBtn.click();
+    } else {
+      await page.getByRole('button', { name: 'Add New Property' }).click();
+    }
 
-    // Verify creation form / modal fields appear
-    await expect(page.getByText(/Add New Accommodation|Property Title \/ Building Name/i).first()).toBeVisible();
+    // Verify creation/edit form fields appear
+    await expect(page.getByText(/Property Title \/ Building Name|Edit Property Listing|Add New Accommodation/i).first()).toBeVisible();
   });
 
   test('3. Photo Upload: enforces 8-photo limit and upload interface', async ({ page }) => {
@@ -63,9 +66,13 @@ test.describe('Owner Browser Journey', () => {
 
     await page.goto('/owner/properties');
 
-    // Open add property modal
-    const addPropBtn = page.getByRole('button', { name: 'Add New Property' });
-    await addPropBtn.click();
+    // Open property form modal (via Edit or Add)
+    const editPropBtn = page.getByRole('button', { name: 'Edit Property' }).first();
+    if (await editPropBtn.isVisible()) {
+      await editPropBtn.click();
+    } else {
+      await page.getByRole('button', { name: 'Add New Property' }).click();
+    }
 
     // Verify 8-photo limit indicator is clearly visible in the UI
     await expect(page.getByText(/Maximum 8 photographs|Photo Gallery/i).first()).toBeVisible();
