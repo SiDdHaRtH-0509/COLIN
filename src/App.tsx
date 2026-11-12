@@ -8,6 +8,7 @@ import { ToastProvider } from './context/ToastContext';
 import { Navbar } from './components/common/Navbar';
 import { Footer } from './components/common/Footer';
 import { AuthModal } from './components/common/AuthModal';
+import { ColinLoader } from './components/common/ColinLoader';
 import { HomePage } from './pages/HomePage';
 import { LoginPage } from './pages/LoginPage';
 import { SignUpPage } from './pages/SignUpPage';
@@ -162,6 +163,7 @@ export const App: React.FC = () => {
             <ToastProvider>
               <BrowserRouter>
                 <ScrollToTop />
+                <ColinLoader />
                 <AppContent />
               </BrowserRouter>
             </ToastProvider>
