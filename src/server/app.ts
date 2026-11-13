@@ -8,6 +8,8 @@
 
 import express, { Express, Request, Response } from 'express';
 import cookieParser from 'cookie-parser';
+import path from 'path';
+import fs from 'fs';
 import { getServerConfig } from './config/serverConfig';
 import {
   requestIdMiddleware,
@@ -55,6 +57,19 @@ export function createApp(): Express {
 
   // 8. Versioned API namespaces
   app.use(config.apiPrefix, v1Router);
+
+  // 8b. Serve frontend single-page application (SPA) in production if dist exists
+  const distPath = path.resolve(process.cwd(), 'dist');
+  if (fs.existsSync(distPath)) {
+    app.use(express.static(distPath));
+    app.get('*', (req: Request, res: Response, next) => {
+      // Pass through API endpoints, health probes, and storage to next handlers
+      if (req.originalUrl.startsWith('/api') || req.originalUrl.startsWith('/health')) {
+        return next();
+      }
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+  }
 
   // 9. Standardized 404 Not Found catch-all handler
   app.use((req: Request, res: Response) => {

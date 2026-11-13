@@ -37,6 +37,11 @@ export function createCorsMiddleware() {
         return callback(null, true);
       }
 
+      // Allow Render production and preview deployment URLs
+      if (/^https:\/\/[a-zA-Z0-9_-]+\.onrender\.com$/.test(origin)) {
+        return callback(null, true);
+      }
+
       // In development or test, allow localhost origins on common development ports
       if (config.nodeEnv !== 'production' && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
         return callback(null, true);
