@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "prisma generate && tsc && vite build",
+    "postinstall": "prisma generate",
     "build:server": "prisma generate",
     "start": "tsx src/server/server.ts",
     "start:server": "tsx src/server/server.ts",
