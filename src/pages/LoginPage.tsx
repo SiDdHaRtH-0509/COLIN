@@ -14,6 +14,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { Button } from '../components/common/Button';
+import { triggerPortalLoader } from '../components/common/PortalLoader';
 
 export const LoginPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -44,7 +45,9 @@ export const LoginPage: React.FC = () => {
 
     try {
       const isOwnerRole = email.toLowerCase().includes('owner') || email.toLowerCase().includes('host');
-      const success = await login(email, isOwnerRole ? 'owner' : 'student', password);
+      const role = isOwnerRole ? 'owner' : 'student';
+      triggerPortalLoader(role);
+      const success = await login(email, role, password);
       if (success) {
         if (redirectUrl && redirectUrl !== '/') {
           navigate(redirectUrl);
@@ -60,6 +63,7 @@ export const LoginPage: React.FC = () => {
   };
 
   const handleDemoFill = (role: 'student' | 'owner') => {
+    triggerPortalLoader(role);
     demoLogin(role);
     if (role === 'student') {
       navigate(redirectUrl && redirectUrl !== '/' ? redirectUrl : '/student/dashboard');

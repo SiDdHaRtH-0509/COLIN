@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { X, Lock, ShieldCheck, ArrowRight, Sparkles, User, Building } from 'lucide-react';
 import { Button } from './Button';
+import { triggerPortalLoader } from './PortalLoader';
 
 export const AuthModal: React.FC = () => {
   const { isAuthModalOpen, closeAuthModal, authModalMessage, demoLogin, intendedUrl } = useAuth();
@@ -23,6 +24,7 @@ export const AuthModal: React.FC = () => {
   };
 
   const handleQuickDemo = (role: 'student' | 'owner') => {
+    triggerPortalLoader(role);
     demoLogin(role);
     closeAuthModal();
     if (intendedUrl) {

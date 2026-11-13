@@ -25,6 +25,7 @@ import {
   House,
 } from 'lucide-react';
 import { Button } from '../common/Button';
+import { PortalLoader, triggerPortalLoader } from '../common/PortalLoader';
 
 export const OwnerLayout: React.FC = () => {
   const { user, isAuthenticated, logout, demoLogin } = useAuth();
@@ -101,6 +102,7 @@ export const OwnerLayout: React.FC = () => {
               size="md"
               className="w-full justify-center font-bold text-xs py-3 bg-colin-teal hover:bg-colin-teal-600 text-white shadow-brand-teal"
               onClick={() => {
+                triggerPortalLoader('owner');
                 demoLogin('owner');
                 navigate('/owner/dashboard');
               }}
@@ -167,6 +169,7 @@ export const OwnerLayout: React.FC = () => {
               size="md"
               className="w-full justify-center text-xs font-bold"
               onClick={() => {
+                triggerPortalLoader('owner');
                 demoLogin('owner');
                 navigate('/owner/dashboard');
               }}
@@ -331,7 +334,8 @@ export const OwnerLayout: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-[#F4F6F9] text-colin-charcoal flex flex-col font-sans">
+    <div className="min-h-screen bg-[#F4F6F9] text-colin-charcoal flex flex-col font-sans relative">
+      <PortalLoader role="owner" />
       
       {/* ================= DESKTOP FIXED SIDEBAR (Permanently Anchored to Viewport) ================= */}
       <aside

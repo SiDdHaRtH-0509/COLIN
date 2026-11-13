@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, UserRole } from '../types';
 import { apiClient, TokenStorage } from '../services/apiClient';
+import { triggerPortalLoader } from '../components/common/PortalLoader';
 
 interface SignupData {
   name: string;
@@ -189,6 +190,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         persistRegisteredUser(mapped);
         setIsLoading(false);
         setIsAuthModalOpen(false);
+        triggerPortalLoader((mapped.role || role) as 'student' | 'owner');
         return true;
       }
     } catch {
@@ -202,6 +204,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       saveSessionLocally(existing);
       setIsLoading(false);
       setIsAuthModalOpen(false);
+      triggerPortalLoader(existing.role as 'student' | 'owner');
       return true;
     }
 
@@ -214,6 +217,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       saveSessionLocally(DEMO_STUDENT);
       setIsLoading(false);
       setIsAuthModalOpen(false);
+      triggerPortalLoader('student');
       return true;
     }
     if (
@@ -224,6 +228,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       saveSessionLocally(DEMO_OWNER);
       setIsLoading(false);
       setIsAuthModalOpen(false);
+      triggerPortalLoader('owner');
       return true;
     }
 
@@ -245,6 +250,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     saveSessionLocally(newUser);
     setIsLoading(false);
     setIsAuthModalOpen(false);
+    triggerPortalLoader(newUser.role as 'student' | 'owner');
     return true;
   };
 
@@ -290,6 +296,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         persistRegisteredUser(mapped);
         setIsLoading(false);
         setIsAuthModalOpen(false);
+        triggerPortalLoader(userData.role);
         return true;
       }
     } catch {
@@ -316,6 +323,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     saveSessionLocally(newUser);
     setIsLoading(false);
     setIsAuthModalOpen(false);
+    triggerPortalLoader(userData.role);
     return true;
   };
 
@@ -330,6 +338,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const selected = role === 'student' ? DEMO_STUDENT : DEMO_OWNER;
     saveSessionLocally(selected);
     setIsAuthModalOpen(false);
+    triggerPortalLoader(role as 'student' | 'owner');
   };
 
   const logout = () => {

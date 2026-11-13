@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../common/Button';
 import { FloatingJourneyWidget } from './FloatingJourneyWidget';
+import { PortalLoader, triggerPortalLoader } from '../common/PortalLoader';
 
 interface NavItemDef {
   to: string;
@@ -112,6 +113,7 @@ export const StudentLayout: React.FC = () => {
               size="md"
               className="w-full text-colin-navy-950 font-black justify-center"
               onClick={() => {
+                triggerPortalLoader('student');
                 demoLogin('student');
                 navigate('/student/dashboard');
               }}
@@ -182,6 +184,7 @@ export const StudentLayout: React.FC = () => {
               size="sm"
               className="flex-1 justify-center"
               onClick={() => {
+                triggerPortalLoader('student');
                 demoLogin('student');
                 navigate('/student/dashboard');
               }}
@@ -307,7 +310,8 @@ export const StudentLayout: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-colin-offwhite flex flex-col md:flex-row">
+    <div className="min-h-screen bg-colin-offwhite flex flex-col md:flex-row relative">
+      <PortalLoader role="student" />
       {/* Mobile Top Header */}
       <div className="md:hidden sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-colin-charcoal-200 px-4 py-3 flex items-center justify-between">
         <Link to="/student/dashboard" className="flex items-center gap-2">

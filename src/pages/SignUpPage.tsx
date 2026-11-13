@@ -15,6 +15,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { Button } from '../components/common/Button';
+import { triggerPortalLoader } from '../components/common/PortalLoader';
 
 export const SignUpPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -80,6 +81,7 @@ export const SignUpPage: React.FC = () => {
     }
 
     try {
+      triggerPortalLoader(role);
       const success = await signup({
         name,
         email,
