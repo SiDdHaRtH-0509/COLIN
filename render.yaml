@@ -3,7 +3,6 @@ services:
   - type: web
     name: colin-frontend
     runtime: static
-    plan: free
     buildCommand: pnpm install && pnpm run build
     staticPublishPath: dist
     routes:
