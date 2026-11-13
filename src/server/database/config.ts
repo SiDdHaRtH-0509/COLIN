@@ -47,29 +47,36 @@ export function getDatabaseConfig(): DatabaseConfig {
   // Base connection string from environment or standard test port 5433
   const rawBaseUrl = process.env.DATABASE_URL || 'postgresql://colin_app_runtime@127.0.0.1:5433/colin_test?schema=public';
   
-  // Derive app runtime URL ensuring role is colin_app_runtime if not specified
-  let appUrl = rawBaseUrl;
-  if (!appUrl.includes('colin_app_runtime') && !appUrl.includes('postgres:')) {
-    try {
-      const parsed = new URL(appUrl);
-      parsed.username = 'colin_app_runtime';
-      parsed.password = '';
-      appUrl = parsed.toString();
-    } catch {
-      appUrl = 'postgresql://colin_app_runtime@127.0.0.1:5433/colin_test?schema=public';
+  // Derive app runtime URL ensuring role is colin_app_runtime if not specified in local dev
+  let appUrl = process.env.DATABASE_APP_URL || rawBaseUrl;
+  if (!process.env.DATABASE_APP_URL && !appUrl.includes('colin_app_runtime') && !appUrl.includes('postgres:')) {
+    // Only map to colin_app_runtime on local dev/test databases
+    if (appUrl.includes('127.0.0.1') || appUrl.includes('localhost')) {
+      try {
+        const parsed = new URL(appUrl);
+        parsed.username = 'colin_app_runtime';
+        parsed.password = '';
+        appUrl = parsed.toString();
+      } catch {
+        appUrl = 'postgresql://colin_app_runtime@127.0.0.1:5433/colin_test?schema=public';
+      }
     }
   }
 
   // Derive admin runtime URL ensuring role is colin_admin_runtime
   let adminUrl = process.env.DATABASE_ADMIN_URL || '';
   if (!adminUrl) {
-    try {
-      const parsed = new URL(rawBaseUrl);
-      parsed.username = 'colin_admin_runtime';
-      parsed.password = '';
-      adminUrl = parsed.toString();
-    } catch {
-      adminUrl = 'postgresql://colin_admin_runtime@127.0.0.1:5433/colin_test?schema=public';
+    if (rawBaseUrl.includes('127.0.0.1') || rawBaseUrl.includes('localhost')) {
+      try {
+        const parsed = new URL(rawBaseUrl);
+        parsed.username = 'colin_admin_runtime';
+        parsed.password = '';
+        adminUrl = parsed.toString();
+      } catch {
+        adminUrl = 'postgresql://colin_admin_runtime@127.0.0.1:5433/colin_test?schema=public';
+      }
+    } else {
+      adminUrl = rawBaseUrl;
     }
   }
 

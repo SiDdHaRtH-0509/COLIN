@@ -19,7 +19,21 @@ export function createCorsMiddleware() {
         return callback(null, true);
       }
 
-      if (config.corsAllowedOrigins.includes(origin)) {
+      if (
+        config.corsAllowedOrigins.includes(origin) ||
+        config.corsAllowedOrigins.some((allowed) => {
+          if (allowed.startsWith('*.')) {
+            const domain = allowed.slice(2);
+            return origin.endsWith(domain) || origin === `https://${domain}`;
+          }
+          return false;
+        })
+      ) {
+        return callback(null, true);
+      }
+
+      // Allow Vercel production and preview deployment URLs
+      if (/^https:\/\/[a-zA-Z0-9_-]+\.vercel\.app$/.test(origin)) {
         return callback(null, true);
       }
 
@@ -32,7 +46,7 @@ export function createCorsMiddleware() {
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id', 'x-csrf-token', 'X-CSRF-Token'],
     exposedHeaders: ['X-Request-Id'],
     maxAge: 86400, // 24 hours
   };

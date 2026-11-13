@@ -122,8 +122,21 @@ export interface RequestOptions extends RequestInit {
   useAdminAuth?: boolean;
 }
 
+const getApiBaseUrl = (): string => {
+  try {
+    if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL) {
+      return (import.meta.env.VITE_API_URL as string).replace(/\/$/, '');
+    }
+  } catch {}
+  return '';
+};
+
 async function request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
+  const baseUrl = getApiBaseUrl();
   let url = endpoint;
+  if (baseUrl && !endpoint.startsWith('http://') && !endpoint.startsWith('https://')) {
+    url = `${baseUrl}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
+  }
 
   if (options.params) {
     const searchParams = new URLSearchParams();
