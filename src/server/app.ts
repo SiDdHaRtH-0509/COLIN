@@ -62,9 +62,12 @@ export function createApp(): Express {
   const distPath = path.resolve(process.cwd(), 'dist');
   if (fs.existsSync(distPath)) {
     app.use(express.static(distPath));
-    app.get('*', (req: Request, res: Response, next) => {
-      // Pass through API endpoints, health probes, and storage to next handlers
+    app.use((req: Request, res: Response, next) => {
+      // Pass through API endpoints and health probes to next handlers
       if (req.originalUrl.startsWith('/api') || req.originalUrl.startsWith('/health')) {
+        return next();
+      }
+      if (req.method !== 'GET' && req.method !== 'HEAD') {
         return next();
       }
       res.sendFile(path.join(distPath, 'index.html'));
