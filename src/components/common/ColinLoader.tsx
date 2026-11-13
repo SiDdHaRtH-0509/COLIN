@@ -243,7 +243,6 @@ export const ColinLoader: React.FC<ColinLoaderProps> = ({
             playsInline
             controls={false}
             preload="auto"
-            poster="/assets/colin-logo.png"
             disablePictureInPicture
             disableRemotePlayback
             aria-hidden="true"

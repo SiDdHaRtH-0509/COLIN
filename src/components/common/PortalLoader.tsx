@@ -234,7 +234,6 @@ export const PortalLoader: React.FC<PortalLoaderProps> = ({
             playsInline
             controls={false}
             preload="auto"
-            poster="/assets/colin-logo.png"
             disablePictureInPicture
             disableRemotePlayback
             aria-hidden="true"
