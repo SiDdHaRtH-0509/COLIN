@@ -7,7 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAdminAuth } from '../../context/AdminAuthContext';
 import { AdminApiClient } from '../../services/admin/adminApiClient';
-import { AdminMetricsSummary, AdminAuditLogEntry } from '../../types/admin';
+import { AdminMetricsSummary, AdminAuditLogEntry, PlatformActivityEvent, AdminStudent, AdminOwner } from '../../types/admin';
 import {
   Users,
   Building,
@@ -30,16 +30,22 @@ export const AdminDashboardOverviewPage: React.FC = () => {
 
   const [metrics, setMetrics] = useState<AdminMetricsSummary | null>(null);
   const [auditLogs, setAuditLogs] = useState<AdminAuditLogEntry[]>([]);
+  const [activities, setActivities] = useState<PlatformActivityEvent[]>([]);
+  const [recentStudents, setRecentStudents] = useState<AdminStudent[]>([]);
+  const [recentOwners, setRecentOwners] = useState<AdminOwner[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchDashboardData = async () => {
-    setIsLoading(true);
+  const fetchDashboardData = async (isSilent: boolean = false) => {
+    if (!isSilent) setIsLoading(true);
     setError(null);
     try {
-      const [metricsRes, logsRes] = await Promise.all([
+      const [metricsRes, logsRes, actRes, studentsRes, ownersRes] = await Promise.all([
         AdminApiClient.getMetrics(),
         AdminApiClient.getAuditLogs(15),
+        AdminApiClient.getPlatformActivities(15),
+        AdminApiClient.getStudents(),
+        AdminApiClient.getOwners(),
       ]);
 
       if (metricsRes.success && metricsRes.data) {
@@ -48,15 +54,43 @@ export const AdminDashboardOverviewPage: React.FC = () => {
       if (logsRes.success && logsRes.data) {
         setAuditLogs(logsRes.data);
       }
+      setActivities(actRes || []);
+      if (studentsRes.success && Array.isArray(studentsRes.data)) {
+        setRecentStudents(studentsRes.data.slice(0, 4));
+      }
+      if (ownersRes.success && Array.isArray(ownersRes.data)) {
+        setRecentOwners(ownersRes.data.slice(0, 4));
+      }
     } catch (err: any) {
-      setError(err?.message || 'Failed to retrieve administrative metrics.');
+      if (!isSilent) {
+        setError(err?.message || 'Failed to retrieve administrative metrics.');
+      }
     } finally {
-      setIsLoading(false);
+      if (!isSilent) setIsLoading(false);
     }
   };
 
   useEffect(() => {
     fetchDashboardData();
+
+    // Storage event synchronization for cross-browser / cross-tab changes
+    const handleStorage = (e: StorageEvent) => {
+      if (
+        e.key === 'colin_registered_users' ||
+        e.key === 'colin_all_properties' ||
+        e.key === 'colin_student_visits' ||
+        e.key === 'colin_platform_activities'
+      ) {
+        fetchDashboardData(true);
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    // Reliable 5s polling interval
+    const interval = setInterval(() => fetchDashboardData(true), 5000);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      clearInterval(interval);
+    };
   }, []);
 
   return (
@@ -84,7 +118,7 @@ export const AdminDashboardOverviewPage: React.FC = () => {
 
           <div className="flex flex-wrap items-center gap-3">
             <button
-              onClick={fetchDashboardData}
+              onClick={() => fetchDashboardData()}
               disabled={isLoading}
               className="px-3.5 py-2 rounded-xl bg-colin-navy-800 hover:bg-colin-navy-700 text-white text-xs font-semibold border border-colin-navy-700 transition-colors flex items-center gap-2 shadow-xs"
             >
@@ -348,6 +382,127 @@ export const AdminDashboardOverviewPage: React.FC = () => {
                 </Link>
               </div>
             </div>
+          </div>
+
+          {/* Recent Registrations Live Widget */}
+          <div className="bg-white rounded-2xl p-6 border border-colin-charcoal-200/80 shadow-xs">
+            <div className="flex items-center justify-between pb-4 border-b border-colin-charcoal-100 mb-4">
+              <div className="flex items-center gap-2">
+                <Users size={18} className="text-blue-600" />
+                <h3 className="font-bold text-colin-navy font-display text-sm">
+                  Recent User Registrations
+                </h3>
+              </div>
+              <div className="flex items-center gap-2 text-xs font-semibold">
+                <Link to="/admin/students" className="text-blue-600 hover:underline">Students</Link>
+                <span className="text-colin-charcoal-300">•</span>
+                <Link to="/admin/owners" className="text-indigo-600 hover:underline">Hosts</Link>
+              </div>
+            </div>
+
+            {recentStudents.length === 0 && recentOwners.length === 0 ? (
+              <div className="py-6 text-center text-xs text-colin-charcoal-400">
+                No recent student or host registrations recorded yet.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Students Column */}
+                <div className="space-y-2">
+                  <span className="text-[10px] uppercase font-bold text-colin-charcoal-400 tracking-wider block">
+                    Latest Students
+                  </span>
+                  {recentStudents.slice(0, 3).map((st) => (
+                    <div
+                      key={st.id}
+                      className="p-2.5 rounded-xl bg-colin-offwhite border border-colin-charcoal-200 text-xs flex items-center justify-between"
+                    >
+                      <div className="min-w-0 pr-2">
+                        <span className="font-bold text-colin-navy block truncate text-[11px]">{st.name}</span>
+                        <span className="text-[10px] text-colin-charcoal-400 truncate block">{st.university || st.email}</span>
+                      </div>
+                      <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-blue-50 text-blue-600 border border-blue-200 shrink-0">
+                        Student
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Hosts Column */}
+                <div className="space-y-2">
+                  <span className="text-[10px] uppercase font-bold text-colin-charcoal-400 tracking-wider block">
+                    Latest Property Hosts
+                  </span>
+                  {recentOwners.slice(0, 3).map((ow) => (
+                    <div
+                      key={ow.id}
+                      className="p-2.5 rounded-xl bg-colin-offwhite border border-colin-charcoal-200 text-xs flex items-center justify-between"
+                    >
+                      <div className="min-w-0 pr-2">
+                        <span className="font-bold text-colin-navy block truncate text-[11px]">{ow.name}</span>
+                        <span className="text-[10px] text-colin-charcoal-400 truncate block">{ow.businessName || ow.email}</span>
+                      </div>
+                      <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-indigo-50 text-indigo-600 border border-indigo-200 shrink-0">
+                        Host
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Unified Platform Activity Stream */}
+          <div className="bg-white rounded-2xl p-6 border border-colin-charcoal-200/80 shadow-xs">
+            <div className="flex items-center justify-between pb-4 border-b border-colin-charcoal-100 mb-4">
+              <div className="flex items-center gap-2">
+                <Activity size={18} className="text-colin-teal" />
+                <h3 className="font-bold text-colin-navy font-display text-sm">
+                  Live Platform Activity Stream
+                </h3>
+              </div>
+              <span className="text-[10px] text-colin-teal font-medium flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-colin-teal animate-pulse" />
+                Live Feed
+              </span>
+            </div>
+
+            {activities.length === 0 ? (
+              <div className="py-6 text-center text-xs text-colin-charcoal-400">
+                No platform activity recorded yet.
+              </div>
+            ) : (
+              <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1 scrollbar-thin">
+                {activities.slice(0, 6).map((act) => (
+                  <div
+                    key={act.id}
+                    className="p-2.5 rounded-xl bg-colin-offwhite border border-colin-charcoal-200 text-xs flex items-start justify-between gap-3"
+                  >
+                    <div className="space-y-0.5 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
+                            act.actorType === 'STUDENT'
+                              ? 'bg-blue-50 text-blue-700'
+                              : act.actorType === 'OWNER'
+                              ? 'bg-indigo-50 text-indigo-700'
+                              : act.actorType === 'ADMIN'
+                              ? 'bg-purple-50 text-purple-700'
+                              : 'bg-emerald-50 text-emerald-700'
+                          }`}
+                        >
+                          {act.actorType}
+                        </span>
+                        <span className="font-semibold text-colin-navy text-[11px] truncate">{act.actorName}</span>
+                      </div>
+                      <p className="text-[11px] text-colin-charcoal-600 line-clamp-1">{act.description}</p>
+                    </div>
+                    <span className="text-[10px] text-colin-charcoal-400 font-mono shrink-0">
+                      {new Date(act.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Verification Queue Preview */}

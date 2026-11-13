@@ -50,6 +50,8 @@ import { AdminPlaceholderPage } from './pages/admin/AdminPlaceholderPage';
 import { AdminVerificationQueuePage } from './pages/admin/AdminVerificationQueuePage';
 import { AdminVisitsPage } from './pages/admin/AdminVisitsPage';
 import { AdminFinancePage } from './pages/admin/AdminFinancePage';
+import { AdminStudentsPage } from './pages/admin/AdminStudentsPage';
+import { AdminOwnersPage } from './pages/admin/AdminOwnersPage';
 
 // Scroll to top component on route changes
 const ScrollToTop: React.FC = () => {
@@ -128,8 +130,8 @@ const AppContent: React.FC = () => {
           >
             <Route index element={<AdminDashboardOverviewPage />} />
             <Route path="dashboard" element={<AdminDashboardOverviewPage />} />
-            <Route path="students" element={<AdminPlaceholderPage />} />
-            <Route path="owners" element={<AdminPlaceholderPage />} />
+            <Route path="students" element={<AdminStudentsPage />} />
+            <Route path="owners" element={<AdminOwnersPage />} />
             <Route path="properties" element={<AdminPlaceholderPage />} />
             <Route path="verification" element={<AdminVerificationQueuePage />} />
             <Route path="visits" element={<AdminVisitsPage />} />

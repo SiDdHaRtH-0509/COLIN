@@ -15,6 +15,11 @@ import {
 } from '@prisma/client';
 import { BaseRepository } from './BaseRepository';
 
+function toUuidOrNull(val?: string | null): string | null {
+  if (!val) return null;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val) ? val : null;
+}
+
 export interface CreateBookingData {
   studentId: string;
   propertyId: string;
@@ -392,7 +397,7 @@ export class BookingRepository extends BaseRepository {
           fromStatus: existing.status,
           toStatus,
           changedByUserId: meta.changedByUserId,
-          changedByAdminId: meta.changedByAdminId,
+          changedByAdminId: toUuidOrNull(meta.changedByAdminId) || (meta.changedByAdminId ? '00000000-0000-0000-0000-000000000001' : null),
           reason: meta.reason,
         },
       });
@@ -498,7 +503,7 @@ export class BookingRepository extends BaseRepository {
           bookingId,
           fromStatus: BookingStatus.FEE_PAID,
           toStatus: BookingStatus.VISIT_SCHEDULED,
-          changedByAdminId: slotData.adminId,
+          changedByAdminId: toUuidOrNull(slotData.adminId) || (slotData.adminId ? '00000000-0000-0000-0000-000000000001' : null),
           reason: `Visit slot confirmed for ${slotData.scheduledStartTime.toISOString()}`,
         },
       });
@@ -541,7 +546,7 @@ export class BookingRepository extends BaseRepository {
           bookingId,
           fromStatus: BookingStatus.VISIT_SCHEDULED,
           toStatus: BookingStatus.DECISION_PENDING,
-          changedByAdminId: adminId,
+          changedByAdminId: toUuidOrNull(adminId) || (adminId ? '00000000-0000-0000-0000-000000000001' : null),
           reason: `Visit completion recorded by COLIN admin. Authoritative 12-hour decision deadline established until ${deadline.toISOString()}`,
         },
       });

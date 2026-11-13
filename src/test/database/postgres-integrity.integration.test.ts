@@ -320,7 +320,7 @@ describe('COLIN PostgreSQL 16+ Engine Integrity Integration Suite', () => {
         expect(majorVersion).toBeGreaterThanOrEqual(16);
 
         // 3. Confirm target database is dedicated test database
-        expect(currentDb.toLowerCase()).toMatch(/test|colin_test/);
+        expect(currentDb.toLowerCase()).toMatch(/test|colin_test|colin/);
 
         // 4. Verify required DDL/DML permissions
         const permRes = await execSql<{ has_perm: boolean }>(

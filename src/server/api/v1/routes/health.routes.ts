@@ -8,6 +8,7 @@ import { healthController } from '../controllers/health.controller';
 
 const router = Router();
 
+router.get('/', healthController.getReady);
 router.get('/live', healthController.getLive);
 router.get('/ready', healthController.getReady);
 

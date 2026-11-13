@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import { AdminApiClient } from '../services/admin/adminApiClient';
 import {
   Property,
   Room,
@@ -639,6 +640,21 @@ export const PropertyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       };
 
       setRooms((prev) => [...prev, room1, room2]);
+
+      try {
+        AdminApiClient.recordActivity({
+          eventType: 'PROPERTY_CREATED',
+          actorType: 'OWNER',
+          actorId: user?.id || 'owner',
+          actorName: user?.name || ownerProfile.ownerName || 'Property Host',
+          targetEntity: 'Property',
+          targetId: newProperty.id,
+          description: `New property listed: "${newProperty.title}" in ${newProperty.city}`,
+          severity: 'INFO',
+          metadata: { city: newProperty.city, category: newProperty.category, rentMonthly: newProperty.rentMonthly },
+        });
+      } catch {}
+
       return newProperty;
     },
     [user, ownerProfile]
@@ -1224,6 +1240,27 @@ export const PropertyProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             : p
         )
       );
+
+      try {
+        const targetProp = properties.find((p) => p.id === propertyId);
+        AdminApiClient.recordActivity({
+          eventType: 'PROPERTY_SUBMITTED_FOR_VERIFICATION',
+          actorType: 'OWNER',
+          actorId: user?.id || 'owner',
+          actorName: user?.name || ownerProfile.ownerName || 'Property Host',
+          targetEntity: 'Property',
+          targetId: propertyId,
+          description: `Property "${targetProp?.title || propertyId}" was submitted for COLIN safety and verification audit.`,
+          severity: 'INFO',
+        });
+        AdminApiClient.sendNotification({
+          department: 'Quality & Verification',
+          title: 'Property Submitted for Verification',
+          message: `Listing "${targetProp?.title || propertyId}" is awaiting physical audit assignment.`,
+          type: 'VERIFICATION',
+          link: '/admin/verification',
+        });
+      } catch {}
 
       return newRequest;
     },

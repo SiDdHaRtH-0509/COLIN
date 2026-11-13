@@ -122,12 +122,25 @@ export interface RequestOptions extends RequestInit {
   useAdminAuth?: boolean;
 }
 
-const getApiBaseUrl = (): string => {
+export const getApiBaseUrl = (): string => {
+  // In Vitest component/unit tests without explicit backend requirement, run against isolated mock store
+  if (typeof process !== 'undefined' && process.env && process.env.VITEST && process.env.REQUIRE_BACKEND !== 'true') {
+    return '';
+  }
   try {
     if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_URL) {
       return (import.meta.env.VITE_API_URL as string).replace(/\/$/, '');
     }
   } catch {}
+  try {
+    if (typeof process !== 'undefined' && process.env) {
+      if (process.env.VITE_API_URL) return process.env.VITE_API_URL.replace(/\/$/, '');
+      if (process.env.BACKEND_URL) return process.env.BACKEND_URL.replace(/\/$/, '');
+    }
+  } catch {}
+  if (typeof window !== 'undefined' && window.location && (window.location.port === '5173' || window.location.port === '3000')) {
+    return 'http://localhost:5000';
+  }
   return '';
 };
 

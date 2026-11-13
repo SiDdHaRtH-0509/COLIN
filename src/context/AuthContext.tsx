@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, UserRole } from '../types';
 import { apiClient, TokenStorage } from '../services/apiClient';
 import { triggerPortalLoader } from '../components/common/PortalLoader';
+import { AdminApiClient } from '../services/admin/adminApiClient';
 
 interface SignupData {
   name: string;
@@ -77,6 +78,49 @@ const persistRegisteredUser = (userData: User) => {
       users.push(userData);
     }
     localStorage.setItem(REGISTERED_USERS_KEY, JSON.stringify(users));
+  } catch {}
+};
+
+const emitRegistrationEvents = (registeredUser: User) => {
+  try {
+    const isOwner = registeredUser.role === 'owner';
+    AdminApiClient.recordActivity({
+      eventType: isOwner ? 'OWNER_REGISTRATION_COMPLETED' : 'STUDENT_REGISTRATION_COMPLETED',
+      actorType: isOwner ? 'OWNER' : 'STUDENT',
+      actorId: registeredUser.id,
+      actorName: registeredUser.name,
+      targetEntity: isOwner ? 'OwnerAccount' : 'StudentAccount',
+      targetId: registeredUser.id,
+      description: isOwner
+        ? `New property host registered: ${registeredUser.name} (${registeredUser.email})`
+        : `New student registered: ${registeredUser.name} (${registeredUser.email})`,
+      severity: 'INFO',
+      metadata: { role: registeredUser.role, university: registeredUser.university, phone: registeredUser.phone },
+    });
+
+    AdminApiClient.sendNotification({
+      department: isOwner ? 'Host Partnerships' : 'Student Care',
+      title: isOwner ? 'New Property Owner Registration' : 'New Student Registration',
+      message: `${registeredUser.name} (${registeredUser.email}) has completed registration.`,
+      type: 'REGISTRATION',
+      link: isOwner ? '/admin/owners' : '/admin/students',
+    });
+  } catch {}
+};
+
+const emitLoginEvent = (loggedInUser: User) => {
+  try {
+    const isOwner = loggedInUser.role === 'owner';
+    AdminApiClient.recordActivity({
+      eventType: isOwner ? 'OWNER_LOGIN_SUCCESS' : 'STUDENT_LOGIN_SUCCESS',
+      actorType: isOwner ? 'OWNER' : 'STUDENT',
+      actorId: loggedInUser.id,
+      actorName: loggedInUser.name,
+      targetEntity: 'UserSession',
+      targetId: loggedInUser.id,
+      description: `${isOwner ? 'Property host' : 'Student'} logged in: ${loggedInUser.name}`,
+      severity: 'INFO',
+    });
   } catch {}
 };
 
@@ -188,20 +232,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const mapped = mapBackendUserToFrontend(response.data.user, role);
         saveSessionLocally(mapped);
         persistRegisteredUser(mapped);
+        emitLoginEvent(mapped);
         setIsLoading(false);
         setIsAuthModalOpen(false);
         triggerPortalLoader((mapped.role || role) as 'student' | 'owner');
         return true;
       }
-    } catch {
-      // Backend unavailable or credentials rejected in local mock mode; fall back gracefully
+    } catch (apiErr: any) {
+      // Backend returned active rejection (e.g. 403 Suspended, 401 Bad Credentials)
+      if (apiErr?.status === 401 || apiErr?.status === 403) {
+        setIsLoading(false);
+        throw new Error(apiErr.message || 'Invalid credentials or account suspended.');
+      }
+      // Backend unavailable; fall back to local persistence
     }
 
     // 2. Fallback: Check if user was previously registered locally
     const registered = getStoredRegisteredUsers();
     const existing = registered.find((u) => u.email.toLowerCase() === cleanEmail);
     if (existing) {
+      if (existing.status === 'SUSPENDED') {
+        setIsLoading(false);
+        try {
+          AdminApiClient.recordActivity({
+            eventType: 'LOGIN_BLOCKED_SUSPENDED',
+            actorType: existing.role === 'owner' ? 'OWNER' : 'STUDENT',
+            actorId: existing.id,
+            actorName: existing.name,
+            targetEntity: 'UserSession',
+            targetId: existing.id,
+            description: `Authentication blocked for suspended account: ${existing.name} (${existing.email})`,
+            severity: 'WARNING',
+          });
+        } catch {}
+        throw new Error('This account has been suspended by administration. Please contact support.');
+      }
       saveSessionLocally(existing);
+      emitLoginEvent(existing);
       setIsLoading(false);
       setIsAuthModalOpen(false);
       triggerPortalLoader(existing.role as 'student' | 'owner');
@@ -240,6 +307,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       email: email,
       phone: '',
       role: role,
+      status: 'ACTIVE',
       university: role === 'student' ? 'Delhi University' : undefined,
       city: 'Delhi NCR',
       avatar: undefined,
@@ -266,8 +334,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const digits = (userData.phone || '').replace(/\D/g, '');
     if (digits.length === 10) {
       formattedPhone = `+91${digits}`;
-    } else if (digits.length >= 11 && (userData.phone || '').startsWith('+')) {
-      formattedPhone = userData.phone;
+    } else if (digits.length >= 11) {
+      formattedPhone = `+${digits}`;
     }
 
     // 1. Try real backend registration
@@ -294,25 +362,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const mapped = mapBackendUserToFrontend(response.data.user, userData.role);
         saveSessionLocally(mapped);
         persistRegisteredUser(mapped);
+        emitRegistrationEvents(mapped);
         setIsLoading(false);
         setIsAuthModalOpen(false);
         triggerPortalLoader(userData.role);
         return true;
       }
-    } catch {
-      // Backend unavailable; fall back to local persistence
+    } catch (apiErr: any) {
+      // Explicit 409 Conflict (Duplicate Email) or 400 Validation Error must NEVER be silently bypassed!
+      if (apiErr?.status === 409 || apiErr?.status === 400) {
+        setIsLoading(false);
+        throw new Error(apiErr.message || 'An account with this email address already exists.');
+      }
+      // In strict database mode or production, database failures must be thrown
+      if (process.env.NODE_ENV === 'production' || process.env.VITE_REQUIRE_DATABASE === 'true') {
+        setIsLoading(false);
+        throw new Error(`Database registration failed: ${apiErr.message}`);
+      }
     }
 
     // 2. Fallback: Local registration
     const registered = getStoredRegisteredUsers();
     const existing = registered.find((u) => u.email.toLowerCase() === cleanEmail);
+    if (existing) {
+      setIsLoading(false);
+      throw new Error('An account with this email address already exists.');
+    }
+
     const prefix = userData.role === 'student' ? 'usr-student' : 'usr-owner';
     const newUser: User = {
-      id: existing ? existing.id : `${prefix}-${Date.now()}`,
+      id: `${prefix}-${Date.now()}`,
       name: userData.name,
       email: userData.email,
       phone: userData.phone,
       role: userData.role,
+      status: 'ACTIVE',
+      verificationStatus: userData.role === 'owner' ? 'PENDING_REVIEW' : 'UNVERIFIED',
       university: userData.university,
       city: 'Delhi NCR',
       avatar: undefined,
@@ -321,6 +406,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     persistRegisteredUser(newUser);
     saveSessionLocally(newUser);
+    emitRegistrationEvents(newUser);
     setIsLoading(false);
     setIsAuthModalOpen(false);
     triggerPortalLoader(userData.role);

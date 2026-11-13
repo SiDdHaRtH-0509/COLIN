@@ -18,6 +18,10 @@ import {
   AdminMetricsSummary,
   AdminApiResponse,
   PasswordResetToken,
+  AdminStudent,
+  AdminOwner,
+  AdminNotification,
+  PlatformActivityEvent,
 } from '../types/admin';
 
 // -------------------------------------------------------------
@@ -62,6 +66,10 @@ export const ROLE_PERMISSIONS: Record<AdminRole, AdminPermission[]> = {
     'ASSIGN_VOLUNTEERS',
     'OVERRIDE_VISIT_STATUS',
     'VIEW_PROPERTY_SUBMISSIONS',
+    'VIEW_STUDENT_PROFILES_MASKED',
+    'VIEW_OWNER_PROFILES_MASKED',
+    'MANAGE_STUDENT_TICKETS',
+    'MANAGE_OWNER_TICKETS',
     'VIEW_SYSTEM_HEALTH',
   ],
 
@@ -116,6 +124,8 @@ const SERVER_STORAGE = {
   RATE_LIMITS: 'colin_server_admin_rate_limits',
   MFA_CHALLENGES: 'colin_server_admin_mfa_challenges',
   RESET_TOKENS: 'colin_server_admin_password_resets',
+  ADMIN_NOTIFICATIONS: 'colin_admin_notifications',
+  PLATFORM_ACTIVITIES: 'colin_platform_activities',
 };
 
 // Rate limiting thresholds
@@ -1059,6 +1069,304 @@ export function serverGetAdminMetrics(token: string): AdminApiResponse<AdminMetr
       totalPlatformRevenue: totalRevenue,
       isPrototypeData: true,
     },
+    correlationId: generateCorrelationId(),
+  };
+}
+
+// -------------------------------------------------------------
+// Unified Platform Activity & Notifications Engine
+// -------------------------------------------------------------
+
+export function recordPlatformActivity(
+  entry: Omit<PlatformActivityEvent, 'id' | 'timestamp'>
+): PlatformActivityEvent {
+  const activities = readServerStore<PlatformActivityEvent[]>(SERVER_STORAGE.PLATFORM_ACTIVITIES, []);
+  const fullEntry: PlatformActivityEvent = {
+    id: `act-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+    timestamp: new Date().toISOString(),
+    ...entry,
+  };
+
+  activities.unshift(fullEntry);
+  if (activities.length > 300) {
+    activities.length = 300;
+  }
+  writeServerStore(SERVER_STORAGE.PLATFORM_ACTIVITIES, activities);
+  return fullEntry;
+}
+
+export function getPlatformActivities(limit: number = 30): PlatformActivityEvent[] {
+  const activities = readServerStore<PlatformActivityEvent[]>(SERVER_STORAGE.PLATFORM_ACTIVITIES, []);
+  return activities.slice(0, limit);
+}
+
+export function recordAdminNotification(
+  entry: Omit<AdminNotification, 'id' | 'timestamp' | 'read'>
+): AdminNotification {
+  const notifications = readServerStore<AdminNotification[]>(SERVER_STORAGE.ADMIN_NOTIFICATIONS, []);
+  const fullEntry: AdminNotification = {
+    id: `notif-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+    timestamp: new Date().toISOString(),
+    read: false,
+    ...entry,
+  };
+
+  notifications.unshift(fullEntry);
+  if (notifications.length > 200) {
+    notifications.length = 200;
+  }
+  writeServerStore(SERVER_STORAGE.ADMIN_NOTIFICATIONS, notifications);
+  return fullEntry;
+}
+
+export function getAdminNotifications(limit: number = 50): AdminNotification[] {
+  const notifications = readServerStore<AdminNotification[]>(SERVER_STORAGE.ADMIN_NOTIFICATIONS, []);
+  return notifications.slice(0, limit);
+}
+
+export function markAdminNotificationRead(notificationId: string): boolean {
+  const notifications = readServerStore<AdminNotification[]>(SERVER_STORAGE.ADMIN_NOTIFICATIONS, []);
+  const target = notifications.find((n) => n.id === notificationId);
+  if (target) {
+    target.read = true;
+    writeServerStore(SERVER_STORAGE.ADMIN_NOTIFICATIONS, notifications);
+    return true;
+  }
+  return false;
+}
+
+export function markAllAdminNotificationsRead(): boolean {
+  const notifications = readServerStore<AdminNotification[]>(SERVER_STORAGE.ADMIN_NOTIFICATIONS, []);
+  notifications.forEach((n) => (n.read = true));
+  writeServerStore(SERVER_STORAGE.ADMIN_NOTIFICATIONS, notifications);
+  return true;
+}
+
+// -------------------------------------------------------------
+// Administrative Student Directory Operations
+// -------------------------------------------------------------
+
+export function serverGetStudents(token: string): AdminApiResponse<AdminStudent[]> {
+  const auth = serverRequirePermission(token, 'VIEW_STUDENT_PROFILES_MASKED');
+  if (!auth.authorized) {
+    return {
+      success: false,
+      statusCode: auth.statusCode,
+      message: auth.error,
+      correlationId: generateCorrelationId(),
+    };
+  }
+
+  const rawUsers = readServerStore<any[]>('colin_registered_users', []);
+  const visitsRaw = readServerStore<any[]>('colin_student_visits', []);
+
+  // Filter students
+  const students: AdminStudent[] = rawUsers
+    .filter((u) => u.role === 'student' || (!u.role && !u.businessName))
+    .map((u) => {
+      const studentVisits = visitsRaw.filter((v) => v.studentEmail === u.email || v.userId === u.id);
+      return {
+        id: u.id || `usr-student-${u.email}`,
+        name: u.name || `${u.firstName || 'Student'} ${u.lastName || ''}`.trim() || 'Student Member',
+        email: u.email,
+        phone: u.phone || '',
+        university: u.university || u.collegeName || 'Delhi University',
+        city: u.city || 'Delhi NCR',
+        status: (u.status || 'ACTIVE') as 'ACTIVE' | 'SUSPENDED' | 'INACTIVE',
+        verificationStatus: (u.verificationStatus || 'VERIFIED') as 'UNVERIFIED' | 'PENDING_REVIEW' | 'VERIFIED' | 'REJECTED',
+        registeredAt: u.registeredAt || u.createdAt || new Date().toISOString(),
+        memberSince: u.memberSince || 'Recently Joined',
+        lastLoginAt: u.lastLoginAt,
+        bookingCount: studentVisits.length,
+        visitCount: studentVisits.filter((v) => v.status === 'Completed' || v.status === 'VISIT_COMPLETED_DECISION_PENDING').length,
+      };
+    });
+
+  return {
+    success: true,
+    statusCode: 200,
+    data: students,
+    correlationId: generateCorrelationId(),
+  };
+}
+
+export function serverUpdateStudentStatus(
+  token: string,
+  studentId: string,
+  newStatus: 'ACTIVE' | 'SUSPENDED'
+): AdminApiResponse {
+  const auth = serverRequirePermission(token, 'MANAGE_STUDENT_TICKETS');
+  if (!auth.authorized) {
+    return {
+      success: false,
+      statusCode: auth.statusCode,
+      message: auth.error,
+      correlationId: generateCorrelationId(),
+    };
+  }
+
+  const rawUsers = readServerStore<any[]>('colin_registered_users', []);
+  const index = rawUsers.findIndex((u) => u.id === studentId || u.email === studentId);
+
+  if (index < 0) {
+    return {
+      success: false,
+      statusCode: 404,
+      message: `Student account with ID '${studentId}' was not found.`,
+      correlationId: generateCorrelationId(),
+    };
+  }
+
+  const prevStatus = rawUsers[index].status || 'ACTIVE';
+  rawUsers[index].status = newStatus;
+  writeServerStore('colin_registered_users', rawUsers);
+
+  // Record audit log
+  recordAuditLog({
+    adminId: auth.admin?.id || 'admin',
+    adminEmail: auth.admin?.email || 'admin@colin.in',
+    adminRole: auth.admin?.role || 'SUPER_ADMIN',
+    action: `STUDENT_ACCOUNT_${newStatus}`,
+    targetResource: `student/${studentId}`,
+    severity: 'WARNING',
+    details: { previousStatus: prevStatus, newStatus },
+    correlationId: generateCorrelationId(),
+  });
+
+  // Record platform activity
+  recordPlatformActivity({
+    eventType: `STUDENT_ACCOUNT_${newStatus}`,
+    actorType: 'ADMIN',
+    actorId: auth.admin?.id || 'admin',
+    actorName: auth.admin?.name || 'Administrator',
+    targetEntity: 'StudentAccount',
+    targetId: studentId,
+    description: `Student account ${rawUsers[index].email} was ${newStatus.toLowerCase()} by ${auth.admin?.name}.`,
+    severity: newStatus === 'SUSPENDED' ? 'WARNING' : 'INFO',
+  });
+
+  return {
+    success: true,
+    statusCode: 200,
+    message: `Student account successfully ${newStatus === 'ACTIVE' ? 'reactivated' : 'suspended'}.`,
+    correlationId: generateCorrelationId(),
+  };
+}
+
+// -------------------------------------------------------------
+// Administrative Owner Directory Operations
+// -------------------------------------------------------------
+
+export function serverGetOwners(token: string): AdminApiResponse<AdminOwner[]> {
+  const auth = serverRequirePermission(token, 'VIEW_OWNER_PROFILES_MASKED');
+  if (!auth.authorized) {
+    return {
+      success: false,
+      statusCode: auth.statusCode,
+      message: auth.error,
+      correlationId: generateCorrelationId(),
+    };
+  }
+
+  const rawUsers = readServerStore<any[]>('colin_registered_users', []);
+  const propertiesRaw = readServerStore<any[]>('colin_all_properties', []);
+
+  // Filter owners
+  const owners: AdminOwner[] = rawUsers
+    .filter((u) => u.role === 'owner' || u.businessName)
+    .map((u) => {
+      const ownerProperties = propertiesRaw.filter((p) => p.ownerId === u.id || p.ownerEmail === u.email);
+      const submitted = ownerProperties.filter((p) => p.verificationStatus === 'SUBMITTED' || p.verificationStatus === 'PENDING_VERIFICATION' || p.verificationStatus === 'inspection_requested').length;
+      const approved = ownerProperties.filter((p) => p.verificationStatus === 'APPROVED' || p.verificationStatus === 'approved' || p.isColinCertified).length;
+      const rejected = ownerProperties.filter((p) => p.verificationStatus === 'REJECTED' || p.verificationStatus === 'rejected').length;
+
+      return {
+        id: u.id || `usr-owner-${u.email}`,
+        name: u.name || `${u.firstName || 'Owner'} ${u.lastName || ''}`.trim() || 'Property Host',
+        email: u.email,
+        phone: u.phone || '',
+        businessName: u.businessName || u.name || 'Individual Host',
+        status: (u.status || 'ACTIVE') as 'ACTIVE' | 'SUSPENDED' | 'INACTIVE',
+        verificationStatus: (u.verificationStatus || (approved > 0 ? 'VERIFIED' : 'PENDING_DOCS')) as 'UNVERIFIED' | 'PENDING_DOCS' | 'IN_REVIEW' | 'VERIFIED' | 'REJECTED',
+        tier: (u.tier || (approved >= 2 ? 'VERIFIED_PARTNER' : 'STANDARD')) as 'STANDARD' | 'VERIFIED_PARTNER' | 'PREMIUM',
+        propertiesCount: ownerProperties.length,
+        submittedPropertiesCount: submitted,
+        approvedPropertiesCount: approved,
+        rejectedPropertiesCount: rejected,
+        registeredAt: u.registeredAt || u.createdAt || new Date().toISOString(),
+        memberSince: u.memberSince || 'Recently Joined',
+        subscriptionPlan: u.subscriptionPlan || 'Free Tier',
+        lastLoginAt: u.lastLoginAt,
+      };
+    });
+
+  return {
+    success: true,
+    statusCode: 200,
+    data: owners,
+    correlationId: generateCorrelationId(),
+  };
+}
+
+export function serverUpdateOwnerStatus(
+  token: string,
+  ownerId: string,
+  newStatus: 'ACTIVE' | 'SUSPENDED'
+): AdminApiResponse {
+  const auth = serverRequirePermission(token, 'MANAGE_OWNER_TICKETS');
+  if (!auth.authorized) {
+    return {
+      success: false,
+      statusCode: auth.statusCode,
+      message: auth.error,
+      correlationId: generateCorrelationId(),
+    };
+  }
+
+  const rawUsers = readServerStore<any[]>('colin_registered_users', []);
+  const index = rawUsers.findIndex((u) => u.id === ownerId || u.email === ownerId);
+
+  if (index < 0) {
+    return {
+      success: false,
+      statusCode: 404,
+      message: `Property owner account with ID '${ownerId}' was not found.`,
+      correlationId: generateCorrelationId(),
+    };
+  }
+
+  const prevStatus = rawUsers[index].status || 'ACTIVE';
+  rawUsers[index].status = newStatus;
+  writeServerStore('colin_registered_users', rawUsers);
+
+  // Record audit log
+  recordAuditLog({
+    adminId: auth.admin?.id || 'admin',
+    adminEmail: auth.admin?.email || 'admin@colin.in',
+    adminRole: auth.admin?.role || 'SUPER_ADMIN',
+    action: `OWNER_ACCOUNT_${newStatus}`,
+    targetResource: `owner/${ownerId}`,
+    severity: 'WARNING',
+    details: { previousStatus: prevStatus, newStatus },
+    correlationId: generateCorrelationId(),
+  });
+
+  // Record platform activity
+  recordPlatformActivity({
+    eventType: `OWNER_ACCOUNT_${newStatus}`,
+    actorType: 'ADMIN',
+    actorId: auth.admin?.id || 'admin',
+    actorName: auth.admin?.name || 'Administrator',
+    targetEntity: 'OwnerAccount',
+    targetId: ownerId,
+    description: `Property host account ${rawUsers[index].email} was ${newStatus.toLowerCase()} by ${auth.admin?.name}.`,
+    severity: newStatus === 'SUSPENDED' ? 'WARNING' : 'INFO',
+  });
+
+  return {
+    success: true,
+    statusCode: 200,
+    message: `Property owner account successfully ${newStatus === 'ACTIVE' ? 'reactivated' : 'suspended'}.`,
     correlationId: generateCorrelationId(),
   };
 }

@@ -10,6 +10,10 @@ import {
   AdminMetricsSummary,
   AdminAuditLogEntry,
   AdminPermission,
+  AdminStudent,
+  AdminOwner,
+  AdminNotification,
+  PlatformActivityEvent,
 } from '../../types/admin';
 import {
   serverAdminLogin,
@@ -21,7 +25,18 @@ import {
   getServerAuditLogs,
   serverUpdateAdminStatus,
   serverRequestPasswordReset,
+  serverGetStudents,
+  serverGetOwners,
+  serverUpdateStudentStatus,
+  serverUpdateOwnerStatus,
+  getPlatformActivities,
+  getAdminNotifications,
+  markAdminNotificationRead,
+  markAllAdminNotificationsRead,
+  recordPlatformActivity,
+  recordAdminNotification,
 } from '../../server/adminSecurity';
+import { apiClient, getApiBaseUrl } from '../apiClient';
 
 const ADMIN_TOKEN_KEY = 'colin_admin_session_token';
 
@@ -126,6 +141,14 @@ export class AdminApiClient {
    */
   public static async getMetrics(): Promise<AdminApiResponse<AdminMetricsSummary>> {
     const token = this.getStoredToken() || '';
+    if (getApiBaseUrl()) {
+      try {
+        const res: any = await apiClient.get('/api/v1/admin/metrics', { useAdminAuth: true });
+        if (res?.success && res.data) {
+          return res;
+        }
+      } catch {}
+    }
     return serverGetAdminMetrics(token);
   }
 
@@ -167,6 +190,116 @@ export class AdminApiClient {
    */
   public static async requestPasswordReset(email: string): Promise<AdminApiResponse> {
     return serverRequestPasswordReset(email);
+  }
+
+  /**
+   * Fetch all registered students for Admin directory
+   */
+  public static async getStudents(): Promise<AdminApiResponse<AdminStudent[]>> {
+    const token = this.getStoredToken() || '';
+    if (getApiBaseUrl()) {
+      try {
+        const res: any = await apiClient.get('/api/v1/admin/students', { useAdminAuth: true });
+        if (res?.success && Array.isArray(res.data)) {
+          return res;
+        }
+      } catch {}
+    }
+    return serverGetStudents(token);
+  }
+
+  /**
+   * Fetch all registered owners for Admin directory
+   */
+  public static async getOwners(): Promise<AdminApiResponse<AdminOwner[]>> {
+    const token = this.getStoredToken() || '';
+    if (getApiBaseUrl()) {
+      try {
+        const res: any = await apiClient.get('/api/v1/admin/owners', { useAdminAuth: true });
+        if (res?.success && Array.isArray(res.data)) {
+          return res;
+        }
+      } catch {}
+    }
+    return serverGetOwners(token);
+  }
+
+  /**
+   * Update student lifecycle status (ACTIVE / SUSPENDED)
+   */
+  public static async updateStudentStatus(
+    studentId: string,
+    status: 'ACTIVE' | 'SUSPENDED'
+  ): Promise<AdminApiResponse> {
+    const token = this.getStoredToken() || '';
+    try {
+      const res: any = await apiClient.patch(`/api/v1/admin/students/${studentId}/status`, { status });
+      if (res?.success) {
+        serverUpdateStudentStatus(token, studentId, status);
+        return res;
+      }
+    } catch {}
+    return serverUpdateStudentStatus(token, studentId, status);
+  }
+
+  /**
+   * Update owner lifecycle status (ACTIVE / SUSPENDED)
+   */
+  public static async updateOwnerStatus(
+    ownerId: string,
+    status: 'ACTIVE' | 'SUSPENDED'
+  ): Promise<AdminApiResponse> {
+    const token = this.getStoredToken() || '';
+    try {
+      const res: any = await apiClient.patch(`/api/v1/admin/owners/${ownerId}/status`, { status });
+      if (res?.success) {
+        serverUpdateOwnerStatus(token, ownerId, status);
+        return res;
+      }
+    } catch {}
+    return serverUpdateOwnerStatus(token, ownerId, status);
+  }
+
+  /**
+   * Fetch live platform activity feed
+   */
+  public static async getPlatformActivities(limit: number = 30): Promise<PlatformActivityEvent[]> {
+    return getPlatformActivities(limit);
+  }
+
+  /**
+   * Record a platform activity event
+   */
+  public static recordActivity(entry: Omit<PlatformActivityEvent, 'id' | 'timestamp'>): PlatformActivityEvent {
+    return recordPlatformActivity(entry);
+  }
+
+  /**
+   * Fetch operational notifications
+   */
+  public static async getNotifications(limit: number = 50): Promise<AdminNotification[]> {
+    return getAdminNotifications(limit);
+  }
+
+  /**
+   * Dispatch an operational notification
+   */
+  public static sendNotification(entry: Omit<AdminNotification, 'id' | 'timestamp' | 'read'>): AdminNotification {
+    return recordAdminNotification(entry);
+  }
+
+  /**
+   * Mark a notification as read
+   */
+  public static markNotificationRead(id: string): boolean {
+    return markAdminNotificationRead(id);
+  }
+
+  /**
+   * Mark all notifications as read
+   */
+  public static markAllNotificationsRead(): boolean {
+    return markAllAdminNotificationsRead();
   }
 }
 

@@ -10,6 +10,8 @@ export interface User {
   city?: string;
   avatar?: string;
   memberSince: string;
+  status?: 'ACTIVE' | 'SUSPENDED' | 'INACTIVE';
+  verificationStatus?: string;
 }
 
 export type AccommodationType = 'all' | 'pg' | 'hostel' | 'rental-room' | 'shared-flat' | 'co-living';

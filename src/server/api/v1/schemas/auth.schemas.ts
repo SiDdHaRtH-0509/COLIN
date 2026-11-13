@@ -30,7 +30,10 @@ export const registerSchema = z.object({
     .transform((val) => val?.trim() || ''),
   phone: z
     .string()
-    .regex(/^\+?[1-9]\d{7,14}$/, 'Phone number must be a valid international format (E.164)')
+    .transform((val) => val.replace(/\s+/g, ''))
+    .refine((val) => !val || /^\+?[1-9]\d{7,14}$/.test(val), {
+      message: 'Phone number must be a valid international format (E.164)',
+    })
     .optional(),
   // Public registration strictly permits only STUDENT or OWNER. ADMIN registration is prohibited.
   role: z

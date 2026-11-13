@@ -48,18 +48,20 @@ export function getDatabaseConfig(): DatabaseConfig {
   const rawBaseUrl = process.env.DATABASE_URL || 'postgresql://colin_app_runtime@127.0.0.1:5433/colin_test?schema=public';
   
   // Derive app runtime URL ensuring role is colin_app_runtime if not specified in local dev
-  let appUrl = process.env.DATABASE_APP_URL || rawBaseUrl;
-  if (!process.env.DATABASE_APP_URL && !appUrl.includes('colin_app_runtime') && !appUrl.includes('postgres:')) {
-    // Only map to colin_app_runtime on local dev/test databases
-    if (appUrl.includes('127.0.0.1') || appUrl.includes('localhost')) {
+  let appUrl = process.env.DATABASE_APP_URL || '';
+  if (!appUrl) {
+    if (rawBaseUrl.includes('127.0.0.1') || rawBaseUrl.includes('localhost')) {
       try {
-        const parsed = new URL(appUrl);
+        const parsed = new URL(rawBaseUrl);
+        const originalPassword = parsed.password;
         parsed.username = 'colin_app_runtime';
-        parsed.password = '';
+        parsed.password = originalPassword;
         appUrl = parsed.toString();
       } catch {
-        appUrl = 'postgresql://colin_app_runtime@127.0.0.1:5433/colin_test?schema=public';
+        appUrl = rawBaseUrl;
       }
+    } else {
+      appUrl = rawBaseUrl;
     }
   }
 
@@ -69,8 +71,9 @@ export function getDatabaseConfig(): DatabaseConfig {
     if (rawBaseUrl.includes('127.0.0.1') || rawBaseUrl.includes('localhost')) {
       try {
         const parsed = new URL(rawBaseUrl);
+        const originalPassword = parsed.password;
         parsed.username = 'colin_admin_runtime';
-        parsed.password = '';
+        parsed.password = originalPassword;
         adminUrl = parsed.toString();
       } catch {
         adminUrl = 'postgresql://colin_admin_runtime@127.0.0.1:5433/colin_test?schema=public';

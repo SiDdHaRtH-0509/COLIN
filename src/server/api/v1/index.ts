@@ -12,11 +12,15 @@ import ownerRoutes from './routes/owner.routes';
 import ownerPropertyRoutes from './routes/owner.property.routes';
 import publicPropertyRoutes from './routes/public.property.routes';
 import adminPropertyRoutes from './routes/admin.property.routes';
+import adminStudentRoutes from './routes/admin.student.routes';
+import adminOwnerRoutes from './routes/admin.owner.routes';
 import storageRoutes from './routes/storage.routes';
 import locationRoutes from './routes/location.routes';
 import webhookRoutes from './routes/webhook.routes';
 import bookingRoutes from './routes/booking.routes';
 import adminBookingRoutes from './routes/admin.booking.routes';
+import { requireAdmin } from '../../middleware/authContext';
+import { adminUserController } from './controllers/admin.user.controller';
 
 const v1Router = Router();
 
@@ -28,6 +32,9 @@ v1Router.use('/owners', ownerRoutes);
 v1Router.use('/owner/properties', ownerPropertyRoutes);
 v1Router.use('/properties', publicPropertyRoutes);
 v1Router.use('/admin/properties', adminPropertyRoutes);
+v1Router.use('/admin/students', adminStudentRoutes);
+v1Router.use('/admin/owners', adminOwnerRoutes);
+v1Router.get('/admin/metrics', requireAdmin(), adminUserController.getMetrics);
 v1Router.use('/bookings', bookingRoutes);
 v1Router.use('/admin/bookings', adminBookingRoutes);
 v1Router.use('/storage', storageRoutes);

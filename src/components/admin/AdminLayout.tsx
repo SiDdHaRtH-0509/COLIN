@@ -6,6 +6,8 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate, Link } from 'react-router-dom';
 import { useAdminAuth } from '../../context/AdminAuthContext';
+import { AdminApiClient } from '../../services/admin/adminApiClient';
+import { AdminNotification } from '../../types/admin';
 import {
   LayoutDashboard,
   Users,
@@ -64,6 +66,7 @@ export const AdminLayout: React.FC = () => {
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
     try {
       return localStorage.getItem('colin_admin_sidebar_collapsed') === 'true';
@@ -71,6 +74,44 @@ export const AdminLayout: React.FC = () => {
       return false;
     }
   });
+
+  const fetchNotifications = async () => {
+    try {
+      const list = await AdminApiClient.getNotifications();
+      setNotifications(list);
+    } catch {}
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'colin_admin_notifications') {
+        fetchNotifications();
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    const interval = setInterval(fetchNotifications, 6000);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      clearInterval(interval);
+    };
+  }, []);
+
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  const handleMarkAllRead = () => {
+    AdminApiClient.markAllNotificationsRead();
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  };
+
+  const handleNotificationClick = (notif: AdminNotification) => {
+    AdminApiClient.markNotificationRead(notif.id);
+    setNotifications((prev) => prev.map((n) => (n.id === notif.id ? { ...n, read: true } : n)));
+    if (notif.link) {
+      navigate(notif.link);
+      setNotificationsOpen(false);
+    }
+  };
 
   // Close mobile drawer on route change
   useEffect(() => {
@@ -322,27 +363,77 @@ export const AdminLayout: React.FC = () => {
             <div className="relative">
               <button
                 onClick={() => setNotificationsOpen(!notificationsOpen)}
+                title="Operational Notifications"
                 className="p-2 rounded-xl text-colin-charcoal-600 hover:bg-colin-charcoal-100 transition-colors relative"
               >
                 <Bell size={18} />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-colin-orange" />
+                {unreadCount > 0 ? (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-colin-orange text-white rounded-full text-[10px] font-bold flex items-center justify-center border-2 border-white animate-pulse">
+                    {unreadCount}
+                  </span>
+                ) : (
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-colin-teal/40" />
+                )}
               </button>
 
               {notificationsOpen && (
-                <div className="absolute right-0 mt-2 w-80 bg-white border border-colin-charcoal-200 rounded-2xl shadow-xl p-4 text-xs z-50 animate-fade-in-up">
+                <div className="absolute right-0 mt-2 w-88 max-w-[92vw] sm:w-96 bg-white border border-colin-charcoal-200 rounded-2xl shadow-xl p-4 text-xs z-50 animate-fade-in-up">
                   <div className="flex items-center justify-between pb-2 mb-2 border-b border-colin-charcoal-100 font-bold text-colin-navy">
-                    <span>Operational Alerts</span>
-                    <span className="text-[10px] text-colin-teal font-medium">Real-time</span>
-                  </div>
-                  <div className="space-y-2.5 text-colin-charcoal-600">
-                    <div className="p-2 rounded-lg bg-colin-navy-50/60 border border-colin-navy-100 flex items-start gap-2">
-                      <Sparkles size={14} className="text-colin-teal mt-0.5 shrink-0" />
-                      <div>
-                        <span className="font-semibold block text-colin-navy">Admin Gateway Active</span>
-                        Phase 4A Architecture & Security foundation initialized.
-                      </div>
+                    <div className="flex items-center gap-1.5">
+                      <span>Operational Alerts</span>
+                      {unreadCount > 0 && (
+                        <span className="px-1.5 py-0.5 rounded-full bg-colin-orange/15 text-colin-orange text-[10px]">
+                          {unreadCount} new
+                        </span>
+                      )}
                     </div>
+                    {notifications.length > 0 && (
+                      <button
+                        onClick={handleMarkAllRead}
+                        className="text-[10px] text-colin-teal hover:underline font-semibold"
+                      >
+                        Mark all read
+                      </button>
+                    )}
                   </div>
+
+                  {notifications.length === 0 ? (
+                    <div className="py-6 text-center text-colin-charcoal-400">
+                      <Sparkles size={20} className="mx-auto mb-1 text-colin-teal/50" />
+                      <span>No operational alerts yet.</span>
+                    </div>
+                  ) : (
+                    <div className="max-h-72 overflow-y-auto space-y-2 pr-1 scrollbar-thin">
+                      {notifications.map((n) => (
+                        <div
+                          key={n.id}
+                          onClick={() => handleNotificationClick(n)}
+                          className={`p-2.5 rounded-xl border text-xs cursor-pointer transition-all ${
+                            !n.read
+                              ? 'bg-colin-teal/5 border-colin-teal/30 hover:bg-colin-teal/10'
+                              : 'bg-colin-offwhite/80 border-colin-charcoal-200 hover:bg-colin-offwhite'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-bold text-colin-navy truncate text-[11px] flex items-center gap-1.5">
+                              {!n.read && <span className="w-1.5 h-1.5 rounded-full bg-colin-orange shrink-0" />}
+                              {n.title}
+                            </span>
+                            <span className="text-[9px] text-colin-charcoal-400 shrink-0 font-mono">
+                              {new Date(n.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-colin-charcoal-600 leading-snug line-clamp-2">
+                            {n.message}
+                          </p>
+                          <div className="mt-1 flex items-center justify-between text-[9px] text-colin-charcoal-400">
+                            <span className="text-colin-teal font-medium">{n.department}</span>
+                            {n.link && <span className="text-colin-teal hover:underline">View Record →</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

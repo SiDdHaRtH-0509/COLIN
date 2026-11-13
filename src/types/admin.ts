@@ -136,3 +136,69 @@ export interface PasswordResetToken {
   expiresAt: string;
   used: boolean;
 }
+
+export type UserAccountLifecycleStatus = 'ACTIVE' | 'SUSPENDED' | 'INACTIVE';
+export type StudentKycStatus = 'UNVERIFIED' | 'PENDING_REVIEW' | 'VERIFIED' | 'REJECTED';
+export type OwnerKycStatus = 'UNVERIFIED' | 'PENDING_DOCS' | 'IN_REVIEW' | 'VERIFIED' | 'REJECTED';
+export type OwnerTierLevel = 'STANDARD' | 'VERIFIED_PARTNER' | 'PREMIUM';
+
+export interface AdminStudent {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  university?: string;
+  city?: string;
+  status: UserAccountLifecycleStatus;
+  verificationStatus: StudentKycStatus;
+  registeredAt: string;
+  memberSince?: string;
+  lastLoginAt?: string;
+  bookingCount?: number;
+  visitCount?: number;
+}
+
+export interface AdminOwner {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  businessName?: string;
+  status: UserAccountLifecycleStatus;
+  verificationStatus: OwnerKycStatus;
+  tier: OwnerTierLevel;
+  propertiesCount: number;
+  submittedPropertiesCount: number;
+  approvedPropertiesCount: number;
+  rejectedPropertiesCount: number;
+  registeredAt: string;
+  memberSince?: string;
+  subscriptionPlan?: string;
+  lastLoginAt?: string;
+}
+
+export interface AdminNotification {
+  id: string;
+  timestamp: string;
+  title: string;
+  message: string;
+  department: string;
+  type: 'REGISTRATION' | 'VERIFICATION' | 'VISIT' | 'PAYMENT' | 'SECURITY' | 'SYSTEM';
+  read: boolean;
+  link?: string;
+}
+
+export interface PlatformActivityEvent {
+  id: string;
+  timestamp: string;
+  eventType: string;
+  actorType: 'STUDENT' | 'OWNER' | 'ADMIN' | 'SYSTEM';
+  actorId: string;
+  actorName: string;
+  targetEntity: string;
+  targetId?: string;
+  description: string;
+  severity: 'INFO' | 'WARNING' | 'CRITICAL';
+  metadata?: Record<string, any>;
+  correlationId?: string;
+}

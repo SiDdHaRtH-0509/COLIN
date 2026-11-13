@@ -9,6 +9,7 @@ import {
 import { saveProfilePhoto, getProfilePhoto, deleteProfilePhoto } from '../utils/imageStorage';
 import { useAuth } from './AuthContext';
 import { apiClient } from '../services/apiClient';
+import { AdminApiClient } from '../services/admin/adminApiClient';
 
 export interface StudentPreferences {
   fullName: string;
@@ -215,9 +216,10 @@ export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ child
     try {
       const stored = localStorage.getItem(getScopedKey(STORAGE_KEYS.VISITS, currentUserId));
       if (stored) return JSON.parse(stored);
+      const legacy = localStorage.getItem(STORAGE_KEYS.VISITS);
+      if (legacy) return JSON.parse(legacy);
       if (isDemo) {
-        const legacy = localStorage.getItem(STORAGE_KEYS.VISITS);
-        return legacy ? JSON.parse(legacy) : INITIAL_STUDENT_VISITS;
+        return INITIAL_STUDENT_VISITS;
       }
     } catch {}
     return isDemo ? INITIAL_STUDENT_VISITS : [];
@@ -583,6 +585,25 @@ export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Visit bookings actions
   const bookVisit = (booking: VisitBooking) => {
     setVisits((prev) => [booking, ...prev]);
+    try {
+      AdminApiClient.recordActivity({
+        eventType: 'STUDENT_VISIT_REQUESTED',
+        actorType: 'STUDENT',
+        actorId: user?.id || booking.id,
+        actorName: booking.studentName || 'Student',
+        targetEntity: 'Booking',
+        targetId: booking.id,
+        description: `Student requested guided visit for "${booking.propertyTitle || 'Property'}" (₹150 fee paid).`,
+        severity: 'INFO',
+      });
+      AdminApiClient.sendNotification({
+        department: 'Central Operations',
+        title: 'New Guided Visit Request',
+        message: `Visit requested for "${booking.propertyTitle || 'Property'}". Awaiting coordinator assignment.`,
+        type: 'VISIT',
+        link: '/admin/visits',
+      });
+    } catch {}
   };
 
   const cancelVisit = (
@@ -705,6 +726,19 @@ export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     if (decision === 'accept') {
+      try {
+        AdminApiClient.recordActivity({
+          eventType: 'ACCOMMODATION_ACCEPTED',
+          actorType: 'STUDENT',
+          actorId: user?.id || target.id,
+          actorName: target.studentName || 'Student',
+          targetEntity: 'Booking',
+          targetId: visitId,
+          description: `Student accepted accommodation for "${target.propertyTitle}". Platform fee retained.`,
+          severity: 'INFO',
+        });
+      } catch {}
+
       setVisits((prev) =>
         prev.map((v) =>
           v.id === visitId
@@ -725,6 +759,19 @@ export const StudentProvider: React.FC<{ children: React.ReactNode }> = ({ child
         message: 'Property visit accepted! Accommodation confirmed.',
       };
     } else {
+      try {
+        AdminApiClient.recordActivity({
+          eventType: 'ACCOMMODATION_REJECTED',
+          actorType: 'STUDENT',
+          actorId: user?.id || target.id,
+          actorName: target.studentName || 'Student',
+          targetEntity: 'Booking',
+          targetId: visitId,
+          description: `Student rejected accommodation for "${target.propertyTitle}". ₹82.50 (55%) refund queued.`,
+          severity: 'INFO',
+        });
+      } catch {}
+
       setVisits((prev) =>
         prev.map((v) =>
           v.id === visitId

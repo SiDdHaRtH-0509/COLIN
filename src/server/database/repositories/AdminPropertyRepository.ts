@@ -18,6 +18,11 @@ import {
 import { BaseRepository } from './BaseRepository';
 import { getAdminPrismaClient } from '../prisma';
 
+function toUuidOrNull(val?: string | null): string | null {
+  if (!val) return null;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val) ? val : null;
+}
+
 export interface AdminPropertyInspectionView extends Property {
   photos: PropertyPhoto[];
   amenities: Array<{ id: string; amenityCode: string; name: string; isAvailable: boolean }>;
@@ -204,8 +209,8 @@ export class AdminPropertyRepository extends BaseRepository {
         // 2. Record verification audit log
         const auditRecord = await prismaTx.propertyVerificationAudit.create({
           data: {
-            propertyId,
-            adminId,
+            property: { connect: { id: propertyId } },
+            admin: { connect: { id: toUuidOrNull(adminId) || '00000000-0000-0000-0000-000000000001' } },
             previousStatus,
             newStatus: PropertyVerificationStatus.VERIFIED,
             inspectionNotes: inspectionNotes || 'Property verified and approved for public discovery.',
@@ -216,7 +221,7 @@ export class AdminPropertyRepository extends BaseRepository {
         // 3. Record administrative audit event in admin_audit_logs
         await prismaTx.adminAuditLog.create({
           data: {
-            adminId,
+            adminId: toUuidOrNull(adminId),
             actionCategory: AuditActionCategory.PROPERTY_VERIFICATION,
             action: 'PROPERTY_APPROVED',
             targetEntity: 'Property',
@@ -270,8 +275,8 @@ export class AdminPropertyRepository extends BaseRepository {
         // 2. Record verification audit
         const auditRecord = await prismaTx.propertyVerificationAudit.create({
           data: {
-            propertyId,
-            adminId,
+            property: { connect: { id: propertyId } },
+            admin: { connect: { id: toUuidOrNull(adminId) || '00000000-0000-0000-0000-000000000001' } },
             previousStatus,
             newStatus: PropertyVerificationStatus.REJECTED,
             inspectionNotes: rejectionReason,
@@ -282,7 +287,7 @@ export class AdminPropertyRepository extends BaseRepository {
         // 3. Log to admin_audit_logs
         await prismaTx.adminAuditLog.create({
           data: {
-            adminId,
+            adminId: toUuidOrNull(adminId),
             actionCategory: AuditActionCategory.PROPERTY_VERIFICATION,
             action: 'PROPERTY_REJECTED',
             targetEntity: 'Property',
@@ -333,8 +338,8 @@ export class AdminPropertyRepository extends BaseRepository {
 
         const auditRecord = await prismaTx.propertyVerificationAudit.create({
           data: {
-            propertyId,
-            adminId,
+            property: { connect: { id: propertyId } },
+            admin: { connect: { id: toUuidOrNull(adminId) || '00000000-0000-0000-0000-000000000001' } },
             previousStatus,
             newStatus: PropertyVerificationStatus.DELISTED,
             inspectionNotes: `Suspended by admin: ${reason}`,
@@ -343,7 +348,7 @@ export class AdminPropertyRepository extends BaseRepository {
 
         await prismaTx.adminAuditLog.create({
           data: {
-            adminId,
+            adminId: toUuidOrNull(adminId),
             actionCategory: AuditActionCategory.PROPERTY_VERIFICATION,
             action: 'PROPERTY_SUSPENDED',
             targetEntity: 'Property',
@@ -393,8 +398,8 @@ export class AdminPropertyRepository extends BaseRepository {
 
         const auditRecord = await prismaTx.propertyVerificationAudit.create({
           data: {
-            propertyId,
-            adminId,
+            property: { connect: { id: propertyId } },
+            admin: { connect: { id: toUuidOrNull(adminId) || '00000000-0000-0000-0000-000000000001' } },
             previousStatus,
             newStatus: PropertyVerificationStatus.VERIFIED,
             inspectionNotes: `Restored by admin: ${reason}`,
@@ -403,7 +408,7 @@ export class AdminPropertyRepository extends BaseRepository {
 
         await prismaTx.adminAuditLog.create({
           data: {
-            adminId,
+            adminId: toUuidOrNull(adminId),
             actionCategory: AuditActionCategory.PROPERTY_VERIFICATION,
             action: 'PROPERTY_RESTORED',
             targetEntity: 'Property',
