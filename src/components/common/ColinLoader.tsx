@@ -56,9 +56,9 @@ function useSafeAuth() {
 
 export const ColinLoader: React.FC<ColinLoaderProps> = ({
   isLoading: explicitLoading,
-  minDuration = 500,
+  minDuration = 2800,
   fadeDuration = 350,
-  maxDuration = 3500,
+  maxDuration = 4000,
   forceShow = false,
   onDismiss,
 }) => {
@@ -243,6 +243,7 @@ export const ColinLoader: React.FC<ColinLoaderProps> = ({
             playsInline
             controls={false}
             preload="auto"
+            poster="/assets/colin-logo.png"
             disablePictureInPicture
             disableRemotePlayback
             aria-hidden="true"

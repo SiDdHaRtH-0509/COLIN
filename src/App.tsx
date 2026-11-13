@@ -163,7 +163,7 @@ export const App: React.FC = () => {
             <ToastProvider>
               <BrowserRouter>
                 <ScrollToTop />
-                <ColinLoader />
+                <ColinLoader minDuration={2800} />
                 <AppContent />
               </BrowserRouter>
             </ToastProvider>

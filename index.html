@@ -6,12 +6,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>COLIN — Verified Student Living & Campus Accommodations</title>
     <meta name="description" content="COLIN helps students find 100% in-person verified PGs, Hostels, Flats, and Co-living near major colleges and universities across India with Zero Brokerage." />
+    <link rel="preload" href="/colin-loader.mp4" as="video" type="video/mp4" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   </head>
   <body class="bg-colin-offwhite text-colin-charcoal font-sans antialiased selection:bg-colin-teal/20 selection:text-colin-navy">
-    <div id="root"></div>
+    <div id="root">
+      <div style="position:fixed;inset:0;width:100vw;height:100vh;background-color:#F8FAFC;display:flex;align-items:center;justify-content:center;z-index:99999;">
+        <div style="display:flex;align-items:center;justify-content:center;width:100%;max-width:560px;padding:1.5rem;box-sizing:border-box;">
+          <video autoplay muted loop playsinline preload="auto" poster="/assets/colin-logo.png" style="width:100%;aspect-ratio:16/9;object-fit:contain;background-color:#F8FAFC;display:block;" aria-hidden="true">
+            <source src="/colin-loader.mp4" type="video/mp4" />
+            <source src="/CoLiN_Loader.mp4" type="video/mp4" />
+          </video>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
