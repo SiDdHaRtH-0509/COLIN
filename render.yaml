@@ -16,6 +16,9 @@ services:
       - path: /index.html
         name: Cache-Control
         value: no-cache, no-store, must-revalidate
+    envVars:
+      - key: VITE_API_URL
+        value: https://colin-backend.onrender.com
 
   # 2. Backend API & Full-Stack Web Service
   - type: web
