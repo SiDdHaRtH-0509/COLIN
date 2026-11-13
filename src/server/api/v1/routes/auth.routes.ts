@@ -9,7 +9,7 @@
 import { Router } from 'express';
 import { authController } from '../controllers/auth.controller';
 import { validateRequest } from '../../../middleware/validateRequest';
-import { requireAuth } from '../../../middleware/authContext';
+import { requireAuth, requireAdmin } from '../../../middleware/authContext';
 import { authSensitiveRateLimiter, passwordResetRateLimiter } from '../../../middleware/rateLimiter';
 import {
   registerSchema,
@@ -45,6 +45,31 @@ router.post(
   authSensitiveRateLimiter.middleware(),
   validateRequest({ body: adminLoginSchema }),
   authController.adminLogin
+);
+
+// Administrative Multi-Factor Authentication (MFA)
+router.post(
+  '/admin/mfa/verify',
+  authSensitiveRateLimiter.middleware(),
+  authController.adminVerifyMfa
+);
+
+router.post(
+  '/admin/mfa/setup',
+  requireAdmin(),
+  authController.adminSetupMfa
+);
+
+router.post(
+  '/admin/mfa/confirm',
+  requireAdmin(),
+  authController.adminConfirmMfa
+);
+
+router.post(
+  '/admin/mfa/disable',
+  requireAdmin('SUPER_ADMIN'),
+  authController.adminDisableMfa
 );
 
 // Token Refresh & Session Termination

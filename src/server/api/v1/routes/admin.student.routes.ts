@@ -12,6 +12,7 @@ const router = Router();
 router.use(requireAdmin());
 
 router.get('/', adminUserController.listStudents);
+router.post('/:id/unmask', adminUserController.unmaskStudentPii);
 router.patch('/:id/status', adminUserController.updateUserStatus);
 
 export default router;

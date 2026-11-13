@@ -42,11 +42,13 @@ export type AdminPermission =
   
   // Student Support (Least Privilege)
   | 'VIEW_STUDENT_PROFILES_MASKED'
+  | 'VIEW_STUDENT_PROFILES_UNMASKED'
   | 'MANAGE_STUDENT_TICKETS'
   | 'RESOLVE_STUDENT_DISPUTES'
   
   // Owner Support (Least Privilege)
   | 'VIEW_OWNER_PROFILES_MASKED'
+  | 'VIEW_OWNER_PROFILES_UNMASKED'
   | 'MANAGE_OWNER_TICKETS'
   | 'ASSIST_OWNER_LISTINGS'
   

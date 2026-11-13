@@ -7,6 +7,9 @@ import { Request, Response, NextFunction } from 'express';
 import { getAppPrismaClient } from '../../../database/prisma';
 import { UserRoleType, UserStatus } from '@prisma/client';
 import { ApiResponse } from '../../../types/api';
+import { PiiUtils } from '../../../utils/pii';
+import { SecurityLogger } from '../../../security/securityLogger';
+import { AuthorizationError } from '../../../middleware/authContext';
 
 export class AdminUserController {
   /**
@@ -28,7 +31,9 @@ export class AdminUserController {
         id: s.id,
         name: s.profile ? `${s.profile.firstName} ${s.profile.lastName}`.trim() : 'Student Member',
         email: s.email,
+        maskedEmail: PiiUtils.maskEmail(s.email),
         phone: s.phone || '',
+        maskedPhone: PiiUtils.maskPhone(s.phone),
         university: s.studentProfile?.collegeName || 'Delhi University',
         city: 'Delhi NCR',
         status: s.status,
@@ -87,7 +92,9 @@ export class AdminUserController {
         id: o.id,
         name: o.profile ? `${o.profile.firstName} ${o.profile.lastName}`.trim() : 'Property Host',
         email: o.email,
+        maskedEmail: PiiUtils.maskEmail(o.email),
         phone: o.phone || '',
+        maskedPhone: PiiUtils.maskPhone(o.phone),
         businessName: o.ownerProfile?.businessName || 'Host Partner',
         status: o.status,
         verificationStatus: o.isEmailVerified ? 'VERIFIED' : 'PENDING_DOCS',
@@ -210,6 +217,116 @@ export class AdminUserController {
       res.status(200).json({
         success: true,
         message: `Account status updated to ${validStatus}.`,
+        meta: { requestId: req.id || 'unknown', timestamp: new Date().toISOString() },
+      });
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  /**
+   * POST /api/v1/admin/students/:id/unmask
+   * Audited PII unmasking requiring explicit VIEW_STUDENT_PROFILES_UNMASKED or SUPER_ADMIN.
+   */
+  public unmaskStudentPii = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const adminRole = req.context?.adminRole;
+      if (adminRole !== 'SUPER_ADMIN' && adminRole !== 'OPERATIONS_ADMIN' && adminRole !== 'STUDENT_SUPPORT') {
+        throw new AuthorizationError('Requires unmasked student profile permissions.');
+      }
+
+      const rawId = req.params.id;
+      const id = Array.isArray(rawId) ? rawId[0] : rawId;
+      const prisma = getAppPrismaClient();
+
+      const user = await prisma.user.findUnique({
+        where: { id },
+        include: { profile: true, studentProfile: true },
+      });
+
+      if (!user) {
+        res.status(404).json({ success: false, message: 'Student not found.' });
+        return;
+      }
+
+      // Audit PII Unmask Action
+      await SecurityLogger.logSecurityEvent({
+        eventType: 'ADMIN_PII_UNMASKED',
+        actorId: req.context?.userId,
+        actorRole: adminRole,
+        targetEntity: 'User',
+        targetEntityId: user.id,
+        severity: 'MEDIUM',
+        details: {
+          targetUserEmail: PiiUtils.maskEmail(user.email),
+          reason: req.body?.reason || 'Administrative Review',
+        },
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Unmasked student PII retrieved (audited).',
+        data: {
+          id: user.id,
+          name: user.profile ? `${user.profile.firstName} ${user.profile.lastName}`.trim() : 'Student',
+          email: user.email,
+          phone: user.phone,
+          university: user.studentProfile?.collegeName,
+        },
+        meta: { requestId: req.id || 'unknown', timestamp: new Date().toISOString() },
+      });
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  /**
+   * POST /api/v1/admin/owners/:id/unmask
+   */
+  public unmaskOwnerPii = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const adminRole = req.context?.adminRole;
+      if (adminRole !== 'SUPER_ADMIN' && adminRole !== 'OPERATIONS_ADMIN' && adminRole !== 'OWNER_SUPPORT') {
+        throw new AuthorizationError('Requires unmasked owner profile permissions.');
+      }
+
+      const rawId = req.params.id;
+      const id = Array.isArray(rawId) ? rawId[0] : rawId;
+      const prisma = getAppPrismaClient();
+
+      const user = await prisma.user.findUnique({
+        where: { id },
+        include: { profile: true, ownerProfile: true },
+      });
+
+      if (!user) {
+        res.status(404).json({ success: false, message: 'Owner not found.' });
+        return;
+      }
+
+      await SecurityLogger.logSecurityEvent({
+        eventType: 'ADMIN_PII_UNMASKED',
+        actorId: req.context?.userId,
+        actorRole: adminRole,
+        targetEntity: 'User',
+        targetEntityId: user.id,
+        severity: 'MEDIUM',
+        details: {
+          targetUserEmail: PiiUtils.maskEmail(user.email),
+          reason: req.body?.reason || 'Administrative Review',
+        },
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Unmasked host PII retrieved (audited).',
+        data: {
+          id: user.id,
+          name: user.profile ? `${user.profile.firstName} ${user.profile.lastName}`.trim() : 'Host',
+          email: user.email,
+          phone: user.phone,
+          businessName: user.ownerProfile?.businessName,
+        },
         meta: { requestId: req.id || 'unknown', timestamp: new Date().toISOString() },
       });
     } catch (err) {

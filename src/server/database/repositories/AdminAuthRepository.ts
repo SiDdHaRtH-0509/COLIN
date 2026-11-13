@@ -6,7 +6,7 @@
  * colin_admin_runtime connection pool. Regular colin_app_runtime is blocked.
  */
 
-import { AdminAccount, AdminSession, AdminAccountStatus, Prisma } from '@prisma/client';
+import { AdminAccount, AdminSession, AdminAccountStatus, Prisma, AdminMfaCredential, AdminMfaRecoveryCode } from '@prisma/client';
 import { BaseRepository } from './BaseRepository';
 
 export interface CreateAdminSessionData {
@@ -146,14 +146,170 @@ export class AdminAuthRepository extends BaseRepository {
   }
 
   /**
-   * Updates last login timestamp for audit compliance.
+   * Updates last login timestamp for audit compliance and resets failed attempts.
    */
   async updateLastLogin(adminId: string, tx?: Prisma.TransactionClient): Promise<AdminAccount> {
     return this.execute(async () => {
       const client = this.getClient(tx);
       return client.adminAccount.update({
         where: { id: adminId },
-        data: { lastLoginAt: new Date(), failedLoginAttempts: 0 },
+        data: { lastLoginAt: new Date(), failedLoginAttempts: 0, lockedUntil: null },
+      });
+    });
+  }
+
+  /**
+   * Records a failed login attempt, potentially locking the account.
+   */
+  async recordFailedLogin(
+    adminId: string,
+    maxAttempts = 5,
+    lockoutDurationMs = 15 * 60 * 1000,
+    tx?: Prisma.TransactionClient
+  ): Promise<AdminAccount> {
+    return this.execute(async () => {
+      const client = this.getClient(tx);
+      const current = await client.adminAccount.findUnique({
+        where: { id: adminId },
+        select: { failedLoginAttempts: true },
+      });
+
+      const nextAttempts = (current?.failedLoginAttempts || 0) + 1;
+      const lockedUntil = nextAttempts >= maxAttempts ? new Date(Date.now() + lockoutDurationMs) : null;
+
+      return client.adminAccount.update({
+        where: { id: adminId },
+        data: {
+          failedLoginAttempts: nextAttempts,
+          ...(lockedUntil ? { lockedUntil } : {}),
+        },
+      });
+    });
+  }
+
+  /**
+   * Retrieves active MFA credential for an admin account.
+   */
+  async getMfaCredential(adminId: string, tx?: Prisma.TransactionClient): Promise<AdminMfaCredential | null> {
+    return this.execute(async () => {
+      const client = this.getClient(tx);
+      return client.adminMfaCredential.findUnique({
+        where: {
+          adminId_mfaType: {
+            adminId,
+            mfaType: 'TOTP',
+          },
+        },
+      });
+    });
+  }
+
+  /**
+   * Upserts pending MFA credential secret during enrollment.
+   */
+  async upsertMfaCredential(
+    adminId: string,
+    secretEncrypted: string,
+    tx?: Prisma.TransactionClient
+  ): Promise<AdminMfaCredential> {
+    return this.execute(async () => {
+      const client = this.getClient(tx);
+      return client.adminMfaCredential.upsert({
+        where: {
+          adminId_mfaType: {
+            adminId,
+            mfaType: 'TOTP',
+          },
+        },
+        create: {
+          adminId,
+          mfaType: 'TOTP',
+          secretEncrypted,
+          isEnabled: false,
+        },
+        update: {
+          secretEncrypted,
+          isEnabled: false,
+        },
+      });
+    });
+  }
+
+  /**
+   * Enables or disables MFA on an admin account.
+   */
+  async setMfaEnabled(adminId: string, isEnabled: boolean, tx?: Prisma.TransactionClient): Promise<void> {
+    await this.execute(async () => {
+      const client = this.getClient(tx);
+      await client.adminMfaCredential.update({
+        where: {
+          adminId_mfaType: {
+            adminId,
+            mfaType: 'TOTP',
+          },
+        },
+        data: {
+          isEnabled,
+          lastUsedAt: isEnabled ? new Date() : undefined,
+        },
+      });
+    });
+  }
+
+  /**
+   * Replaces recovery codes for an admin account.
+   */
+  async storeRecoveryCodes(adminId: string, codeHashes: string[], tx?: Prisma.TransactionClient): Promise<void> {
+    await this.execute(async () => {
+      const client = this.getClient(tx);
+      // Delete existing recovery codes
+      await client.adminMfaRecoveryCode.deleteMany({
+        where: { adminId },
+      });
+
+      // Insert new hashed codes
+      await client.adminMfaRecoveryCode.createMany({
+        data: codeHashes.map((codeHash) => ({
+          adminId,
+          codeHash,
+          isUsed: false,
+        })),
+      });
+    });
+  }
+
+  /**
+   * Finds an unused recovery code matching the provided SHA-256 hash.
+   */
+  async findValidRecoveryCode(
+    adminId: string,
+    codeHash: string,
+    tx?: Prisma.TransactionClient
+  ): Promise<AdminMfaRecoveryCode | null> {
+    return this.execute(async () => {
+      const client = this.getClient(tx);
+      return client.adminMfaRecoveryCode.findFirst({
+        where: {
+          adminId,
+          codeHash,
+          isUsed: false,
+        },
+      });
+    });
+  }
+
+  /**
+   * Marks a recovery code as used.
+   */
+  async consumeRecoveryCode(recoveryCodeId: string, tx?: Prisma.TransactionClient): Promise<void> {
+    await this.execute(async () => {
+      const client = this.getClient(tx);
+      await client.adminMfaRecoveryCode.update({
+        where: { id: recoveryCodeId },
+        data: {
+          isUsed: true,
+          usedAt: new Date(),
+        },
       });
     });
   }

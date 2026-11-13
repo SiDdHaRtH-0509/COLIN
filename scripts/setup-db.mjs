@@ -9,6 +9,17 @@ async function seedAdmin(url, dbName) {
   await client.connect();
   try {
     await client.query(`
+      INSERT INTO admin_roles (id, code, name, description, is_system_role, created_at)
+      VALUES 
+        (gen_random_uuid(), 'SUPER_ADMIN', 'Super Administrator', 'Full platform operational and security authority', true, NOW()),
+        (gen_random_uuid(), 'OPERATIONS_ADMIN', 'Operations Administrator', 'Visit coordination and operations', true, NOW()),
+        (gen_random_uuid(), 'VERIFICATION_MANAGER', 'Verification Manager', 'Property inspection and certification', true, NOW()),
+        (gen_random_uuid(), 'FINANCE_ADMIN', 'Finance Administrator', 'Financial reports, payments and refunds', true, NOW()),
+        (gen_random_uuid(), 'STUDENT_SUPPORT', 'Student Support Specialist', 'Student tickets and inquiries', true, NOW()),
+        (gen_random_uuid(), 'OWNER_SUPPORT', 'Owner Support Specialist', 'Host onboarding and property assistance', true, NOW()),
+        (gen_random_uuid(), 'MARKETING_ADMIN', 'Marketing Administrator', 'Campaigns and promotions', true, NOW())
+      ON CONFLICT (code) DO NOTHING;
+
       INSERT INTO admin_accounts (
         id, username, email, full_name, password_hash, status, is_mfa_enforced, failed_login_attempts, created_at, updated_at
       ) VALUES (
@@ -23,8 +34,21 @@ async function seedAdmin(url, dbName) {
         NOW(),
         NOW()
       ) ON CONFLICT (id) DO NOTHING;
+
+      INSERT INTO admin_user_roles (admin_id, role_id, assigned_at)
+      SELECT '00000000-0000-0000-0000-000000000001', id, NOW()
+      FROM admin_roles WHERE code = 'SUPER_ADMIN'
+      ON CONFLICT DO NOTHING;
+
+      GRANT SELECT, INSERT, UPDATE, DELETE ON 
+        email_verification_tokens, email_outbox, email_suppressions 
+      TO colin_app_runtime;
+
+      GRANT SELECT, INSERT, UPDATE ON 
+        email_verification_tokens, email_outbox, email_suppressions 
+      TO colin_admin_runtime;
     `);
-    console.log(`[SETUP-DB] Seeded super admin account in ${dbName}`);
+    console.log(`[SETUP-DB] Seeded super admin account and roles in ${dbName}`);
   } finally {
     await client.end();
   }

@@ -106,8 +106,8 @@ export class RateLimiter {
    */
   public middleware() {
     return (req: Request, res: Response, next: NextFunction): void => {
-      // Allow bypassing in unit tests if specifically disabled via header
-      if (req.headers['x-bypass-rate-limit'] === 'true' && process.env.NODE_ENV === 'test') {
+      // Allow bypassing in unit/integration tests if specifically requested outside production
+      if (req.headers['x-bypass-rate-limit'] === 'true' && process.env.NODE_ENV !== 'production') {
         return next();
       }
 

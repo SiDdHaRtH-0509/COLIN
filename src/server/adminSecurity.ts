@@ -192,6 +192,7 @@ export function generateCorrelationId(): string {
 // -------------------------------------------------------------
 function readServerStore<T>(key: string, defaultValue: T): T {
   try {
+    if (typeof localStorage === 'undefined') return defaultValue;
     const raw = localStorage.getItem(key);
     return raw ? JSON.parse(raw) : defaultValue;
   } catch {
@@ -201,6 +202,7 @@ function readServerStore<T>(key: string, defaultValue: T): T {
 
 function writeServerStore<T>(key: string, value: T): void {
   try {
+    if (typeof localStorage === 'undefined') return;
     localStorage.setItem(key, JSON.stringify(value));
   } catch (err) {
     console.error(`[AdminSecurityServer] Storage write error for ${key}:`, err);

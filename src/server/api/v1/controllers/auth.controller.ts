@@ -138,17 +138,150 @@ export class AuthController {
   public adminLogin = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const meta = this.extractMeta(req);
-      const result = await adminAuthService.login(req.body.identifier, req.body.password, meta);
+      const result = await adminAuthService.login(req.body.identifier, req.body.password, meta, req.body.mfaCode);
 
-      const csrfToken = this.setAuthCookies(res, result.tokens.accessToken, result.tokens.refreshToken);
+      if (result.requiresMfa) {
+        const response: ApiResponse<{ requiresMfa: true; mfaChallengeToken: string }> = {
+          success: true,
+          message: result.message,
+          data: {
+            requiresMfa: true,
+            mfaChallengeToken: result.mfaChallengeToken,
+          },
+          meta: {
+            requestId: req.id || 'unknown',
+            timestamp: new Date().toISOString(),
+          },
+        };
+        res.status(200).json(response);
+        return;
+      }
 
-      const response: ApiResponse<typeof result & { csrfToken: string }> = {
+      const authData = result.data;
+      const csrfToken = this.setAuthCookies(res, authData.tokens.accessToken, authData.tokens.refreshToken);
+
+      const response: ApiResponse<typeof authData & { csrfToken: string }> = {
         success: true,
         message: 'Administrator authentication successful.',
         data: {
-          ...result,
+          ...authData,
           csrfToken,
         },
+        meta: {
+          requestId: req.id || 'unknown',
+          timestamp: new Date().toISOString(),
+        },
+      };
+
+      res.status(200).json(response);
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  /**
+   * POST /api/v1/auth/admin/mfa/verify
+   */
+  public adminVerifyMfa = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const meta = this.extractMeta(req);
+      const { mfaChallengeToken, code } = req.body;
+      const authData = await adminAuthService.verifyMfaChallenge(mfaChallengeToken, code, meta);
+
+      const csrfToken = this.setAuthCookies(res, authData.tokens.accessToken, authData.tokens.refreshToken);
+
+      const response: ApiResponse<typeof authData & { csrfToken: string }> = {
+        success: true,
+        message: 'MFA verified. Administrator session authenticated.',
+        data: {
+          ...authData,
+          csrfToken,
+        },
+        meta: {
+          requestId: req.id || 'unknown',
+          timestamp: new Date().toISOString(),
+        },
+      };
+
+      res.status(200).json(response);
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  /**
+   * POST /api/v1/auth/admin/mfa/setup
+   */
+  public adminSetupMfa = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const adminId = req.context?.userId;
+      if (!adminId) {
+        return next(new Error('Unauthenticated admin context'));
+      }
+
+      const setupData = await adminAuthService.setupMfa(adminId);
+      const response: ApiResponse<typeof setupData> = {
+        success: true,
+        message: 'MFA enrollment initiated. Scan QR code or enter secret into authenticator app.',
+        data: setupData,
+        meta: {
+          requestId: req.id || 'unknown',
+          timestamp: new Date().toISOString(),
+        },
+      };
+
+      res.status(200).json(response);
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  /**
+   * POST /api/v1/auth/admin/mfa/confirm
+   */
+  public adminConfirmMfa = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const adminId = req.context?.userId;
+      if (!adminId) {
+        return next(new Error('Unauthenticated admin context'));
+      }
+
+      const meta = this.extractMeta(req);
+      const result = await adminAuthService.confirmMfa(adminId, req.body.code, meta);
+
+      const response: ApiResponse<typeof result> = {
+        success: true,
+        message: result.message,
+        data: result,
+        meta: {
+          requestId: req.id || 'unknown',
+          timestamp: new Date().toISOString(),
+        },
+      };
+
+      res.status(200).json(response);
+    } catch (err) {
+      next(err);
+    }
+  };
+
+  /**
+   * POST /api/v1/auth/admin/mfa/disable
+   */
+  public adminDisableMfa = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const requestingAdminId = req.context?.userId;
+      if (!requestingAdminId) {
+        return next(new Error('Unauthenticated admin context'));
+      }
+
+      const meta = this.extractMeta(req);
+      const result = await adminAuthService.disableMfa(req.body.targetAdminId, requestingAdminId, meta);
+
+      const response: ApiResponse<typeof result> = {
+        success: true,
+        message: result.message,
+        data: result,
         meta: {
           requestId: req.id || 'unknown',
           timestamp: new Date().toISOString(),

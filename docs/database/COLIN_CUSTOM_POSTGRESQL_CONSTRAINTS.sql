@@ -831,7 +831,8 @@ ALTER DEFAULT PRIVILEGES FOR ROLE colin_migrator IN SCHEMA public REVOKE TRUNCAT
 -- Runtime operational tables for colin_app_runtime (Public/Student/Owner)
 GRANT SELECT, INSERT, UPDATE, DELETE ON 
   users, user_profiles, user_sessions, mfa_credentials, mfa_recovery_codes,
-  password_reset_tokens, student_profiles, student_verification_documents,
+  password_reset_tokens, email_verification_tokens, email_outbox, email_suppressions,
+  student_profiles, student_verification_documents,
   student_preferences, student_saved_properties, student_search_histories,
   owner_profiles, owner_kyc_documents, owner_bank_accounts,
   properties, property_photos, property_amenities, property_rules,
@@ -852,7 +853,7 @@ REVOKE ALL ON
 FROM colin_app_runtime;
 
 -- Admin runtime permissions for colin_admin_runtime
-GRANT SELECT, INSERT, UPDATE ON
+GRANT SELECT, INSERT, UPDATE, DELETE ON
   admin_accounts, admin_sessions, admin_mfa_credentials, admin_mfa_recovery_codes,
   admin_user_roles, volunteer_reviews
 TO colin_admin_runtime;

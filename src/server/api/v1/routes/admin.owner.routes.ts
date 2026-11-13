@@ -12,6 +12,7 @@ const router = Router();
 router.use(requireAdmin());
 
 router.get('/', adminUserController.listOwners);
+router.post('/:id/unmask', adminUserController.unmaskOwnerPii);
 router.patch('/:id/status', adminUserController.updateUserStatus);
 
 export default router;
